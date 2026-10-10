@@ -1,0 +1,423 @@
+/* Ossia's visual language is the engraved page: ink on paper, staff-line rules instead of card
+   shadows, and a serif display face that reads like a title page. The score itself is engine output,
+   so the chrome deliberately stays quiet and warm rather than competing with it. */
+:root {
+  --paper: #f4efe6;
+  --paper-deep: #e9e2d4;
+  --ink: #211d18;
+  --ink-soft: #6b6157;
+  --rule: #c9bfae;
+  --accent: #1c6e58;
+  --accent-ink: #f4efe6;
+  --bad: #9a2f22;
+  --warn: #8a5a12;
+  --sel: #d9772b;
+  --gap: 14px;
+  --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Songti SC', Georgia, serif;
+  --sans: ui-sans-serif, 'Helvetica Neue', 'PingFang SC', sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  color: var(--ink);
+  /* The staff pattern behind everything: five hairlines per system, echoing the engraving. */
+  background:
+    repeating-linear-gradient(
+        to bottom,
+        transparent 0 23px,
+        var(--rule) 23px 23.7px,
+        transparent 23.7px 47px
+      )
+      center / 100% 47px,
+    linear-gradient(var(--paper), var(--paper));
+  background-attachment: fixed;
+}
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.bar {
+  display: flex;
+  align-items: baseline;
+  gap: var(--gap);
+  padding: 10px 18px;
+  background: var(--paper-deep);
+  border-bottom: 1.5px solid var(--ink);
+}
+.bar h1 {
+  font: 600 22px/1 var(--serif);
+  margin: 0;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.bar select {
+  font: 500 14px var(--sans);
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  padding: 3px 2px;
+  max-width: 40ch;
+}
+
+.cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: var(--gap);
+  padding: var(--gap);
+  grid-template-columns: minmax(240px, 20%) minmax(0, 1fr) minmax(280px, 26%);
+}
+.cols > * {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.panel,
+.score {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  padding: 12px 14px;
+}
+.panel + .panel {
+  margin-top: var(--gap);
+}
+.panel h3 {
+  font: 600 13px/1.2 var(--sans);
+  margin: 0 0 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+label,
+.hint {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.hint.mono,
+.mono {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.error {
+  color: var(--bad);
+  font-size: 13px;
+}
+.warn {
+  color: var(--warn);
+  font-size: 13px;
+}
+.ok {
+  color: var(--accent);
+  font-size: 13px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+input[type='file'],
+textarea {
+  font: 13px var(--sans);
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--rule);
+  padding: 7px 8px;
+  width: 100%;
+}
+textarea {
+  resize: vertical;
+  margin-top: 6px;
+}
+button {
+  font: 600 12.5px var(--sans);
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  background: var(--paper-deep);
+  border: 1px solid var(--ink);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+button.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+button.primary:hover:not(:disabled) {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+/* Score surface ------------------------------------------------------------ */
+.score {
+  padding: 0;
+}
+.score-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rule);
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+  z-index: 2;
+}
+.score-bar h2 {
+  font: 600 14px var(--serif);
+  margin: 0;
+  letter-spacing: 0.06em;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+.tab {
+  padding: 3px 9px;
+  font-size: 12px;
+  border-color: var(--rule);
+}
+.tab.on {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.page-host {
+  position: relative;
+  padding: 16px;
+}
+.inlined svg,
+.thumb svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.overlay {
+  position: absolute;
+  inset: 16px;
+  width: calc(100% - 32px);
+  height: calc(100% - 32px);
+  pointer-events: none;
+}
+.sel {
+  fill: var(--sel);
+  fill-opacity: 0.22;
+  stroke: var(--sel);
+  stroke-width: 0.35;
+}
+
+.exports {
+  display: flex;
+  gap: 6px;
+}
+.endpoint {
+  margin-left: auto;
+}
+
+/* Report / gates ----------------------------------------------------------- */
+.report {
+  border-left: 3px solid var(--warn);
+  padding-left: 10px;
+  margin-top: 10px;
+}
+.report ul {
+  margin: 6px 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+.report li.bad {
+  color: var(--bad);
+}
+.report li.loss {
+  color: var(--warn);
+}
+
+.gates {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  font-size: 12.5px;
+}
+.gates li {
+  border-bottom: 1px dotted var(--rule);
+  padding: 4px 0;
+}
+.gates li b {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  margin-right: 4px;
+}
+.gates li.ok::before {
+  content: '✓ ';
+  color: var(--accent);
+}
+.gates li.bad::before {
+  content: '✗ ';
+  color: var(--bad);
+}
+.gates .detail {
+  color: var(--ink-soft);
+}
+
+.sbs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+/* The middle column is wide, so the two pages are legible side by side; the gate list sits above. */
+.compare .gates {
+  columns: 2;
+  column-gap: 22px;
+}
+.sbs figure {
+  margin: 0;
+  border: 1px solid var(--rule);
+}
+.sbs figcaption {
+  font: 600 11.5px var(--sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-soft);
+}
+.thumb {
+  padding: 6px;
+}
+.thumb.loading {
+  min-height: 90px;
+}
+
+/* Chain -------------------------------------------------------------------- */
+.chain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: none;
+}
+.chain li {
+  border-bottom: 1px solid var(--rule);
+  padding: 8px 0;
+  display: grid;
+  gap: 4px;
+}
+.chain li.on {
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+  background: var(--paper-deep);
+}
+.chain .meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.chain .meta.sub {
+  font-size: 11.5px;
+}
+.chain .seq {
+  font-family: var(--mono);
+  padding: 2px 7px;
+}
+.tag {
+  font-size: 11px;
+  border: 1px solid var(--rule);
+  padding: 1px 6px;
+}
+.tag.head {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.progress {
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  background: var(--paper-deep);
+}
+.progress progress {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--accent);
+}
+.spinner {
+  width: 18px;
+  height: 18px;
+  margin-top: 6px;
+  border-radius: 50%;
+  border: 2px solid var(--rule);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.selection-line {
+  margin: 8px 2px 0;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 9px 16px;
+  font-size: 13px;
+  box-shadow: 0 6px 20px rgba(33, 29, 24, 0.28);
+  animation: rise 0.22s ease-out;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+
+/* One build, several shells: the desktop grid collapses to a single column below ~980px so the
+   same bundle is usable in a narrow window and on a phone. */
+@media (max-width: 980px) {
+  .cols {
+    grid-template-columns: 1fr;
+  }
+  .sbs {
+    grid-template-columns: 1fr;
+  }
+  .bar {
+    flex-wrap: wrap;
+  }
+}

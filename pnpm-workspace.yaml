@@ -1,0 +1,7 @@
+packages:
+  - 'packages/*'
+# Toolchain/engine pins live in the root package.json `engines` and vendor/ENGINE.lock:
+# pnpm 12 does not accept an `engines` key here.
+minimumReleaseAgeExclude:
+  - vite@8.3.4
+  - '@tauri-apps/api@2.12.2'

@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "The single Ossia window: it may read its own state and ask the shell which API host to talk to. It gets no filesystem, shell, or network primitives; documents and the .ly sources live behind the server's own auth.",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:window:allow-set-title", "core:window:allow-is-focused"]
+}
