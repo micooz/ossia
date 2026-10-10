@@ -14,7 +14,6 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": false,
     "resolveJsonModule": true,
-    "incremental": true,
     "allowImportingTsExtensions": true,
     "plugins": [
       {
