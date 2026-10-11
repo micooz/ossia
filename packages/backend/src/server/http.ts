@@ -70,7 +70,7 @@ function json_(res: Response, cors: Record<string, string>): Response {
 
 /**
  * Deployment auth is a shared secret in `x-ossia-token`, whatever host the server runs on. When
- * `OSSIA_TOKEN` is unset (plain `pnpm dev`), requests are still restricted to loopback hosts so a
+ * `OSSIA_TOKEN` is unset (plain `pnpm dev:web`), requests are still restricted to loopback hosts so
  * browser page on another machine cannot drive the engine. A real deployment must set the token (or
  * replace this with session auth): with it unset and a public Host, every API route is open.
  */

@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-/// The only deployment that exists today is the local server (`pnpm dev:api`), so that is the
+/// The only deployment that exists today is the local server (`pnpm dev:web`), so that is the
 /// default. A packaged build points elsewhere through config.
 const DEFAULT_API_BASE: &str = "http://127.0.0.1:3210";
 
