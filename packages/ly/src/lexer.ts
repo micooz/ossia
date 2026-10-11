@@ -1,5 +1,4 @@
-// L0 tokenizer for the musicxml2ly `.ly` subset (ADR-0002 §2). Ported verbatim in
-// behaviour from `work/ly/lexer.mjs`, which is gated by ADR-0002 §2.7 on `work/samples/`.
+// L0 tokenizer for the musicxml2ly `.ly` subset (ADR-0002 §2, acceptance criteria §2.7).
 //
 // Hard invariant: serialize(tokenize(src)) === src for ANY input. Anything the grammar
 // does not model degrades to RAW (one char at a time), never to an error.
@@ -271,3 +270,9 @@ export function posOf(src: string) {
     return { line: lo + 1, col: off - starts[lo]! + 1 };
   };
 }
+
+/** The next token that is not whitespace/comment, starting at `j`. */
+export const nextSig = (toks: Token[], j: number): Token | undefined => {
+  while (j < toks.length && (toks[j]!.t === TT.WS || toks[j]!.t === TT.COMMENT)) j++;
+  return toks[j];
+};

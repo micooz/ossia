@@ -43,7 +43,7 @@ export async function POST(
   });
 }
 
-/** The locator sidecar: geometry + measure ranges, never source text (G6). */
+/** Geometry + measure ranges that accompany a version — never source text (G6). */
 export function versionPayload(docId: string, hash: string, e: ScoreEntry) {
   const t = e.table;
   const base = `/api/v1/documents/${docId}/versions/${hash}`;

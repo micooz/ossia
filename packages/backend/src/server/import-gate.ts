@@ -2,8 +2,8 @@
 //
 // `musicxml2ly` warnings are not one class. A `Negative skip` means the voice constructor jumped
 // *backwards* and appended the event at the wrong position: the timeline is compressed, so the
-// rhythm of everything after it is wrong. §3.11 measured that as 81.9 % / 59.0 % MIDI alignment and
-// concluded it **must not** be waved through by a human confirmation — the fix is voice
+// rhythm of everything after it is wrong. Alternatives evaluation §3.11 measured that as 81.9 % /
+// 59.0 % MIDI alignment and concluded it **must not** be waved through by a human confirmation — the fix is voice
 // preprocessing before conversion (ADR-OPEN-2, not implemented). Everything else the converter
 // warns about (an unreadable metronome mark, an unsupported MusicXML 4.0 attribute) is a localised
 // loss, so the ADR's three outcomes apply: clean import / needs-confirmation / refuse-and-report.

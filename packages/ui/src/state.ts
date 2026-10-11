@@ -122,10 +122,9 @@ export async function ensureRendered(
  * Fold a freshly rendered payload back into the chain snapshot.
  *
  * The detail we hold was read *before* the render, so the node we just opened still carries
- * `preview: null` and the history row would say `未渲染` while the score bar two columns over
- * reports the render time of that very version. Measured in the packaged app: `#3 … 未渲染` next
- * to `渲染 5123 ms`. The server only reports a preview for pages it has rendered in this process,
- * so the client has to remember what it just made.
+ * `preview: null`: the history row would say `未渲染` while the score bar two columns over reports
+ * the render time of that very version. The server only reports a preview for pages it rendered in
+ * this process, so the client has to remember what it just made.
  */
 export function withPreview(
   detail: DocumentDetail,

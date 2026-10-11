@@ -1,16 +1,15 @@
-import { execFile } from 'node:child_process';
 // Service B — rendering: one LilyPond child process per task (ADR-0001 §5).
 //
 // Isolation is a subprocess with its own cwd, timeout and HOME, so an engine crash or hang costs
 // one task instead of the service. Outputs are addressed by the content hash they came from, so a
-// re-render of the same `.ly` is a cache hit.
+// re-render of the same `.ly` is a cache hit — for SVG and MIDI, which are byte-deterministic.
+// PDF is the exception: Ghostscript stamps a creation date and a document UUID, so each render of
+// one immutable `.ly` hashes differently (see the gap noted in .docs).
 //
-// Measured on the vendored 2.26.0 with the corpus score (32 measures, 3 SVG pages):
-//   `--svg`            9.9 s   (SVG only; PDF is not emitted with this flag)
-//   default + `\midi`  1.3 s   (PDF + MIDI)
-//   default, `\layout{}` removed, `\midi` 0.5 s (MIDI only — the gate oracle)
-// LilyPond has no `--midi` option: MIDI output exists only if the source has an active `\midi`
-// block, so the MIDI/PDF pass runs over a derived text that enables musicxml2ly's commented block.
+// Two engine constraints shape every pass below: `--svg` emits no PDF, so PDF/MIDI is a second run;
+// and there is no `--midi` option — MIDI exists only when the source has an active `\midi` block,
+// so the PDF/MIDI pass runs over a derived text that enables musicxml2ly's commented block.
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -138,7 +137,6 @@ export interface RenderSet {
  * export and playback. Both are needed because LilyPond emits PDF and SVG in separate runs.
  */
 export async function renderSet(ly: string, opts: { timeoutMs?: number } = {}): Promise<RenderSet> {
-  const e = engine();
   const t0 = performance.now();
   const svg = await exec(['--svg'], withPointAndClick(ly), 'svg', opts.timeoutMs ?? 180_000);
   const pages = collect(svg.dir, 'svg');
@@ -181,7 +179,6 @@ export async function renderMidi(
 /**
  * Enable MIDI in a derived text without touching layout: uncomment musicxml2ly's
  * `% \midi { … }`, and round the fractional tempo LilyPond rejects as "unexpected REAL".
- * Ported from `work/p1-4/midi.mjs::withMidi`.
  */
 export function withMidi(text: string): string {
   if (hasActiveMidi(text)) return text;
@@ -215,14 +212,10 @@ const hasActiveMidi = (text: string): boolean =>
  */
 export function withPointAndClick(ly: string): string {
   if (/\\pointAndClickOn\b/.test(ly)) return ly;
-  // Both rewrites keep the line count identical, which is what makes the anchors in the SVG point
-  // at the stored source (verified: 473 anchors with line numbers matching `work/samples`).
-  //
-  // Every backslash in a replacement string is doubled. A single-quoted
-  // `'$1$2 \pointAndClickOn$3'` is JS `\p` -> `p`, so it emitted
-  // `\version "2.14.0" pointAndClickOn`: measured on a midi2ly import as
-  // `score.ly:4:1: error: syntax error, unexpected \layout`. musicxml2ly output
-  // escapes the trap because it already carries `\pointAndClickOff`.
+  // Every backslash in a replacement string is doubled: in a single-quoted `'$1$2 \pointAndClickOn$3'`
+  // JS consumes `\p`, emitting `\version "2.14.0" pointAndClickOn` — a syntax error the engine only
+  // reports for midi2ly sources, since musicxml2ly output escapes the trap by carrying
+  // `\pointAndClickOff` and taking the branch above.
   if (/\\pointAndClickOff\b/.test(ly)) return ly.replace('\\pointAndClickOff', '\\pointAndClickOn');
   if (/^\s*\\version\s+"[^"]*"/m.test(ly))
     return ly.replace(/^(\s*)(\\version\s+"[^"]*")(\s*)$/m, '$1$2 \\pointAndClickOn$3');

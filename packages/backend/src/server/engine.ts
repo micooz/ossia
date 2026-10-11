@@ -1,11 +1,10 @@
 // Service B/E substrate: locate and self-heal the vendored LilyPond engine.
 //
-// Precedence (settled with the user): OSSIA_LILYPOND_ROOT -> vendor/lilypond/<tag>
+// Precedence: OSSIA_LILYPOND_ROOT -> vendor/lilypond/<tag>
 // -> ~/Library/Application Support/Ossia/engine/<tag>. The vendor tree is gitignored,
 // so a fresh clone resolves "not installed" and the first `engine:ensure` restores it from
 // vendor/ENGINE.lock. `verify` mirrors scripts/engine.mjs so both entry points agree.
-import { execFileSync } from 'node:child_process';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

@@ -23,7 +23,8 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "types": ["node"]
+    "types": ["node"],
+    "incremental": true
   },
   "include": [
     "next-env.d.ts",

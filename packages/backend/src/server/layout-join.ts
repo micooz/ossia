@@ -1,14 +1,8 @@
-// Chain 2 measurement: is "column k of system s" the same thing as "measure m of a voice"?
-//
-// The server never stores measure numbers, so the join between L2's columns and L1's measure spans
-// has to be *measured*, not assumed. `hitTest` returns the column index inside a system; L1 returns
-// `[measureStart, measureEnd]` ranges whose authority is the `% N` comment (ADR-0002 §3.2). This
-// module checks the assumption the locator is built on: that measure columns enumerate the score in
-// order, page after page, so the global measure number is the running column index + 1.
-//
-// It is also what turns a clicked page-2 column into a global number, which is why the index is
-// built once per version over every rendered page.
-import { buildLayout, type LayoutIndex } from '@ossia/ly';
+// The join between L2's columns and L1's measure spans. The server stores no measure numbers, so
+// "column k of system s" and "measure m of a voice" cannot be assumed equivalent: this module is
+// what turns a clicked page-2 column into a global measure number, which is why the grid is built
+// once per version over every rendered page.
+import type { LayoutIndex } from '@ossia/ly';
 
 export interface PageLayout {
   page: number;

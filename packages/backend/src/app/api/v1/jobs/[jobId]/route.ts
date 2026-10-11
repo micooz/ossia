@@ -1,6 +1,5 @@
-// Job polling endpoint. The settled design uses 250 ms polling rather than SSE: the SPA is one
-// build shared by macOS/Windows/iOS/Android, where EventSource over a custom protocol is a
-// needless portability risk.
+// Job polling: 250 ms rather than SSE, because the SPA is one build shared by
+// macOS/Windows/iOS/Android, where EventSource over a custom protocol is a portability risk.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { withApi, ok, fail, getJob, jobView } from '@/server/http.ts';

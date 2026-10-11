@@ -47,8 +47,8 @@ lineStart/lineEnd are 1-based and inclusive, and must lie inside a TARGET range.
 If the request is impossible or already satisfied, return {"edits":[],"why":"reason"}.
 ${rules.map((r, i) => `RULE ${i + 1}: ${r}`).join('\n')}`;
 
-// Documented pitfall that the matrix evaluation showed is required for this class of edit
-// (ADR-0002 §6.1: without it the model emits `bes,8` and drags the whole voice down).
+// Required for this class of edit (ADR-0002 §6.1: without it the model emits `bes,8` and drags
+// the whole voice down).
 export const RULES = {
   relativeOctave:
     'LilyPond pitfall: inside a \\relative region, writing a lone octave marking ' +
@@ -113,8 +113,7 @@ ${project(src, ranges, opts.facts ?? [])}`;
   };
   const t0 = performance.now();
   let out = await post(body);
-  // Some providers reject `temperature` outright; the spike retries without it so the harness
-  // measures the model rather than the request shape.
+  // Some providers reject `temperature` outright, so retry without it rather than failing.
   if (!out.ok && /temperature/i.test(out.text))
     out = await post({ ...body, temperature: undefined });
   if (!out.ok) throw new Error(`gateway HTTP ${out.status}: ${out.text.slice(0, 300)}`);
@@ -178,16 +177,15 @@ export function parseEdits(
   return { error: 'no parseable edits object', raw: text.slice(0, 300) };
 }
 
-/** §5.4: strip echoed gutter / TARGET tags before applying (a cosmetic leak otherwise breaks
- *  `.ly` syntax; measured 3/24 failures before this cleaning).
+/** Strip echoed gutter / TARGET tags before applying (ADR-0002 §5.4): a cosmetic leak that
+ *  otherwise breaks `.ly` syntax — 3 of 24 evaluation calls failed before this cleaning.
  *
  * The control-character repair is not cosmetic. A dynamics edit asks the model for `\f`, and JSON
- * parses that escape into U+000C: measured on the packaged build, an accepted-candidate line became
- * `\time 4/4 <form feed>c4`, i.e. a raw control byte written into the user's source that LilyPond
- * happens to tolerate and nothing downstream would ever show. `\f` is the only LilyPond command
- * whose escape is a control character (\p, \b, \v, \r are not commands), so it is restored
- * explicitly; every other C0 control is dropped, and a tab becomes two spaces because musicxml2ly
- * output never contains one (verified across the whole corpus). */
+ * parses that escape into U+000C, so a candidate line can become `\time 4/4 <form feed>c4`: a raw
+ * control byte in the user's source that LilyPond tolerates and nothing downstream would ever show.
+ * `\f` is the only LilyPond command whose escape is a control character (\p, \b, \v, \r are not
+ * commands), so it is restored explicitly; every other C0 control is dropped, and a tab becomes two
+ * spaces because musicxml2ly output never contains one. */
 const stripGutter = (l: string) => l.replace(/^\s*\d{1,6}\s*\|\s?/, '');
 const stripTags = (l: string) => l.replace(/\[(?:[A-Za-z_][\w.]*\s)?m\d+(?:-\d+)?\]\s?/g, '');
 const repairControls = (l: string) =>

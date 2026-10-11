@@ -1,6 +1,5 @@
 // L1 semantic index (ADR-0002 §3): `.ly` -> measure/staff/voice source ranges.
-// Ported from `work/ly/index.mjs`.
-import { tokenize, TT, posOf } from './lexer.ts';
+import { tokenize, TT, posOf, nextSig } from './lexer.ts';
 import type { Token } from './lexer.ts';
 
 export interface Measure {
@@ -33,11 +32,6 @@ export interface LyIndex {
   maxMeasures: number;
 }
 
-export const nextSig = (toks: Token[], j: number): Token | undefined => {
-  while (j < toks.length && (toks[j]!.t === TT.WS || toks[j]!.t === TT.COMMENT)) j++;
-  return toks[j];
-};
-
 interface RegionStart {
   name: string;
   at: number;
@@ -46,7 +40,7 @@ interface RegionStart {
 // Voice regions: `Name = \relative … { … }`, `Name = \chordmode { … }`. musicxml2ly emits
 // exactly one top-level assignment per part/voice, so a region runs from its variable name
 // to the next assignment (or end of source).
-function voiceRegions(toks: Token[], src: string): RegionStart[] {
+function voiceRegions(toks: Token[]): RegionStart[] {
   const starts: RegionStart[] = [];
   for (let i = 0; i + 2 < toks.length; i++) {
     if (toks[i]!.t !== TT.IDENT) continue;
@@ -57,13 +51,13 @@ function voiceRegions(toks: Token[], src: string): RegionStart[] {
     if (!/^(?:\\relative|\\chordmode|\\transpose)/.test(rhs.raw)) continue;
     starts.push({ name: toks[i]!.raw, at: toks[i]!.s });
   }
-  return starts.map((s, i) => ({ name: s.name, at: s.at }));
+  return starts;
 }
 
 export function buildIndex(src: string): LyIndex {
   const toks = tokenize(src);
   const pos = posOf(src);
-  const starts = voiceRegions(toks, src);
+  const starts = voiceRegions(toks);
   const voices: VoiceRegion[] = [];
   for (let k = 0; k < starts.length; k++) {
     const r = starts[k]!;

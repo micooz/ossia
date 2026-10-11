@@ -1,6 +1,5 @@
 // L2 layout index (ADR-0002 §4): system × staff × measure-column geometry from a LilyPond SVG
 // alone. LilyPond emits no id/class hooks, so every locator is derived from coordinates.
-// Ported from `work/p1-5/{svg,measures}.mjs`, which is validated against L1 in ADR-0002 §4.3.
 // Pure string/number work: no Node APIs, so the same module can run in a worker or the client.
 
 const STREAM = new RegExp(

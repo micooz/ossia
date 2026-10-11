@@ -1,5 +1,5 @@
 // HTTP plumbing shared by the API surface: loopback guard, token handshake, CORS for the
-// SPA origins, and a job registry the UI polls every 250 ms (settled: no SSE in the MVP).
+// SPA origins, and a job registry the UI polls (250 ms; the MVP has no SSE).
 import { createHash, randomUUID } from 'node:crypto';
 
 export const TOKEN_HEADER = 'x-ossia-token';

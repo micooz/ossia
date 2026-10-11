@@ -1,7 +1,7 @@
 // Chain 3 — start a natural-language edit task. Returns a job id; the UI polls /jobs/{id}.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-import { runEdit, EditError, type Locator } from '@/server/edit.ts';
+import { runEdit, type Locator } from '@/server/edit.ts';
 import { withApi, ok, fail, startJob, jobView } from '@/server/http.ts';
 
 export async function POST(req: Request, ctx: { params: Promise<{ docId: string }> }) {
@@ -45,9 +45,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ docId: string 
   });
 }
 
-export async function GET(req: Request, ctx: { params: Promise<{ docId: string }> }) {
+// Job lookup is by `?jobId=` only; the docId segment keeps the URL under its document.
+export async function GET(req: Request) {
   return withApi(req, async () => {
-    const { docId } = await ctx.params;
     const url = new URL(req.url);
     const id = url.searchParams.get('jobId');
     if (!id) return fail(400, 'bad-request', 'expects ?jobId=');

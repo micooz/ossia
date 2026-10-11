@@ -121,7 +121,7 @@ export function makeApi(ep: Endpoint) {
 
     job: (jobId: string) => json<JobView>(`/api/v1/jobs/${jobId}`),
 
-    /** Poll one job until it settles. 250 ms is the settled MVP cadence (no SSE). */
+    /** Poll one job until it settles (250 ms, the MVP cadence; no SSE). */
     async waitJob<T>(jobId: string, onTick?: (j: JobView) => void): Promise<T> {
       for (;;) {
         const j = await this.job(jobId);

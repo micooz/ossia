@@ -1,6 +1,6 @@
 // Service A surface: import a MusicXML/MIDI baseline (POST) and list documents (GET).
-// Chain 1 of .docs/2026-10-08_core-flow-sequence.md: musicxml2ly/midi2ly -> `.ly` -> semantic
-// check -> version chain -> first render. Source and baseline never leave the server (G6/D9).
+// Chain 1 of the core flow (see .docs): musicxml2ly/midi2ly -> `.ly` -> semantic check -> version
+// chain -> first render. Source and baseline never leave the server (G6/D9).
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { createHash } from 'node:crypto';

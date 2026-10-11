@@ -1,14 +1,12 @@
 // Pitch state machine for `\relative` regions (ADR-OPEN-9 / ADR-0002 §6.3).
 //
 // Why: inside `\relative`, a lone octave marking redefines the reference pitch and silently
-// transposes every later note of that voice (ADR-0002 §6.1 measured 341 notes moved for a
-// one-note request). LilyPond reports nothing, so the Agent needs absolute pitch facts to
-// project, and the semantic gate (G-e) needs them to judge intent vs. sounding result.
+// transposes every later note of that voice (ADR-0002 §6.1: 341 notes moved for a one-note
+// request). LilyPond reports nothing, so the Agent needs absolute pitch facts to project, and the
+// semantic gate (G-e) needs them to judge intent vs. sounding result.
 //
-// Rules below were not assumed: each one was measured against the vendored LilyPond 2.26.0 by
-// compiling random `\relative` bodies and diffing the produced MIDI (the differential harness that
-// did this, plus the regression suites that covered the other four chains, were removed on
-// 2026-10-10 pending a proper test layer; the findings they established are what follows).
+// These rules were measured against the vendored LilyPond 2.26.0: random `\relative` bodies
+// compiled, and the produced MIDI diffed. They are the contract the resolver below implements.
 //   R1 reference is a diatonic index di = 7*octaveMarks + step; written `c` is di 0 (MIDI 48).
 //   R2 a note lands on the unique diatonic index within [-3, +3] steps of the reference
 //      (a fourth up or a fourth down), *then* its own octave marks are added.
@@ -26,13 +24,8 @@
 //      and 252), so such events are flagged `outOfRange` and are not predictable from here.
 // Out of the verified subset (`\transpose`, `\chordmode`, non-music mode notes) the resolver
 // reports `unsupported` instead of guessing, so callers can fall back to MIDI-based gates.
-import { tokenize, TT, posOf } from './lexer.ts';
+import { tokenize, TT, posOf, nextSig } from './lexer.ts';
 import type { Token } from './lexer.ts';
-
-const nextSig = (toks: Token[], j: number): Token | undefined => {
-  while (j < toks.length && (toks[j]!.t === TT.WS || toks[j]!.t === TT.COMMENT)) j++;
-  return toks[j];
-};
 
 export const STEP_SEMITONE = [0, 2, 4, 5, 7, 9, 11] as const;
 // Letter -> diatonic step. `h` is B natural in the German spelling musicxml2ly may emit.

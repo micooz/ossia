@@ -5,7 +5,7 @@
 // gets `{ doc, version, staff, measure, voice }`; it never sees the source. Measure authority
 // stays with L1's `% N` comments (ADR-0002 §3.2), L2 only supplies the column geometry.
 import { buildIndex } from '@ossia/ly';
-import type { LyIndex, Measure, VoiceRegion } from '@ossia/ly';
+import type { Measure, VoiceRegion } from '@ossia/ly';
 import { buildLayout, hitTest } from '@ossia/ly';
 import type { LayoutIndex } from '@ossia/ly';
 import { tokenize, TT, type Token } from '@ossia/ly';
@@ -29,7 +29,7 @@ export interface StaffVoices {
  * The staff count is also the visual staff count per system, which L2 cannot tell us (it only sees
  * line groups) - so this table is the join between geometry and voices. Without it the client can
  * click a measure and be told its locator, then have the edit refused because no voice is known
- * for that staff (measured on every MIDI import before this was written).
+ * for that staff.
  */
 export function parseStaves(src: string): StaffVoices[] {
   // Whitespace/comment tokens would sit between the keyword, the context type, `=` and the label,
@@ -203,7 +203,7 @@ export interface Located {
 }
 
 /**
- * Build the join table for one rendered version. Cheap: L1 ~2 ms, L2 ~6 ms per page (ADR §4.3).
+ * Build the join table for one rendered version. Cheap: L1 ~2 ms, L2 ~6 ms per page (ADR-0002 §4.3).
  * Every page is indexed because the client clicks on whichever page it is looking at, and a
  * page-1-only index would silently mis-attribute every click after the first page.
  */

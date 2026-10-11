@@ -9,9 +9,8 @@
 //     then `<app_data>/config.json` (a user-editable file, the only knob that survives a double-click
 //     from Finder), then loopback dev as the default.
 //
-// The `.ly` sources, the LilyPond engine and the version chain all stay server-side (G6/D9). The
-// shell never touches them, which is also why it no longer needs the hardened-runtime exceptions
-// that executing a bundled Node interpreter used to require.
+// The `.ly` sources, the LilyPond engine and the version chain all stay server-side (G6/D9): the
+// shell never touches them, so it needs no hardened-runtime code-execution exceptions.
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};

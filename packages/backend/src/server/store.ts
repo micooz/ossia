@@ -126,7 +126,7 @@ export interface AssetRef {
   gz: boolean;
 }
 
-/** Store a render artifact so it can be served by hash. SVGs are gzipped (ADR §5: ~25–28 KB/page). */
+/** Store a render artifact so it can be served by hash. SVGs are gzipped: ~25–28 KB/page. */
 export function putAsset(
   kind: 'svg' | 'pdf' | 'midi',
   buf: Buffer,

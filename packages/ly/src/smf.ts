@@ -1,7 +1,6 @@
 // Minimal Standard MIDI File reader: note-ons per track, in file order.
-// Ported from `work/p1-4/midi.mjs` with two fixes found while probing the vendored engine:
-// meta-event lengths are varlength (not one byte), and a track may end mid-event.
-// Used by the pitch state-machine harness and by gates G-d / G-e (whole-file MIDI diff).
+// Two facts the vendored engine forces: meta-event lengths are varlength (not one byte), and a
+// track may end mid-event. Used by gates G-d / G-e (whole-file MIDI diff).
 
 export interface NoteOn {
   note: number;
