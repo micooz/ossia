@@ -1,64 +1,244 @@
-name: Package local Ossia
+name: Release
 
 on:
-  workflow_dispatch:
+  push:
+    tags: ['v*']
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  package:
-    name: ${{ matrix.artifact }}
+  metadata:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    outputs:
+      current: ${{ steps.current.outputs.current }}
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      previous_tag: ${{ steps.release.outputs.previous_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check whether tag is current
+        id: current
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node scripts/release/tags.mjs current "$TAG"
+      - name: Validate release tag
+        if: steps.current.outputs.current == 'true'
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node scripts/release/version.mjs parse "$TAG")
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$(node scripts/release/version.mjs prerelease "$TAG")" >> "$GITHUB_OUTPUT"
+
+          test "$(git cat-file -t "refs/tags/$TAG")" = tag
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main
+
+          if gh release view "$TAG" --json isDraft > release.json 2>/dev/null; then
+            test "$(jq -r .isDraft release.json)" = true
+          fi
+
+          if LATEST=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null); then
+            node scripts/release/version.mjs newer "$TAG" "$LATEST"
+          else
+            LATEST=''
+          fi
+          echo "previous_tag=$LATEST" >> "$GITHUB_OUTPUT"
+      - name: Cancel older releases
+        if: steps.current.outputs.current == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/release/cancel.mjs
+
+  verify:
+    needs: metadata
+    if: needs.metadata.outputs.current == 'true'
+    uses: ./.github/workflows/check.yml
+    with:
+      tag: ${{ needs.metadata.outputs.tag }}
+
+  notes:
+    needs: metadata
+    if: needs.metadata.outputs.current == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Generate bilingual release notes
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          PREVIOUS_RELEASE_TAG: ${{ needs.metadata.outputs.previous_tag }}
+        run: node scripts/release/notes.mjs --out release-notes.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          if-no-files-found: error
+          path: release-notes.md
+
+  build:
+    needs: metadata
+    if: needs.metadata.outputs.current == 'true'
     strategy:
       fail-fast: false
       matrix:
         include:
-          - artifact: macos-arm64
+          - name: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
             engine: darwin-arm64
-            runner: macos-14
-          - artifact: macos-x86_64
+          - name: macos-x86_64
+            os: macos-15-intel
+            target: x86_64-apple-darwin
             engine: darwin-x86_64
-            runner: macos-13
-          - artifact: windows-x86_64
+          - name: windows-x86_64
+            os: windows-2022
+            target: x86_64-pc-windows-msvc
             engine: mingw-x86_64
-            runner: windows-2022
-          - artifact: linux-x86_64
+          - name: linux-x86_64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
             engine: linux-x86_64
-            runner: ubuntu-22.04
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.89.0
+        with:
+          targets: ${{ matrix.target }}
       - uses: pnpm/action-setup@v4
         with:
           version: 12.4.1
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
-      - uses: dtolnay/rust-toolchain@1.89.0
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Install Linux bundle dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
-            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev rpm
       - run: pnpm install --frozen-lockfile
-      - run: node scripts/engine.mjs install --target=${{ matrix.engine }} --download
-      - run: pnpm package --target=${{ matrix.engine }}
+      - name: Install locked engine
+        run: node scripts/engine.mjs install --target=${{ matrix.engine }} --download
+      - name: Inject release version
+        env:
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+        run: |
+          node scripts/release/version.mjs set "$RELEASE_TAG"
+          node scripts/release/version.mjs check "$RELEASE_TAG"
+      - name: Package
+        run: pnpm package --target=${{ matrix.engine }} --allow-dirty
       - uses: actions/upload-artifact@v4
         with:
-          name: ossia-${{ matrix.artifact }}-unsigned-test
-          path: artifacts/${{ matrix.artifact }}
+          name: build-${{ matrix.name }}
           if-no-files-found: error
+          path: artifacts/${{ matrix.name }}
 
-  linux-arm64-blocked:
-    name: linux-arm64 blocked on native engine lock
-    if: ${{ false }}
-    runs-on: ubuntu-24.04-arm
+  publish:
+    needs: [metadata, verify, build, notes]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - run: |
-          echo "P07 remains blocked: build the native LilyPond engine with"
-          echo "scripts/engine-linux-arm64.py, audit its native dependencies,"
-          echo "and commit the resulting archive hash/build identity before packaging."
-          exit 1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: build-*
+          path: downloaded
+          merge-multiple: false
+      - name: Download release notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: notes
+      - name: Collect and verify assets
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          set -euo pipefail
+          node scripts/release/assets.mjs \
+            --version "v$VERSION" \
+            --input downloaded \
+            --output release
+      - name: Check before staging
+        id: before-stage
+        env:
+          TAG: ${{ needs.metadata.outputs.tag }}
+        run: node scripts/release/tags.mjs current "$TAG"
+      - name: Stage release
+        if: steps.before-stage.outputs.current == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.metadata.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json isDraft > release.json 2>/dev/null; then
+            test "$(jq -r .isDraft release.json)" = true
+            gh release delete "$TAG" --yes
+          fi
+
+          gh release create "$TAG" release/* \
+            --verify-tag \
+            --draft \
+            --title "Ossia $TAG" \
+            --notes-file notes/release-notes.md
+
+          test "$(gh release view "$TAG" --json assets --jq '.assets | length')" -eq 10
+      - name: Check before publishing
+        id: before-publish
+        if: steps.before-stage.outputs.current == 'true'
+        env:
+          TAG: ${{ needs.metadata.outputs.tag }}
+        run: node scripts/release/tags.mjs current "$TAG"
+      - name: Publish release
+        if: steps.before-publish.outputs.current == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.metadata.outputs.tag }}
+          PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
+        run: |
+          if [ "$PRERELEASE" = true ]; then
+            gh release edit "$TAG" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$TAG" --draft=false --prerelease=false --latest
+          fi

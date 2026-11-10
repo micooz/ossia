@@ -12,6 +12,7 @@ void test('targets map to Rust triples and platform bundles', () => {
   });
   assert.equal(specFor('mingw-x86_64').triple, 'x86_64-pc-windows-msvc');
   assert.equal(specFor('linux-arm64').triple, 'aarch64-unknown-linux-gnu');
+  assert.deepEqual(specFor('linux-x86_64').bundles, ['deb', 'rpm']);
 });
 
 void test('unbuilt linux arm64 is rejected instead of producing a fake artifact', () => {

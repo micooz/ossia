@@ -1,12 +1,12 @@
-# P07 技术实现方案：macOS arm64 发布切片
+# P07 技术实现方案：四目标 GitHub Release 流水线
 
 - 日期：2026-11-10
-- 阶段状态：受阻（macOS arm64 本机发布切片完成；五目标与真实宿主未验收）
+- 阶段状态：受阻（四目标流水线已实现，尚未远端运行；Linux ARM64 与真实宿主未验收）
 - 基线：`32683b7`
 
 ## 1. 范围与判定
 
-本轮领取 P07 中可在本机闭环的 macOS arm64 发布切片：安装资源、app/DMG、许可证与来源材料、旧架构退出和五目标 CI 骨架。完整的 P07 仍要求 macOS x86_64、Windows x86_64、Linux x86_64、Linux arm64 的原生安装与运行证据，以及真实 Codex／DSH 安装态侧栏闭环；这些目标本轮没有环境或引擎归档，不能标记验收。
+本轮实现 macOS arm64／x86_64、Windows x86_64、Linux x86_64 的 tag 驱动 Release：安装资源、版本注入、DeepSeek 说明、资产归一化、源码与许可材料。完整的 P07 仍要求这些目标机的实际安装与运行证据，以及真实 Codex／DSH 安装态侧栏闭环；Linux ARM64 在引擎构建和锁定前不进入发布矩阵。
 
 本机没有 Developer ID 身份，产物按 ad-hoc linker 签名的测试制品处理，不公证、不创建公开 Release。`vendor/ENGINE.lock` 的 `linux-arm64` 仍为 unbuilt，打包脚本必须拒绝该目标。
 
@@ -35,7 +35,7 @@
 
 - 删除 `packages/ly` 和 `scripts/local`，移除只服务于 TS 对照的 pnpm 命令；保留 `tests/fixtures/local` 的输入、observed、manifest 和证据，Rust 测试继续直接消费已有期望，不由 Rust 覆盖参考。
 - 更新 fixture README、索引、现行命令、旧架构文档顶部说明和检查忽略规则。历史 ADR 保留正文，只标注被本次本地架构替代。
-- 新增 `.github/workflows/release.yml`，手动触发，五目标矩阵仅上传 workflow artifact；macOS、Windows、Linux x86 使用官方引擎归档，Linux arm64 任务显式 blocked，等原生引擎构建和锁定后再启用。不签名、不创建公开 Release。
+- `.github/workflows/check.yml` 负责 PR/main/tag 门禁并预热四目标依赖缓存；`auto-tag.yml` 使用 GitHub App 创建下一个 patch tag；`release.yml` 由 annotated tag 触发，四目标并行打包、生成双语说明，创建 draft 后发布 beta Pre-release 或稳定 Release。Linux ARM64 不进入矩阵。
 
 ## 6. 验证
 
@@ -46,4 +46,4 @@
 
 ## 7. 未验证边界
 
-macOS x86_64、Windows、Linux x86_64、Linux arm64、Linux ARM64 引擎构建、真实安装态 Codex／DSH 侧栏、Developer ID 签名与公证、公开 Release 和插件目录发布均未完成。CI 配置本轮不运行；交叉编译或静态检查不能替代目标机证据。
+macOS x86_64、Windows、Linux x86_64 的目标机安装／运行证据尚未产生；Linux ARM64 引擎构建、真实安装态 Codex／DSH 侧栏、Developer ID 签名与公证、公开 Release 和插件目录发布均未完成。远端 Actions 尚未运行；交叉编译或静态检查不能替代目标机证据。

@@ -1,6 +1,6 @@
-# P07：五目标发布
+# P07：多平台发布
 
-- 状态：受阻（macOS arm64 本机发布切片已实施；Windows／Linux／macOS x86_64、真实宿主与正式签名分发未验收）。
+- 状态：受阻（四目标 GitHub Release 流水线已实现，尚未在远端运行；Linux ARM64、真实宿主与正式签名分发未验收）。
 - 前置：[P06](06-host-integrations.md)；所有前序阶段需有可复查交付，目标范围见[总索引](README.md)。
 - 最终结果：以本地 Rust 运行时取代旧后端路径；产出自包含本体安装包和实际验收证据。
 
@@ -13,8 +13,8 @@
 | macOS arm64 | aarch64-apple-darwin | 对应架构 app／DMG | 官方 2.26.0 arm64 |
 | macOS x86_64 | x86_64-apple-darwin | 对应架构 app／DMG | 官方 2.26.0 x86_64 |
 | Windows x86_64 | x86_64-pc-windows-msvc | x64 安装器 | 官方 2.26.0 Windows 包 |
-| Linux x86_64 | x86_64-unknown-linux-gnu | deb／AppImage | 官方 2.26.0 x86_64 |
-| Linux arm64 | aarch64-unknown-linux-gnu | deb／AppImage | P02 原生构建工具链 |
+| Linux x86_64 | x86_64-unknown-linux-gnu | deb／rpm | 官方 2.26.0 x86_64 |
+| Linux arm64 | aarch64-unknown-linux-gnu | 暂不发布 | P02 原生构建工具链待完成 |
 
 Windows ARM64 不构建、不发布；不将模拟执行标成原生目标。Linux 首版基线按 Ubuntu 22.04 及对应 WebKitGTK 4.1 运行依赖构建验证，系统 WebView 等平台依赖要写清，不能把“自包含 LilyPond”扩写成“应用无系统依赖”。macOS 最低版本保留现有 12.0；Windows 基线为 Windows 10 x64 或更新版本。
 
@@ -52,7 +52,7 @@ Windows ARM64 不构建、不发布；不将模拟执行标成原生目标。Lin
 - [ ] 默认与项目内库正确隔离；单实例竞争、重启恢复、跨宿主选区隔离和同谱互斥均有效。
 - [ ] 连续保存、语法错误、超时、取消、异常退出后，公共文件和历史可恢复。
 - [ ] 在可用的 Codex／DSH 实际宿主中从安装态本体注入，打开侧边页面并完成编辑闭环；纯 CLI 环境只验收明确支持的能力。
-- [ ] 五目标制品的资源、依赖与许可证材料齐全，Linux ARM64 有真实目标运行证据。
+- [ ] 四目标制品的资源、依赖与许可证材料齐全；Linux ARM64 另有真实目标运行证据后才发布。
 - [ ] 首次启动正确初始化 `library.sqlite`，后续启动复用同一目录。
 - [ ] `pnpm check`、UI typecheck／build、Cargo workspace 测试、HTTP／MCP／浏览器回归全部通过。
 
@@ -68,10 +68,13 @@ Windows ARM64 不构建、不发布；不将模拟执行标成原生目标。Lin
 - macOS 制品位于 `artifacts/macos-arm64/`，当前版本 `0.1.0`。安装资源包含 `engine/`、`ui/`、`integrations/`、`licenses/`；`licenses/` 含 Ossia GPL 全文、完整引擎许可树、Rust／npm 运行时许可材料、`THIRD-PARTY-NOTICES.md` 和 `SOURCE-MANIFEST.json`。源码包为 `materials/ossia-0.1.0-source.tar.gz`（`git archive HEAD`）。
 - 制品是 ad-hoc linker 签名、未公证的测试制品；`release.json` 明确 `notarized=false`，没有创建公开 Release，也没有上传插件目录。
 - `doctor`、`serve` 和 DMG 临时安装副本均从安装资源定位引擎与页面，不依赖仓库 cwd 或 `--engine-root`／`--static-dir`。app 内 `.go` mtime 与执行位在打包副本中按 inventory 修复，未改变资源字节哈希。
+- GitHub Release 由 annotated tag 触发。`Check`、自动 tag、版本注入、DeepSeek 中英文说明、资产归一化和 `SHA256SUMS` 流程见 [`docs/releasing.md`](../../docs/releasing.md)。
+- Release 资产为 macOS arm64／x86_64 的 DMG 与 app zip、Windows x86_64 NSIS、Linux x86_64 DEB／RPM，以及源码包、材料包和校验和。Linux ARM64 不产出占位 artifact。
 
 ### 6.2 检查与未验证边界
 
 - `cargo test --workspace`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 通过；原生 runtime 2 项、engine 1 项、library 1 项、score 1 项通过。
 - `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm check:types`、`pnpm check:contracts`、`pnpm typecheck`、`pnpm build:web`、`pnpm test:package`、`pnpm test:ui`（7 项）和 `pnpm test:ui:native`（1 项）通过。Playwright 首次在沙箱内因系统 Chrome 启动被拒绝而失败，退出沙箱重跑后通过，不是页面断言失败。
-- macOS arm64 已完成 app/DMG 实际启动、资源 doctor、HTTP 首页、DMG 挂载副本与校验和检查。CI 配置 `.github/workflows/release.yml` 尚未运行。
-- macOS x86_64、Windows x86_64、Linux x86_64、Linux arm64 没有目标机安装／运行证据；Linux ARM64 引擎仍未构建和锁定，CI 中保留为显式 blocked。真实 Codex／DSH 安装态侧栏、Developer ID 签名、公证和公开发布仍未完成，因此本阶段只能标记“受阻”，不能标记已验收。
+- macOS arm64 已完成 app/DMG 实际启动、资源 doctor、HTTP 首页、DMG 挂载副本与校验和检查。
+- `.github/workflows/check.yml`、`auto-tag.yml` 和 `release.yml` 已实现；远端 Actions 尚未运行，因此不能把四目标资产视为已产出。
+- macOS x86_64、Windows x86_64、Linux x86_64 没有目标机安装／运行证据；Linux ARM64 引擎仍未构建和锁定，暂不进入发布矩阵。真实 Codex／DSH 安装态侧栏、Developer ID 签名、公证和公开发布仍未完成，因此本阶段只能标记“受阻”，不能标记已验收。

@@ -646,7 +646,7 @@ fn skill_mcp_manifest(integrator: &Integrator) -> Value {
     let _ = integrator;
     json!({
         "name": SKILL_MCP,
-        "version": "0.1.0",
+        "version": env!("CARGO_PKG_VERSION"),
         "private": true,
         "type": "module",
         "files": ["cordis.patch.yml"],
@@ -659,7 +659,7 @@ fn plugin_manifest(integrator: &Integrator) -> Value {
     let _ = integrator;
     json!({
         "name": PLUGIN,
-        "version": "0.1.0",
+        "version": env!("CARGO_PKG_VERSION"),
         "private": true,
         "type": "module",
         "main": "index.js",

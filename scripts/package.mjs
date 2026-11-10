@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { readLock, verifyTree, refreshGoMtimes, sha256 } from './engine.mjs';
+import { rpmBundleConfig } from './release/version.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const APP_VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
@@ -30,13 +31,13 @@ const TARGETS = {
   },
   'linux-x86_64': {
     triple: 'x86_64-unknown-linux-gnu',
-    bundles: ['deb', 'appimage'],
+    bundles: ['deb', 'rpm'],
     platform: 'linux',
     artifact: 'linux-x86_64',
   },
   'linux-arm64': {
     triple: 'aarch64-unknown-linux-gnu',
-    bundles: ['deb', 'appimage'],
+    bundles: ['deb', 'rpm'],
     platform: 'linux',
     artifact: 'linux-arm64',
   },
@@ -73,6 +74,7 @@ function hostTarget() {
 function run(command, args, options = {}) {
   return execFileSync(command, args, {
     cwd: ROOT,
+    shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     maxBuffer: 64 << 20,
@@ -283,8 +285,7 @@ function materials(stage, target, entry, sourceArchive) {
     .map((pkg) => ({ name: pkg.name, version: pkg.version }));
   const npm = collectNpmLicenses(path.join(licenses, 'npm'));
   const engineLock = JSON.parse(fs.readFileSync(path.join(ROOT, 'vendor/ENGINE.lock'), 'utf8'));
-  const engineSource =
-    engineLock.targets[target]?.source ?? engineLock.targets['linux-arm64']?.source;
+  const engineSource = engineLock.targets[target]?.source ?? null;
   const dependencyLock = JSON.parse(
     fs.readFileSync(path.join(ROOT, 'vendor/ENGINE.dependencies.json'), 'utf8'),
   );
@@ -506,6 +507,70 @@ function checksums(files, destination) {
   fs.writeFileSync(destination, `${lines.join('\n')}\n`);
 }
 
+function builtBinary(target) {
+  const spec = specFor(target);
+  const candidates = [
+    path.join(ROOT, 'target', spec.triple, 'release', 'ossia-desktop'),
+    path.join(ROOT, 'target', spec.triple, 'release', 'ossia-desktop.exe'),
+    path.join(ROOT, 'target/release/ossia-desktop'),
+    path.join(ROOT, 'target/release/ossia-desktop.exe'),
+  ];
+  const binary = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!binary) throw new Error(`built executable not found for ${target}`);
+  return binary;
+}
+
+function assertBinaryVersion(target) {
+  const output = run(builtBinary(target), ['--version']).trim();
+  if (!output.includes(APP_VERSION)) {
+    throw new Error(`built executable reports ${JSON.stringify(output)}, expected ${APP_VERSION}`);
+  }
+}
+
+function peMachine(binary) {
+  const image = fs.readFileSync(binary);
+  if (image.length < 0x40 || image.toString('ascii', 0, 2) !== 'MZ') {
+    throw new Error(`not a PE image: ${binary}`);
+  }
+  const offset = image.readUInt32LE(0x3c);
+  if (offset + 6 > image.length || image.toString('ascii', offset, offset + 4) !== 'PE\0\0') {
+    throw new Error(`invalid PE header: ${binary}`);
+  }
+  return image
+    .readUInt16LE(offset + 4)
+    .toString(16)
+    .padStart(4, '0');
+}
+
+function verifyReleaseArtifacts(target, artifactDir, files) {
+  const spec = specFor(target);
+  if (spec.platform === 'windows') {
+    const installers = files.filter((file) => file.endsWith('.exe'));
+    if (installers.length !== 1)
+      throw new Error(`expected one Windows installer, got ${installers.length}`);
+    if (peMachine(builtBinary(target)) !== '8664') {
+      throw new Error(`unexpected Windows executable architecture for ${target}`);
+    }
+    assertBinaryVersion(target);
+    return;
+  }
+  if (spec.platform === 'linux') {
+    const deb = files.find((file) => file.endsWith('.deb'));
+    const rpm = files.find((file) => file.endsWith('.rpm'));
+    if (!deb || !rpm) throw new Error(`expected DEB and RPM bundles for ${target}`);
+    if (run('dpkg-deb', ['--field', deb, 'Architecture']).trim() !== 'amd64') {
+      throw new Error(`unexpected DEB architecture for ${target}`);
+    }
+    if (run('rpm', ['-qp', '--queryformat', '%{ARCH}', rpm]).trim() !== 'x86_64') {
+      throw new Error(`unexpected RPM architecture for ${target}`);
+    }
+    assertBinaryVersion(target);
+  }
+  if (!fs.readdirSync(artifactDir).some((name) => name.endsWith('.dmg'))) {
+    throw new Error(`expected a DMG for ${target}`);
+  }
+}
+
 export async function packageTarget(target, options = {}) {
   const lock = readLock(ROOT, target);
   const entry = assertBuildable(target, lock);
@@ -529,6 +594,7 @@ export async function packageTarget(target, options = {}) {
   const material = materials(stage, target, entry, sourceArchive);
   const config = overlay(stage, target, entry);
   const tauri = path.join(ROOT, 'packages/desktop/node_modules/.bin/tauri');
+  const buildBundles = spec.platform === 'linux' ? ['deb'] : spec.bundles;
   run(
     tauri,
     [
@@ -536,13 +602,32 @@ export async function packageTarget(target, options = {}) {
       '--target',
       spec.triple,
       '--bundles',
-      spec.bundles.join(','),
+      buildBundles.join(','),
       '--no-sign',
       '--config',
       config.file,
     ],
     { cwd: path.join(ROOT, 'packages/desktop'), stdio: 'inherit' },
   );
+  if (spec.platform === 'linux') {
+    const rpmConfig = path.join(stage, 'tauri.rpm.conf.json');
+    fs.writeFileSync(rpmConfig, `${JSON.stringify(rpmBundleConfig(`v${APP_VERSION}`), null, 2)}\n`);
+    run(
+      tauri,
+      [
+        'bundle',
+        '--ci',
+        '--target',
+        spec.triple,
+        '--bundles',
+        'rpm',
+        '--no-sign',
+        '--config',
+        rpmConfig,
+      ],
+      { cwd: path.join(ROOT, 'packages/desktop'), stdio: 'inherit' },
+    );
+  }
 
   const artifactDir = path.join(ROOT, 'artifacts', spec.artifact);
   fs.rmSync(artifactDir, { recursive: true, force: true });
@@ -604,6 +689,7 @@ export async function packageTarget(target, options = {}) {
     artifacts: files.map((file) => path.relative(artifactDir, file)),
   };
   fs.writeFileSync(path.join(artifactDir, 'release.json'), `${JSON.stringify(release, null, 2)}\n`);
+  verifyReleaseArtifacts(target, artifactDir, files);
   checksums(
     [...files, path.join(artifactDir, 'release.json')],
     path.join(artifactDir, 'SHA256SUMS'),

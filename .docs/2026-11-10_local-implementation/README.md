@@ -1,7 +1,7 @@
 # Ossia 本地架构分阶段实施索引
 
 - 日期：2026-11-10
-- 状态：P00 的 Linux ARM64 原生验收未通过；P01 至 P05 已实现并接入本地运行时；P06 集成资源已打包，真实宿主安装态未验收；P07 已完成 macOS arm64 测试制品，其余四目标、正式签名和公开发布未完成。
+- 状态：P00 的 Linux ARM64 原生验收未通过；P01 至 P05 已实现并接入本地运行时；P06 集成资源已打包，真实宿主安装态未验收；P07 已实现四目标 GitHub Release 流水线，尚未在远端运行，Linux ARM64、正式签名和公证未完成。
 - 产品决策：[本地架构调整方案](../2026-11-10_local-architecture-plan.md)。
 
 ## 1. 执行顺序与阅读方式
@@ -17,7 +17,7 @@
 | P04 | [运行时、HTTP、CLI 与 MCP](04-runtime-and-agent-interfaces.md) | P03 | 可独立启动的本地服务、会话视图和 Agent 工具闭环 |
 | P05 | [侧边谱面与管理窗口](05-browser-score-and-desktop.md) | P04 | Agent 浏览器中的谱面交互和独立的 Tauri 管理窗口 |
 | P06 | [Skill／MCP／插件注入](06-host-integrations.md) | P05 | 本体内置的 Codex／DSH 本地集成，支持安装、修复和移除；已纳入 P07 测试安装包，真实宿主安装态待验收 |
-| P07 | [五目标发布](07-release.md) | P06 | macOS arm64 测试 app／DMG、发布材料与代码边界收敛；其余目标受阻 |
+| P07 | [多平台发布](07-release.md) | P06 | macOS（arm64／x86_64）、Windows x86_64、Linux x86_64 的 GitHub Release 流水线；Linux ARM64 暂不发布 |
 
 按 P00 → P07 顺序验收。前序未通过时，可用测试替身开发后续模块，但必须标记为未集成，不能将阶段标记为完成。缺少平台环境时写明缺失目标，不用“编译通过”替代真实运行验证。
 
@@ -110,10 +110,11 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 - `pnpm test:ui`／`pnpm test:ui:native`：运行浏览器 Playwright 与真实引擎／Tauri 共存原生场景。
 - `pnpm test:integrations`：集成计划的生成物与冲突回归；真实 Codex／DSH profile 的 round-trip 测试见 crate README 的显式环境变量命令。
 - `pnpm package --target=darwin-arm64`：构建 macOS arm64 测试制品、发布材料和校验和；其他目标按引擎锁与 CI 条件处理。
+- `pnpm test:release`：校验版本、tag、资产归一化和 Release 说明解析。
 - `pnpm engine:install`／`pnpm engine:verify`：准备／校验本机锁定工具链；五目标配方见 `vendor/README.md`。
 - `cargo test -p ossia-library`：临时库、编辑／版本事务与崩溃恢复；原生闭环见 P03 交接。
 - `pnpm test:engine`、`cargo test -p ossia-engine`：开发资源与引擎离线回归；原生集成测试显式启用。
 - `pnpm typecheck`、`pnpm check`、`pnpm test:package`：源码检查与打包脚本回归。
 
 P04 提供 headless 服务与工具闭环；P05 把普通浏览器谱面和 Tauri 管理窗口接入同一 Rust 服务，并验证两者与 headless 实例共存。谱面页面只连接当前运行时 API，不加载 Tauri bridge 或模型作业流程。P07 已产出 macOS arm64 测试包；默认 profile、真实安装态宿主注入和跨平台原生验收仍未完成。
-P06 已提供 `ossia integrate` 与管理窗口入口；宿主注入配置只在临时 profile 实测。P07 已完成 macOS arm64 本体 app／DMG、资源校验和发布材料；Windows／Linux、macOS x86_64、Linux ARM64 引擎、真实安装态宿主侧栏、签名公证与公开发布仍未验收。
+P06 已提供 `ossia integrate` 与管理窗口入口；宿主注入配置只在临时 profile 实测。P07 已实现 tag 驱动的四目标 GitHub Release 流水线；Windows、macOS x86_64 和 Linux x86_64 仍待目标机安装验收，Linux ARM64 暂不发布，签名公证未完成。

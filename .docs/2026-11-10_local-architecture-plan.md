@@ -1,9 +1,9 @@
 # Ossia 本地架构调整方案
 
 - 日期：2026-11-10
-- 状态：方案已对齐，P00–P06 已完成本机实现，P07 已完成 macOS arm64 发布切片；Linux ARM64、其余目标、真实宿主侧栏和正式分发仍受阻，产品架构尚未整体切换。
+- 状态：方案已对齐，P00–P06 已完成本机实现，P07 已实现四目标 GitHub Release 流水线；Linux ARM64、远端运行、真实宿主侧栏和正式分发仍受阻，产品架构尚未整体切换。
 - 当前架构依据：本方案与[分阶段实施索引](./2026-11-10_local-implementation/README.md)。
-- 分阶段实施：[实施总索引与共享契约](./2026-11-10_local-implementation/README.md)；P00 交付与阻塞见[基线报告](./2026-11-10_local-implementation/00-baseline-report.md)，P01–P06 已完成本机实现并受 P00 Linux ARM64 前序门槛阻塞；P07 已完成 macOS arm64 测试制品，其余目标未验收。按用户指令已提前移除旧 Next.js 后端；当前普通浏览器谱面与 Tauri 管理窗口已接入本地运行时，真实安装态宿主闭环和正式分发仍待后续。
+- 分阶段实施：[实施总索引与共享契约](./2026-11-10_local-implementation/README.md)；P00 交付与阻塞见[基线报告](./2026-11-10_local-implementation/00-baseline-report.md)，P01–P06 已完成本机实现并受 P00 Linux ARM64 前序门槛阻塞；P07 已实现 macOS／Windows／Linux x86_64 的 GitHub Release 流水线，尚待远端和目标机验收。按用户指令已提前移除旧 Next.js 后端；当前普通浏览器谱面与 Tauri 管理窗口已接入本地运行时，真实安装态宿主闭环和正式分发仍待后续。
 
 本文描述目标架构及实施方案，未标记为已完成的能力均需按第 5 节实现和验收。
 

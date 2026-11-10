@@ -796,7 +796,7 @@ fn plugin_files(integrator: &Integrator) -> Result<Vec<FilePlan>, AppError> {
     let manifest = json!({
         "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
         "name": PLUGIN,
-        "version": "0.1.0",
+        "version": env!("CARGO_PKG_VERSION"),
         "description": "Local LilyPond score editing through the Ossia runtime.",
         "author": {"name": "Ossia"},
         "license": "GPL-3.0-or-later",

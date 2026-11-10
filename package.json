@@ -13,6 +13,7 @@
     "build:desktop": "pnpm --filter @ossia/desktop build",
     "package": "node scripts/package.mjs",
     "test:package": "node --test scripts/package.test.mjs",
+    "test:release": "node --test scripts/release/version.test.mjs scripts/release/tags.test.mjs scripts/release/assets.test.mjs scripts/release/notes.test.mjs",
     "typecheck": "pnpm run -r typecheck",
     "check": "vp check",
     "check:fix": "vp check --fix",
