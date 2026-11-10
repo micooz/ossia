@@ -927,7 +927,7 @@ mod tests {
         assert!(patch.contains("ui-sidebar-browser"));
         assert!(patch.contains("@deepseek-ai/dsh-mcp-client"));
         assert!(patch.contains("transport: stdio"));
-        assert!(patch.contains(&format!("\"{}\"", integrator.executable().display())));
+        assert!(patch.contains(&yaml_string(&integrator.executable().to_string_lossy())));
         assert!(patch.contains("ossia-dsh-plugin/skill"));
     }
 
