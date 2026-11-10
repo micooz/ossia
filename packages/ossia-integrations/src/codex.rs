@@ -950,7 +950,7 @@ mod tests {
         let resources = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../integrations");
         let integrator = Integrator::with_paths(
             root.path().join("library"),
-            PathBuf::from("/bin/sh"),
+            std::env::current_exe().unwrap(),
             resources,
             paths,
         )
