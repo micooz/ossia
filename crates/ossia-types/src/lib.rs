@@ -17,6 +17,12 @@ macro_rules! identifier {
             type Err = uuid::Error;
             fn from_str(value: &str) -> Result<Self, Self::Err> { Uuid::parse_str(value).map(Self) }
         }
+        impl $name {
+            pub fn new() -> Self { Self(Uuid::new_v4()) }
+        }
+        impl Default for $name {
+            fn default() -> Self { Self::new() }
+        }
         impl fmt::Display for $name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { self.0.fmt(f) }
         }
@@ -187,6 +193,8 @@ pub enum ErrorCode {
     Cancelled,
     RuntimeIncompatible,
     LegacyDataPresent,
+    StorageError,
+    LibraryBusy,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -323,4 +331,114 @@ pub struct RenderManifest {
     pub midi: Option<ArtifactRef>,
     pub diagnostics: Vec<Diagnostic>,
     pub format_errors: Vec<FormatError>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum EditStatus {
+    Active,
+    Interrupted,
+    Committed,
+    Ended,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditSession {
+    pub edit_id: EditId,
+    pub document_id: DocumentId,
+    pub owner_view_id: ViewId,
+    pub base_version_id: Option<VersionId>,
+    pub status: EditStatus,
+    pub started_at: String,
+    pub source_path: String,
+    pub author: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DocumentEditState {
+    Idle,
+    Active,
+    Interrupted,
+    RecoveryConflict,
+}
+
+/// Public document state deliberately omits the edit capability.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentState {
+    pub document_id: DocumentId,
+    pub title: String,
+    pub source_path: String,
+    pub head_version_id: Option<VersionId>,
+    pub source_hash: ContentHash,
+    pub dirty: bool,
+    pub edit_state: DocumentEditState,
+    pub last_successful_render: Option<RenderManifest>,
+    pub last_check: Option<Job>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum VersionOrigin {
+    Import,
+    Edit,
+    Restore,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Version {
+    pub version_id: VersionId,
+    pub document_id: DocumentId,
+    pub seq: u64,
+    pub parent_version_id: Option<VersionId>,
+    pub source_hash: ContentHash,
+    pub origin: VersionOrigin,
+    pub author: String,
+    pub summary: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum JobState {
+    Queued,
+    Running,
+    Done,
+    Error,
+    Cancelled,
+    Interrupted,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Job {
+    pub job_id: JobId,
+    pub document_id: Option<DocumentId>,
+    pub kind: String,
+    pub state: JobState,
+    pub source_hash: Option<ContentHash>,
+    pub phase: String,
+    pub result: Option<serde_json::Value>,
+    pub error: Option<AppError>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportOutcome {
+    pub report: ImportReport,
+    pub document: Option<DocumentState>,
+    pub render: Option<RenderManifest>,
+    pub job: Option<Job>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckOutcome {
+    pub job: Job,
+    pub render: RenderManifest,
+    /// False when the public file changed while this snapshot was compiling.
+    pub current: bool,
 }

@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "editedSourceHash": "11c7ac10b02a43cb09fc9c51e6369ae1c7c962f0b33c9218be85dd422a1a8e0a",
+      "input": "inline-staff.ly",
+      "midi": true,
+      "pdf": true,
+      "restoredSourceHash": "c668b441e3c621f0774c5f19c5182573af172df979798c8af2442e1d413c2c14",
+      "sourceHash": "c668b441e3c621f0774c5f19c5182573af172df979798c8af2442e1d413c2c14",
+      "svgPages": 1,
+      "versions": 3
+    },
+    {
+      "editedSourceHash": "09b169cdece403d44898b1e610a318918bd159d3775c251767b650e38f8cc25e",
+      "input": "xml-clean.musicxml",
+      "midi": true,
+      "pdf": true,
+      "restoredSourceHash": "b2bb35451360731828e832a1dddb9339e1361af41a35222a68e9fede01c0706a",
+      "sourceHash": "b2bb35451360731828e832a1dddb9339e1361af41a35222a68e9fede01c0706a",
+      "svgPages": 1,
+      "versions": 3
+    },
+    {
+      "editedSourceHash": "02088e225dc6720690e6deb7af8c0c20e928528e2711b447d4a8461f344d6fad",
+      "input": "midi-valid.mid",
+      "midi": true,
+      "pdf": true,
+      "restoredSourceHash": "763ec3d0e8d9afd0077629258f4b3d9d09c7157b1aba42e53873f35d1cec31c0",
+      "sourceHash": "763ec3d0e8d9afd0077629258f4b3d9d09c7157b1aba42e53873f35d1cec31c0",
+      "svgPages": 1,
+      "versions": 3
+    }
+  ],
+  "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+  "lossConfirmation": true,
+  "refusedPublished": false,
+  "reopenedDocuments": 5,
+  "repairableImport": true,
+  "target": "macos-aarch64"
+}

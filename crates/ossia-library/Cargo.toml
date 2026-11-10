@@ -1,0 +1,18 @@
+[package]
+name = "ossia-library"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ossia-types = { path = "../ossia-types" }
+ossia-score = { path = "../ossia-score" }
+ossia-engine = { path = "../ossia-engine" }
+serde.workspace = true
+serde_json.workspace = true
+rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"] }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+fs2 = "0.4"
+tempfile = "3"

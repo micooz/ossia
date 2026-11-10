@@ -20,12 +20,14 @@
 - `serve` 独立于 MCP／页面存活；显式 stop 拒绝新任务、取消并回收进程树后退出。默认无开机启动、无自动更新或空闲关闭。
 - 全实例最多两个引擎任务并行，同文档最多一个编译运行；自动预览将待运行任务合并为最新快照。显式 check 的结果必须能按 jobId 查询，不能被合并后无声消失。
 - 文件保存使用 300 ms 防抖，兼容原子替换／重建 watcher。编译前读取稳定字节快照；事件丢失时在 context／check／commit 入口重新读取文件。
+- 使用 P03 的 `queue_check` 固定输入并返回 jobId，再由调度器调用 `run_check`；不重新读取排队后的公共文件替换该任务输入，也不另建一套校验凭据。`check` 是同步便利入口。
 - Job 持久状态接入 P03。重启将 running／queued 作业记为 interrupted，不声称旧子进程仍在执行或自动重放 Agent 修改。
 
 ## 3. 视图、鉴权与事件
 
 - `open_view` 返回随机 viewId、短期单次启动 ticket 和包含该 ticket 的 URL。ticket 放 URL fragment，不进入请求 URL；页面交换后从地址中移除。
 - 启动 ticket 有效期为 5 分钟，只能交换一次；页面令牌仅保存在该标签页 sessionStorage，有效期为 24 小时或至实例退出。失效后由 Agent 重新 open，而非无鉴权恢复。
+- 编辑操作通过 `get_edit(editId)` 核对 ownerViewId；该接口只能供已持凭据的受控调用使用，不向其他视图枚举凭据。未知工作区用 begin_edit 的 adoptWorkspace 显式接纳；冲突恢复通过 `resolve_recovery_conflict` 确认期望哈希后继续，不能在传输层擅自重置文件。
 - 页面持有的令牌绑定 viewId；可在该视图中选择文档，但不能读写其他视图的选区或编辑凭据。
 - HTTP 校验实际 loopback Host、允许的 Origin 和 bearer 令牌；生产同源，开发仅显式允许配置的 Vite origin。拒绝通配 CORS、任意 Host 和远端接口暴露。
 - `/health` 只返回存活与协议标识；不包含 home、源码路径或启动凭据。其他数据操作走鉴权入口。
@@ -34,7 +36,7 @@
 
 ## 4. HTTP 与工具映射
 
-HTTP 使用 `/api/v1`，错误为 `{error:{code,message,detail?}}`；成功响应由共享 DTO 生成。冲突／dirty／busy 为 409，输入错误 400，鉴权失败 401／403，不存在 404，编译／不支持输入 422，已入队任务 202。
+HTTP 使用 `/api/v1`，错误为 `{error:{code,message,detail?}}`；成功响应由共享 DTO 生成。冲突／dirty／busy 为 409，输入错误 400，鉴权失败 401／403，不存在 404，编译／不支持输入 422，已入队任务 202；`library-busy` 为 409，`storage-error` 为 500。
 
 | HTTP | 行为 |
 |---|---|

@@ -186,7 +186,7 @@ pub fn path_bbox(mut d: &str) -> Result<BBox, AppError> {
             'S' => {
                 let control = cubic_control.map_or(xy, |p| (2. * xy.0 - p.0, 2. * xy.1 - p.1));
                 points.push(control);
-                for pair in n.chunks_exact(2) {
+                for pair in n.as_chunks::<2>().0 {
                     points.push((pair[0] + base.0, pair[1] + base.1));
                 }
                 xy = *points.last().unwrap();
@@ -199,7 +199,7 @@ pub fn path_bbox(mut d: &str) -> Result<BBox, AppError> {
                 quadratic_control = Some(control);
             }
             _ => {
-                for pair in n.chunks_exact(2) {
+                for pair in n.as_chunks::<2>().0 {
                     points.push((pair[0] + base.0, pair[1] + base.1));
                 }
                 xy = *points.last().unwrap();
@@ -369,7 +369,9 @@ fn read_svg(svg: &str, map: &SourceMap<'_>) -> Result<(BBox, Vec<SvgElement>), A
                             return Err(AppError::invalid("invalid SVG polygon points"));
                         }
                         let transformed: Vec<_> = points
-                            .chunks_exact(2)
+                            .as_chunks::<2>()
+                            .0
+                            .iter()
                             .map(|p| frame.matrix.point(p[0], p[1]))
                             .collect();
                         Some(BBox::points(&transformed)?)

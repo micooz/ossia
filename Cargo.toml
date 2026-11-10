@@ -4,20 +4,26 @@ members = [
   "crates/ossia-types",
   "crates/ossia-score",
   "crates/ossia-engine",
+  "crates/ossia-library",
   "packages/desktop/src-tauri",
 ]
-default-members = ["crates/ossia-types", "crates/ossia-score", "crates/ossia-engine"]
+default-members = [
+  "crates/ossia-types",
+  "crates/ossia-score",
+  "crates/ossia-engine",
+  "crates/ossia-library",
+]
 
 [workspace.package]
 version = "0.0.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
-rust-version = "1.80"
+rust-version = "1.89"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-uuid = { version = "1", features = ["serde"] }
+uuid = { version = "1", features = ["serde", "v4"] }
 regex = "1"
 quick-xml = "0.42"

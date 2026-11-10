@@ -297,8 +297,7 @@ pub fn resolve_pitches(source: &str, span: SourceSpan) -> Result<PitchResult, Ap
                     ref_di = new_ref;
                 }
             } else {
-                if states.last().is_some_and(|s| s.0 == depth) {
-                    let (_, rel, old_ref) = states.pop().unwrap();
+                if let Some((_, rel, old_ref)) = states.pop_if(|s| s.0 == depth) {
                     // The outer expression exposes its final reference; nested wrappers restore the parent.
                     if depth > 1 {
                         relative = rel;

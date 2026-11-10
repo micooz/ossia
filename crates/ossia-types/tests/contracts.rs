@@ -33,3 +33,22 @@ fn snapshots_validate_encoding_hash_and_contract_wire_shape() {
         json!({"code":"stale-selection","message":"reread selection"})
     );
 }
+
+#[test]
+fn library_contract_examples_keep_ids_metadata_and_error_codes() {
+    let examples: Value = serde_json::from_str(include_str!(
+        "../../../tests/fixtures/local/contract-examples.json"
+    ))
+    .unwrap();
+    let version: Version = serde_json::from_value(examples["version"].clone()).unwrap();
+    let edit: EditSession = serde_json::from_value(examples["editSession"].clone()).unwrap();
+    assert_eq!(version.document_id, edit.document_id);
+    assert_eq!(serde_json::to_value(version).unwrap(), examples["version"]);
+    assert_eq!(serde_json::to_value(edit).unwrap(), examples["editSession"]);
+    for (code, wire) in [
+        (ErrorCode::StorageError, "storage-error"),
+        (ErrorCode::LibraryBusy, "library-busy"),
+    ] {
+        assert_eq!(serde_json::to_value(code).unwrap(), json!(wire));
+    }
+}

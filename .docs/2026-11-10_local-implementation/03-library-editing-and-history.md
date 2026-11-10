@@ -1,6 +1,7 @@
 # P03：文档、编辑与版本
 
-- 状态：待实施。
+- 状态：受阻（前序门槛）；本机实现完成、未集成，P00 Linux ARM64 原生验收仍未通过。
+- 技术方案：[03-technical-plan.md](03-technical-plan.md)。
 - 前置：[P02](02-native-engine-and-artifacts.md)；类型和目录选择见[总索引](README.md)。
 - 后续：[P04 运行时与 Agent 接口](04-runtime-and-agent-interfaces.md)。
 
@@ -67,19 +68,52 @@
 
 ## 4. 测试与退出条件
 
-- [ ] 所有测试使用临时库；旧 schema 探测不改动原目录。
-- [ ] 三类导入、损失确认、阻断拒绝、无 head 的可修复 `.ly` 状态正确。
-- [ ] 同谱写入互斥、不同谱并行、无变化提交、错误编译拒绝和过期 head／sourceHash 冲突均覆盖。
-- [ ] A→B→恢复 A→C 的父节点和 seq 正确，不能因内容相同混淆版本。
-- [ ] 结束编辑保留文件；dirty 工作区不被 restore／discard 无条件覆盖。
-- [ ] 在 CAS 写入、文件替换和数据库提交间注入故障，重启后状态可解释且文件不丢失。
-- [ ] 外部保存发生在编译期间或提交最后检查之后时，已提交版本仍对应已验证字节，后续变化保持 dirty。
+- [x] 所有测试使用临时库；旧 schema 探测不改动原目录。
+- [x] 三类导入、损失确认、阻断拒绝、无 head 的可修复 `.ly` 状态正确。
+- [x] 同谱写入互斥、不同谱并行、无变化提交、错误编译拒绝和过期 head／sourceHash 冲突均覆盖。
+- [x] A→B→恢复 A→C 的父节点和 seq 正确，不能因内容相同混淆版本。
+- [x] 结束编辑保留文件；dirty 工作区不被 restore／discard 无条件覆盖。
+- [x] 在 CAS 写入、文件替换和数据库提交间注入故障，重启后状态可解释且文件不丢失。
+- [x] 外部保存发生在编译期间或提交最后检查之后时，已提交版本仍对应已验证字节，后续变化保持 dirty。
 
 运行 `cargo test -p ossia-library`，并用 P02 真实工具链至少完成一次导入→改公共文件→check→commit→restore。数据库事务和文件边界用故障测试验证，不能只断言最终行数。
 
-## 5. 实施交接（实施后填写）
+## 5. 实施交接
 
-- schema、事务和恢复入口：未实施。
-- 编译结果绑定和编辑生命周期测试：未执行。
-- 数据目录隔离证据：未建立。
-- 下一阶段：P04 为这些操作增加传输、任务调度和会话身份，不另写版本逻辑。
+### 基准与交付
+
+- 基于 `a58e01c`。新增 `ossia-library`，加入 workspace，依赖 types／score／engine；不接 HTTP、MCP、GUI 或用户真实库。
+- 工程与调用示例见 [crate README](../../crates/ossia-library/README.md)。共享 DTO 增加 DocumentState、Version、EditSession、Job、ImportOutcome 和 CheckOutcome；新增 `storage-error`、`library-busy`，P04 的错误映射已同步。
+- bundled SQLite 使用 `rusqlite 0.41.1`／`libsqlite3-sys 0.39.1`，gzip 使用 flate2；保留并更新根锁文件。SQLite 依赖要求最低 Rust 1.89，因此同步 workspace 声明；本机实际使用 Rust 1.98.1，未单独运行 1.89 工具链。最低版本提升引出的四处 Clippy 建议在 score 中作等价改写，原有分析回归通过。
+
+### Schema、文件与恢复
+
+- 数据根目录必须显式传入；持库锁为 `library.lock`，数据库为 `library.sqlite`，SQLite application_id 为 `0x4f535349`，schema/user_version 为 1；WAL、外键和 FULL 同步已验证。
+- schema 包含 documents、versions、edits、jobs、contents、renders、worktree_intents，以及私有 check_requests／check_receipts。检查任务中的编辑凭据不进入公开 Job；文档状态也不返回 editId。
+- 公共文件为 `documents/<documentId>/score.ly`；原输入保存在 original/input.ly、input.musicxml 或 input.mid。gzip CAS 对未压缩原始字节计算哈希，先同步文件与新建目录再提交引用；读取时校验内容哈希。P02 产物位于稳定的 artifacts 根目录，不另建引擎缓存。
+- 旧 `db.sqlite` 且无新库标识时返回 `legacy-data-present`。测试验证旧目录文件与字节不变；未知标识或 schema 返回 `runtime-incompatible`。库内路径拒绝越界和符号链接。
+- discard／restore 先记录 intent，再以同目录临时文件原子替换，最后完成事务。重启按旧／目标哈希和 head 判定取消、完成或冲突；冲突通过 DocumentEditState::RecoveryConflict 暴露。`resolve_recovery_conflict` 只在期望哈希匹配后清除冲突标记，不覆盖文件、不推进 head。
+- 重启保留源码、CAS 和历史，将 active 编辑及 queued／running 作业标为 interrupted，并清除旧提交凭据。中断编辑需原 editId 显式 resume；未建立 head 的文档不自动删除或重置。
+
+### 检查、提交与 P04 入口
+
+- import 执行 P02 三态门槛。手写 ly 编译失败保留初始快照、原件和失败作业诊断；首次修复提交建立 import 版本。转换输入编译失败不发布文档。
+- begin_edit 核对 head、当前哈希和编辑互斥；未知工作区需 adopt_workspace 显式接纳。end_edit 保留文件；discard 独立校验能力凭据、基版本和哈希。
+- `queue_check` 在调度前固定输入并返回持久 jobId，`run_check` 执行该作业的 CAS 快照；`check` 复用这两个入口。P04 不应在执行排队任务时用新公共文件替换旧输入。
+- 成功凭据绑定 editId、sourceHash、engineBuildId 和 optionsHash。commit 验证凭据、head、磁盘内容、CAS 和实际 SVG 产物，事务内追加版本并结束编辑，不改公共文件。无变化不新增节点；PDF／MIDI 独立失败不阻断成功 SVG。
+- 旧检查结果仍按 jobId 查询，current=false 时不替换较新的当前渲染，也不授权提交新字节。lastCheck 仅表达当前源码的最近检查／导入；lastSuccessfulRender 可能是旧源码，调用端必须比较 sourceHash。
+- create_job／get_job／job_snapshot／transition_job 提供其他任务的持久化；状态更新比较期望值，允许 queued／running 更新阶段，终态不会回到运行。P04 负责并发限额、取消 RunContext、视图鉴权和事件流；get_edit(editId) 供受控调用核对 ownerViewId，不枚举其他任务的凭据。
+
+### 验证命令与结果
+
+- `cargo test -p ossia-library`：22 项事务／并发／恢复回归通过；1 个标记 ignored 的子进程入口由测试显式启动，覆盖跨进程锁和直接退出后的 SQLite／文件恢复。
+- `cargo test --workspace`：66 项测试、3 项文档测试通过。默认忽略的原生集成与子进程入口单独说明，不计作本次默认测试通过项。
+- `OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p03-native.json" cargo test -p ossia-library --test native_library -- --ignored`：通过。临时中文／空格库中三类输入分别完成导入→编辑→SVG/PDF/MIDI 检查→commit→restore；另覆盖真实转换损失确认、Negative skip 拒绝、错误 ly 修复为首版本和重启后的 5 个文档。证据见 `tests/fixtures/local/evidence/p03-native.json`。
+- 故障注入覆盖 CAS 落盘后、版本事务提交前、intent 落盘后、文件替换后及最终事务前后；校验实际文件字节、可恢复的 head/seq/parent 和 CAS，不只检查行数。覆盖编译期间新保存、排队后新保存及提交最后检查后的保存。
+- `cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`pnpm baseline:local --check`、`pnpm test:local`（8 项）、`pnpm typecheck`、`pnpm check`（0 errors／warnings）、`pnpm build:web` 通过。
+
+### 阻塞与边界
+
+P03 本机实现完成、未集成，仍受 P00 Linux ARM64 门槛阻塞。仅验证 macOS ARM64；其他平台文件锁／SQLite／原子替换、真实断电、签名资源和安装包未验证。进程退出故障测试不能替代真实断电测试。应用锁不能排斥绕过协议的外部文件写入者。
+
+所有库验证使用临时目录，未初始化项目 `.ossia` 或默认用户库，未执行迁移、清理、宿主注入或发布。P04 下一步复用本 crate 的事务与队列检查入口，增加运行时调度和传输，不在调用层重写版本逻辑。
