@@ -24,6 +24,8 @@ export type ContextArgs = { viewId: ViewId, };
 
 export type Diagnostic = { severity: Severity, message: string, rawPosition: EnginePosition | null, position: SourcePosition | null, };
 
+export type DoctorReport = { home: string, engine: EngineHealth, runtime: RuntimeHealth, legacyDataPresent: boolean, };
+
 export type DocumentEditState = "idle" | "active" | "interrupted" | "recovery-conflict";
 
 export type DocumentId = string;
@@ -31,6 +33,8 @@ export type DocumentId = string;
 export type DocumentState = { documentId: DocumentId, title: string, sourcePath: string, headVersionId: VersionId | null, sourceHash: ContentHash, dirty: boolean, editState: DocumentEditState, lastSuccessfulRender: RenderManifest | null, lastCheck: Job | null, };
 
 export type EditAction = "begin" | "resume" | "end" | "discard" | "resolve-recovery-conflict";
+
+export type EditActivity = { author: string, status: EditStatus, ownedByView: boolean, };
 
 export type EditArgs = { action: EditAction, documentId: DocumentId, viewId: ViewId, baseVersionId: VersionId | null, expectedSourceHash: ContentHash, editId: EditId | null, adoptWorkspace: boolean, author: string, };
 
@@ -41,6 +45,8 @@ export type EditSession = { editId: EditId, documentId: DocumentId, ownerViewId:
 export type EditStatus = "active" | "interrupted" | "committed" | "ended";
 
 export type EmptyArgs = Record<symbol, never>;
+
+export type EngineHealth = { ok: boolean, buildId: string | null, error: AppError | null, };
 
 export type EnginePosition = {
 /**
@@ -61,6 +67,12 @@ export type ExportFormat = "ly" | "pdf" | "midi";
 export type ExportOutcome = { documentId: DocumentId, versionId: VersionId, sourceHash: ContentHash, format: ExportFormat, path: string, bytes: number, sha256: ContentHash, };
 
 export type FormatError = { format: RenderFormat, error: AppError, };
+
+export type GeometryBounds = { x0: number, y0: number, x1: number, y1: number, };
+
+export type GeometryPage = { page: number, viewBox: GeometryBounds | null, capability: LocationCapability, reason: string | null, regions: Array<GeometryRegion>, };
+
+export type GeometryRegion = { locator: Locator, systemIndex: number, bounds: GeometryBounds, };
 
 export type HistoryArgs = { documentId: DocumentId, };
 
@@ -96,11 +108,15 @@ export type LocationCapability = "measure" | "anchor-only" | "none";
 
 export type Locator = { staffIndex: number, measureStart: number, measureEnd: number, voice: string | null, };
 
+export type ManagementSnapshot = { home: string, engineRoot: string, runtime: RuntimeInfo | null, error: AppError | null, };
+
 export type OpenArgs = { documentId: DocumentId | null, };
 
 export type OpenView = { viewId: ViewId, url: string, ticket: string, };
 
 export type RenderFormat = "svg" | "pdf" | "midi";
+
+export type RenderGeometry = { renderKey: ContentHash, sourceHash: ContentHash, pages: Array<GeometryPage>, };
 
 export type RenderManifest = { sourceHash: ContentHash, engineBuildId: string, optionsHash: ContentHash, pages: Array<RenderPage>, pdf: ArtifactRef | null, midi: ArtifactRef | null, diagnostics: Array<Diagnostic>, formatErrors: Array<FormatError>, };
 
@@ -119,6 +135,8 @@ export type RpcRequest = { method: string, params: JsonValue, };
 export type RpcResponse = { result?: JsonValue, error?: AppError, };
 
 export type RuntimeEvent = { instanceId: string, seq: number, type: string, viewId?: ViewId, documentId?: DocumentId, sourceHash?: ContentHash, payload: JsonValue, };
+
+export type RuntimeHealth = { ok: boolean, info: RuntimeInfo | null, error: AppError | null, };
 
 export type RuntimeInfo = { runtimeVersion: string, protocolVersion: number, schemaVersion: number, instanceId: string, home: string, webBaseUrl: string, capabilities: Array<string>, };
 
@@ -150,4 +168,4 @@ export type VersionOrigin = "import" | "edit" | "restore";
 
 export type ViewId = string;
 
-export type ViewSnapshot = { instanceId: string, seq: number, viewId: ViewId, document: DocumentState | null, selection: Selection | null, regions: Array<LocatedRegion>, render: RenderReference | null, };
+export type ViewSnapshot = { instanceId: string, seq: number, viewId: ViewId, document: DocumentState | null, selection: Selection | null, regions: Array<LocatedRegion>, render: RenderReference | null, editActivity: EditActivity | null, };

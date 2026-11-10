@@ -44,6 +44,7 @@ struct State {
 #[derive(Clone)]
 enum Work {
     Check,
+    VersionRender(DocumentId, VersionId),
     Import { args: ImportArgs, bytes: Vec<u8> },
     Restore(RestoreArgs),
     Export(ExportArgs, PathBuf),
@@ -101,6 +102,9 @@ impl Runtime {
                     "events".into(),
                     "cli".into(),
                     "mcp".into(),
+                    "render-geometry".into(),
+                    "version-render".into(),
+                    "export-reveal".into(),
                 ],
             },
             library: Arc::new(library),
@@ -323,6 +327,11 @@ impl Runtime {
                 manifest: m.clone(),
             })
         });
+        let edit_activity = document
+            .as_ref()
+            .map(|d| self.library.edit_activity(d.document_id, id))
+            .transpose()?
+            .flatten();
         Ok(ViewSnapshot {
             instance_id: self.info.instance_id.clone(),
             seq: state.seq,
@@ -331,6 +340,7 @@ impl Runtime {
             selection,
             regions,
             render,
+            edit_activity,
         })
     }
     pub fn select_document(
@@ -631,6 +641,15 @@ impl Runtime {
             .create_job("restore", Some(args.document_id), None)?;
         self.enqueue(job, Work::Restore(args), false)
     }
+    pub fn render_version(&self, document: DocumentId, version: VersionId) -> Result<Job> {
+        self.available()?;
+        self.library.get_version(document, version)?;
+        let snapshot = self.library.version_snapshot(version)?;
+        let job = self
+            .library
+            .create_job("version-render", Some(document), Some(&snapshot))?;
+        self.enqueue(job, Work::VersionRender(document, version), false)
+    }
     pub fn export(&self, args: ExportArgs) -> Result<Job> {
         self.available()?;
         self.library
@@ -832,6 +851,12 @@ impl Runtime {
             task.context.check()?;
             match task.work {
                 Work::Check => unreachable!(),
+                Work::VersionRender(document, version) => value(self.library.render_version(
+                    self.engine.as_ref(),
+                    document,
+                    version,
+                    &task.context,
+                )?),
                 Work::Import { args, bytes } => {
                     let outcome = self.library.import(
                         self.engine.as_ref(),

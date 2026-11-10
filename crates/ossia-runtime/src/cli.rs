@@ -104,7 +104,11 @@ fn resources_dir(executable: &std::path::Path) -> Result<PathBuf> {
     }
 }
 /// Returns None for the GUI branch; headless modes never initialize Tauri.
-pub fn entry() -> Option<i32> {
+pub fn arguments() -> Args {
+    Args::parse()
+}
+
+pub fn entry(args: Args) -> Option<i32> {
     #[cfg(windows)]
     if std::env::args_os().len() > 1 {
         use windows_sys::Win32::{
@@ -121,7 +125,6 @@ pub fn entry() -> Option<i32> {
             }
         }
     }
-    let args = Args::parse();
     args.command.as_ref()?;
     let mcp_mode = matches!(args.command, Some(Command::Mcp));
     let runtime = match tokio::runtime::Runtime::new() {
@@ -160,28 +163,7 @@ pub async fn run(args: Args) -> Result<Option<serde_json::Value>> {
         Command::Integrate => Err(AppError::unsupported(
             "host integration is not implemented; see P06",
         )),
-        Command::Doctor => {
-            let home = config.home.clone();
-            let root = config.engine_root.clone();
-            let resource = tokio::task::spawn_blocking(move || {
-                let scratch =
-                    std::env::temp_dir().join(format!("ossia-doctor-{}", uuid::Uuid::new_v4()));
-                let result = ossia_engine::Engine::verify(
-                    &root,
-                    &scratch,
-                    &ossia_engine::RunContext::default(),
-                )
-                .map(|engine| engine.build_id().to_string());
-                let _ = std::fs::remove_dir_all(scratch);
-                result
-            })
-            .await
-            .map_err(storage)?;
-            let discovery = ipc::connect(&home).await;
-            Ok(Some(
-                json!({"home":home,"engine":match resource{Ok(id)=>json!({"ok":true,"buildId":id}),Err(error)=>json!({"ok":false,"error":error})},"runtime":match discovery{Ok(d)=>json!({"ok":true,"info":d.runtime}),Err(error)=>json!({"ok":false,"error":error})},"legacyDataPresent":home.join("db.sqlite").exists()&&!home.join("library.sqlite").exists()}),
-            ))
-        }
+        Command::Doctor => Ok(Some(value(server::doctor(&config).await?)?)),
         Command::Stop => {
             let discovery = ipc::connect(&config.home).await?;
             Ok(Some(

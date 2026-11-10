@@ -40,6 +40,7 @@ pub struct ViewSnapshot {
     pub selection: Option<Selection>,
     pub regions: Vec<LocatedRegion>,
     pub render: Option<RenderReference>,
+    pub edit_activity: Option<EditActivity>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
@@ -243,5 +244,76 @@ pub struct RpcResponse {
     pub result: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
+    pub error: Option<AppError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct EditActivity {
+    pub author: String,
+    pub status: EditStatus,
+    pub owned_by_view: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct GeometryBounds {
+    pub x0: f64,
+    pub y0: f64,
+    pub x1: f64,
+    pub y1: f64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct GeometryRegion {
+    pub locator: Locator,
+    pub system_index: usize,
+    pub bounds: GeometryBounds,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct GeometryPage {
+    pub page: u32,
+    pub view_box: Option<GeometryBounds>,
+    pub capability: LocationCapability,
+    pub reason: Option<String>,
+    pub regions: Vec<GeometryRegion>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderGeometry {
+    pub render_key: ContentHash,
+    pub source_hash: ContentHash,
+    pub pages: Vec<GeometryPage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct EngineHealth {
+    pub ok: bool,
+    pub build_id: Option<String>,
+    pub error: Option<AppError>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeHealth {
+    pub ok: bool,
+    pub info: Option<RuntimeInfo>,
+    pub error: Option<AppError>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct DoctorReport {
+    pub home: String,
+    pub engine: EngineHealth,
+    pub runtime: RuntimeHealth,
+    pub legacy_data_present: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagementSnapshot {
+    pub home: String,
+    pub engine_root: String,
+    pub runtime: Option<RuntimeInfo>,
     pub error: Option<AppError>,
 }

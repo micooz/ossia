@@ -16,7 +16,10 @@ const args = process.argv.slice(2);
 if (args[0] === 'build') {
   execFileSync(vite, ['build'], { cwd: UI, stdio: 'inherit' });
 } else {
-  if (!fs.existsSync(path.join(UI, 'dist/index.html'))) {
+  if (
+    !fs.existsSync(path.join(UI, 'dist/index.html')) ||
+    !fs.existsSync(path.join(UI, 'dist/admin.html'))
+  ) {
     process.stderr.write('SPA dist missing -> building it once for tauri-codegen\n');
     execFileSync(vite, ['build'], { cwd: UI, stdio: 'inherit' });
   }

@@ -1,137 +1,187 @@
-// The score surface: one LilyPond SVG page inlined, plus a click-to-locate overlay.
-//
-// The page arrives as text from the server (the client never owns a `.ly`), so it is injected into
-// a wrapper. A click in CSS pixels is converted with `getScreenCTM()` into the SVG's own user
-// units, which is the space the server's geometry is expressed in; the overlay reuses the engine's
-// viewBox, so a box drawn in user units lands on the right measure at any zoom level.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import type { Api, PageLayout, VersionPayload } from '../api.ts';
+import { describe, locatorKey } from '../api.ts';
+import type { Api } from '../api.ts';
+import type { Locator, RenderGeometry, RenderReference } from '../generated/protocol.ts';
 
 interface Props {
   api: Api;
-  version: VersionPayload;
-  /** Selected measures, keyed `staff:measure`. */
-  selected: Set<string>;
-  busy: boolean;
-  onSelect: (page: number, x: number, y: number) => void;
+  render: RenderReference;
+  selected?: Locator[];
+  selectable?: boolean;
+  onPoint?: (page: number, x: number, y: number) => void;
+  onToggle?: (locator: Locator) => void;
 }
-
-const VIEWBOX = /viewBox="([^"]+)"/;
-
-export function ScoreView({ api, version, selected, busy, onSelect }: Props) {
+export function ScoreView({
+  api,
+  render,
+  selected = [],
+  selectable = false,
+  onPoint,
+  onToggle,
+}: Props) {
   const [page, setPage] = useState(1);
-  const [svg, setSvg] = useState<string | null>(null);
+  const [geometry, setGeometry] = useState<RenderGeometry | null>(null);
+  const [image, setImage] = useState<{ key: string; page: number; url: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  const overlay = useRef<SVGSVGElement>(null);
+  const [zoom, setZoom] = useState(100);
+  const currentPage = render.manifest.pages.some((p) => p.page === page)
+    ? page
+    : (render.manifest.pages[0]?.page ?? 1);
   useEffect(() => {
     let live = true;
-    setSvg(null);
-    setError(null);
-    const rel = version.pages.find((p) => p.page === page);
-    if (!rel) return;
+    setGeometry(null);
     api
-      .fetchText(rel.svgUrl)
-      .then((text) => {
-        if (live) setSvg(text);
+      .geometry(render.renderKey)
+      .then((g) => {
+        if (live) setGeometry(g);
       })
-      // A page that vanished from the cache (the node was re-rendered) is recoverable by re-rendering.
       .catch((e) => {
-        if (live) setError(String((e as Error).message));
+        if (live) setError(describe(e));
       });
     return () => {
       live = false;
     };
-  }, [api, page, version]);
-
-  const layout: PageLayout | undefined = useMemo(
-    () => version.layout.pages.find((p) => p.page === page),
-    [version, page],
-  );
-  const viewBox = useMemo(() => (svg ? (VIEWBOX.exec(svg)?.[1] ?? null) : null), [svg]);
-
-  function handleClick(ev: React.MouseEvent<HTMLDivElement>) {
-    if (busy) return;
-    const root = ev.currentTarget.querySelector('svg');
-    const ctm = root?.getScreenCTM();
-    if (!root || !ctm) return;
-    const pt = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(ctm.inverse());
-    onSelect(page, pt.x, pt.y);
-  }
-
+  }, [api, render.renderKey]);
+  useEffect(() => {
+    let live = true;
+    let url: string | undefined;
+    setError(null);
+    api
+      .page(render.renderKey, currentPage)
+      .then((blob) => {
+        if (!live) return;
+        url = URL.createObjectURL(blob);
+        setImage({ key: render.renderKey, page: currentPage, url });
+      })
+      .catch((e) => {
+        if (live) setError(describe(e));
+      });
+    return () => {
+      live = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [api, render.renderKey, currentPage]);
+  const layout = geometry?.pages.find((p) => p.page === currentPage);
+  const box = layout?.viewBox;
+  const ready = image?.key === render.renderKey && image.page === currentPage;
+  const canSelect = selectable && ready && geometry?.sourceHash === render.manifest.sourceHash;
+  const keys = new Set(selected.map(locatorKey));
+  const regions = layout?.regions ?? [];
   return (
-    <section className="score">
-      <header className="score-bar">
-        <div className="tabs">
-          {version.pages.map((p) => (
-            <button
-              key={p.page}
-              className={p.page === page ? 'tab on' : 'tab'}
-              type="button"
-              onClick={() => setPage(p.page)}
-            >
-              第 {p.page} 页
-            </button>
-          ))}
-        </div>
-        <span className="hint">
-          引擎 {version.engineTag} · 渲染 {version.renderMs} ms
-          {version.log.length ? ` · ${version.log.length} 条提示` : ' · 无警告'}
-        </span>
-      </header>
-
-      {error ? (
-        <p className="error">无法载入谱面：{error}</p>
-      ) : !svg ? (
-        <p className="hint">载入中…</p>
+    <section className="score" aria-label="谱面">
+      <div className="score-bar">
+        <label>
+          页码{' '}
+          <select
+            aria-label="谱面页码"
+            value={currentPage}
+            onChange={(e) => setPage(Number(e.target.value))}
+          >
+            {render.manifest.pages.map((p) => (
+              <option key={p.page} value={p.page}>
+                第 {p.page} 页
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          缩放{' '}
+          <select
+            aria-label="谱面缩放"
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+          >
+            {[75, 100, 125, 150, 200].map((n) => (
+              <option key={n} value={n}>
+                {n}%
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="hint">共 {render.manifest.pages.length} 页</span>
+      </div>
+      {error && (
+        <p className="error" role="alert">
+          无法载入谱面：{error}
+        </p>
+      )}
+      {!ready ? (
+        <p className="hint">载入谱面…</p>
       ) : (
-        <div
-          className="page-host"
-          onClick={handleClick}
-          role="button"
-          tabIndex={0}
-          aria-label="点击小节以选择"
-          title="点击小节进行选择"
-        >
-          <div className="inlined" dangerouslySetInnerHTML={{ __html: svg }} />
-          {layout && viewBox && (
-            <svg
-              className="overlay"
-              viewBox={viewBox}
-              preserveAspectRatio="xMidYMid meet"
-              aria-hidden
-            >
-              {layout.systems.flatMap((sys) =>
-                layout.columns
-                  .filter((col) => col.system === sys.system)
-                  .flatMap((col) =>
-                    [...selected]
-                      // A selected key is `staff:measure`. The grid collapses staff-parallel
-                      // columns (layout-join.ts), so a measure column belongs to the whole
-                      // system: highlight it on every staff whose measure number matches,
-                      // otherwise a click resolved to the lower staff would draw no box at all.
-                      .filter((k) => k.endsWith(`:${col.measure}`))
-                      .map((key) => {
-                        const staff = Number(key.split(':')[0]);
-                        const st = sys.staffs[staff] ?? sys.staffs[0];
-                        if (!st) return [];
-                        return (
-                          <rect
-                            key={`${key}@${sys.system}:${col.column}`}
-                            className="sel"
-                            x={col.x0}
-                            y={st.top}
-                            width={Math.max(0.5, col.x1 - col.x0)}
-                            height={st.bot - st.top}
-                            rx={0.6}
-                          />
-                        );
-                      }),
-                  ),
-              )}
-            </svg>
-          )}
+        <div className="page-scroll">
+          <div
+            className="page-host"
+            style={{
+              width: `${zoom}%`,
+              aspectRatio: box ? `${box.x1 - box.x0} / ${box.y1 - box.y0}` : undefined,
+            }}
+          >
+            <img
+              className="score-image"
+              src={image.url}
+              alt={`乐谱第 ${currentPage} 页；小节选择可使用下方控件`}
+              draggable={false}
+            />
+            {box && (
+              <svg
+                ref={overlay}
+                className={`overlay ${canSelect ? 'interactive' : ''}`}
+                viewBox={`${box.x0} ${box.y0} ${box.x1 - box.x0} ${box.y1 - box.y0}`}
+                aria-hidden="true"
+                onClick={(e) => {
+                  if (!canSelect) return;
+                  const ctm = overlay.current?.getScreenCTM();
+                  if (!ctm) return;
+                  const point = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+                  onPoint?.(currentPage, point.x, point.y);
+                }}
+              >
+                {regions
+                  .filter((r) => keys.has(locatorKey(r.locator)))
+                  .map((r, i) => (
+                    <rect
+                      key={i}
+                      className="selection-box"
+                      x={r.bounds.x0}
+                      y={r.bounds.y0}
+                      width={r.bounds.x1 - r.bounds.x0}
+                      height={r.bounds.y1 - r.bounds.y0}
+                    />
+                  ))}
+              </svg>
+            )}
+          </div>
         </div>
+      )}
+      {layout && layout.capability !== 'measure' && (
+        <p className="hint">
+          小节定位能力：{layout.capability}。
+          {layout.reason ?? '此页仅能浏览，请让 Agent 直接检查源码。'}
+        </p>
+      )}
+      {regions.length > 0 && (
+        <details className="measure-picker">
+          <summary>使用键盘选择小节</summary>
+          <div className="measure-options">
+            {regions.map((r, i) => (
+              <button
+                type="button"
+                key={`${r.systemIndex}:${i}`}
+                disabled={!canSelect}
+                aria-pressed={keys.has(locatorKey(r.locator))}
+                onClick={() => onToggle?.(r.locator)}
+              >
+                谱表 {r.locator.staffIndex + 1} · 第 {r.locator.measureStart}
+                {r.locator.measureEnd !== r.locator.measureStart
+                  ? `–${r.locator.measureEnd}`
+                  : ''}{' '}
+                小节
+              </button>
+            ))}
+          </div>
+        </details>
       )}
     </section>
   );

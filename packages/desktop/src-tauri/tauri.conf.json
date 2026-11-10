@@ -6,31 +6,27 @@
   "build": {
     "beforeDevCommand": "node scripts/ui-dev.mjs",
     "beforeBuildCommand": "node scripts/ui-dev.mjs build",
-    "devUrl": "http://127.0.0.1:5173",
+    "devUrl": "http://127.0.0.1:5173/admin.html",
     "frontendDist": "../../ui/dist"
   },
   "app": {
     "windows": [
       {
-        "title": "Ossia",
-        "width": 1360,
-        "height": 900,
-        "minWidth": 900,
-        "minHeight": 620,
+        "title": "Ossia 管理",
+        "width": 920,
+        "height": 760,
+        "minWidth": 520,
+        "minHeight": 480,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "label": "management",
+        "url": "admin.html"
       }
     ],
     "security": {
       "csp": {
         "default-src": "'self'",
-        "connect-src": [
-          "ipc: http://ipc.localhost",
-          "http://127.0.0.1:*",
-          "http://localhost:*",
-          "https:",
-          "ws://127.0.0.1:5173"
-        ],
+        "connect-src": ["ipc: http://ipc.localhost", "ws://127.0.0.1:5173"],
         "img-src": "'self' data: blob:",
         "style-src": "'self' 'unsafe-inline'",
         "font-src": "'self'",

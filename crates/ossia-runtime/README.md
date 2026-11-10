@@ -10,7 +10,7 @@ pnpm engine:verify
 pnpm dev:runtime
 ```
 
-`dev:runtime` explicitly selects the repository `.ossia`, port 3212, the prepared engine and UI dist, and permits `http://127.0.0.1:5173`. It does not start Vite or install resources. A legacy library blocks startup without changing its files; P07 owns cutover. API wiring in the existing SPA belongs to P05.
+`dev:runtime` explicitly selects the repository `.ossia`, port 3212, the prepared engine and UI dist, and permits `http://127.0.0.1:5173`. It does not start Vite or install resources. A legacy library blocks startup without changing its files; P07 owns cutover. The P05 score SPA and Tauri admin window consume the same local API; `pnpm dev:desktop` also drives the development service and Vite.
 
 The binary is `target/debug/ossia-desktop`. Global options precede or follow the subcommand:
 
@@ -52,7 +52,7 @@ JSON request bodies are limited to 1 MiB. Multipart import accepts one `metadata
 
 A content poll every second complements native filesystem notifications, including environments where FSEvents cannot start. Changes have a further 300 ms debounce; atomic replacement and deletion/recreation are supported. Only pending previews coalesce, and superseded job IDs remain cancelled and queryable. Explicit checks keep their captured snapshots. Context/check/commit reread source even without a watcher event.
 
-Render keys include document ownership, source hash, engine build and options hash. SVG is served only through a stored manifest and verified artifact. Exports require documentId + versionId, use immutable snapshots and never overwrite destinations. Missing outputPath selects a unique file under the system Downloads/Ossia directory.
+Render keys include document ownership, source hash, engine build and options hash. SVG is served only through a stored manifest and verified artifact; authenticated geometry returns page viewBox, locator capability and staff rectangles from the shared index. Exports require documentId + versionId, use immutable snapshots and never overwrite destinations. Missing outputPath selects a unique file under the system Downloads/Ossia directory. Historical `POST /documents/{id}/versions/{versionId}/render` renders a fixed version without changing the public source or preview. `POST /jobs/{jobId}/reveal` accepts only the verified result path of a successful export job.
 
 ## Contracts and validation
 
@@ -65,10 +65,10 @@ cargo test -p ossia-runtime
 
 OSSIA_TEST_EXECUTABLE="$PWD/target/debug/ossia-desktop" \
 OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" \
-OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p04-native.json" \
+OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p05-native.json" \
 cargo test -p ossia-runtime --test native_runtime -- --ignored
 ```
 
 Rust DTOs own TypeScript declarations and all 14 tool schemas: the 13 workflow tools plus ossia_doctor. Generated files have non-mutating drift checks in CI. Protocol and library schema remain 1. Missing native resources fail the explicit native suite rather than count as skipped success.
 
-The runtime lock is Library's lifetime OS lock, not the discovery JSON. Unix IPC uses a checked private per-user directory and a 0600 socket; Windows pipes receive a DACL for the current user's SID. The lock winner alone publishes/replaces discovery and stale sockets. Headless task and transport tests do not establish other-platform native behavior or P05/P06 browser integrations.
+The runtime lock is Library's lifetime OS lock, not the discovery JSON. Unix IPC uses a checked private per-user directory and a 0600 socket; Windows pipes receive a DACL for the current user's SID. The lock winner alone publishes/replaces discovery and stale sockets. P05 browser integration is covered separately by `pnpm test:ui` and `pnpm test:ui:native`; headless task and transport tests do not establish other-platform native behavior or P06 host integrations.

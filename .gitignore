@@ -32,3 +32,8 @@ packages/desktop/src-tauri/gen/
 
 # Shared Rust workspace artifacts
 /target/
+
+# Browser test and UI review artifacts
+packages/ui/test-results/
+packages/ui/playwright-report/
+.impeccable/review/

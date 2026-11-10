@@ -214,6 +214,17 @@ async fn api(
         let p: Vec<_> = path.iter().map(String::as_str).collect();
         let mut queued = false;
         let result = match (method.as_str(), p.as_slice()) {
+            ("GET", ["renders", key, "geometry"]) => {
+                value(runtime.geometry(&key.to_string().try_into()?)?)?
+            }
+            ("POST", ["documents", doc, "versions", version, "render"]) => {
+                queued = true;
+                value(runtime.render_version(id(doc)?, id(version)?)?)?
+            }
+            ("POST", ["jobs", job, "reveal"]) => {
+                runtime.reveal_export(id(job)?)?;
+                json!({"opened":true})
+            }
             ("GET", ["status"]) => value(runtime.status()?)?,
             ("GET", ["documents"]) => value(runtime.library.list_documents()?)?,
             ("GET", ["documents", doc]) => {

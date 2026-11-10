@@ -27,7 +27,9 @@
     "check:types": "cargo run --quiet -p ossia-types --bin generate-types -- --check",
     "test:runtime": "cargo test -p ossia-runtime",
     "generate:contracts": "cargo run --quiet -p ossia-runtime --bin generate-contracts --",
-    "check:contracts": "cargo run --quiet -p ossia-runtime --bin generate-contracts -- --check"
+    "check:contracts": "cargo run --quiet -p ossia-runtime --bin generate-contracts -- --check",
+    "test:ui": "pnpm --filter @ossia/ui test",
+    "test:ui:native": "pnpm --filter @ossia/ui test:native"
   },
   "devDependencies": {
     "vite-plus": "1.1.0"

@@ -1,92 +1,110 @@
-// Chain 1 in the UI: pick a file, and show what the converter reported instead of pretending the
-// import was clean. The server returns 422 `confirm-required` for localised losses (ADR-0001 §6.1),
-// so the player sees the exact warning list and decides; `Negative skip` is a hard refusal with no
-// confirm path, because §3.11 measured it as a timeline corruption that confirmation cannot cure.
 import { useState } from 'react';
 
-import type { Api, ImportResult, ImportStats } from '../api.ts';
-import { ApiError } from '../api.ts';
+import { ApiError, describe } from '../api.ts';
+import type { Api } from '../api.ts';
+import type { ImportOutcome, ImportReport, InputFormat } from '../generated/protocol.ts';
 
-interface Props {
+export function ImportPanel({
+  api,
+  onImported,
+  onError,
+}: {
   api: Api;
-  onImported: (r: ImportResult) => void;
-  onBusy: (b: boolean) => void;
-}
-
-export function ImportPanel({ api, onImported, onBusy }: Props) {
+  onImported: (id: string) => void;
+  onError: (e: unknown) => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
-  const [report, setReport] = useState<ImportStats | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [report, setReport] = useState<ImportReport | null>(null);
   const [working, setWorking] = useState(false);
-
-  async function send(confirm?: string) {
+  const [error, setError] = useState('');
+  async function send(confirmation: string | null = null) {
     if (!file) return;
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const format: InputFormat | undefined =
+      extension === 'ly'
+        ? 'ly'
+        : ['xml', 'musicxml'].includes(extension ?? '')
+          ? 'music-xml'
+          : ['mid', 'midi'].includes(extension ?? '')
+            ? 'midi'
+            : undefined;
+    if (!format) {
+      setError('请选择 LilyPond、MusicXML 或 MIDI 单文件；暂不支持 .mxl。');
+      return;
+    }
     setWorking(true);
-    onBusy(true);
-    setError(null);
+    setError('');
     try {
-      const r = await api.importDocument(file, confirm);
-      setReport(null);
-      onImported(r);
+      const job = await api.import(file, {
+        title: file.name.replace(/\.[^.]+$/, ''),
+        format,
+        confirmation,
+        author: 'user',
+      });
+      const result = await api.waitJob<ImportOutcome>(job);
+      setReport(result.report);
+      if (result.document) {
+        setFile(null);
+        setReport(null);
+        onImported(result.document.documentId);
+      }
     } catch (e) {
-      if (e instanceof ApiError && (e.code === 'confirm-required' || e.code === 'needs-review')) {
-        setReport(e.detail as ImportStats);
-      } else setError(String((e as Error).message));
+      if (
+        e instanceof ApiError &&
+        e.detail &&
+        ['import-confirm-required', 'import-refused'].includes(e.code)
+      ) {
+        const detail = e.detail as ImportReport | { report: ImportReport };
+        setReport('report' in detail ? detail.report : detail);
+      } else {
+        setError(describe(e));
+        onError(e);
+      }
     } finally {
       setWorking(false);
-      onBusy(false);
     }
   }
-
   return (
     <section className="panel import">
-      <h3>导入 MusicXML / MIDI</h3>
+      <h2>导入乐谱</h2>
+      <label htmlFor="score-file">单文件 LilyPond / MusicXML / MIDI</label>
       <input
+        id="score-file"
         type="file"
-        accept=".xml,.musicxml,.mxl,.mid,.midi"
-        aria-label="选择乐谱文件"
-        onChange={(ev) => {
-          setFile(ev.target.files?.[0] ?? null);
+        accept=".ly,.xml,.musicxml,.mid,.midi"
+        disabled={working}
+        onChange={(e) => {
+          setFile(e.target.files?.[0] ?? null);
           setReport(null);
-          setError(null);
+          setError('');
         }}
       />
-      <div className="row">
-        <button type="button" disabled={!file || working} onClick={() => void send()}>
-          {working ? '导入中…' : '导入'}
-        </button>
-        {file && <span className="hint">{file.name}</span>}
-      </div>
-      {error && <p className="error">{error}</p>}
-
+      <button type="button" disabled={!file || working} onClick={() => void send()}>
+        {working ? '正在转换与排版…' : '导入'}
+      </button>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
       {report && (
-        <div className="report" role="status">
+        <div className="import-report" role="status">
           <p className={report.status === 'refused' ? 'error' : 'warn'}>
             {report.status === 'refused'
-              ? '转换器报告了不可放行的问题，已拒绝入库'
-              : '转换产生了局部损失，需要你确认后才会入库'}
+              ? '已拒绝导入：存在无法放行的问题。'
+              : '转换存在以下损失，请确认。'}
           </p>
           <ul>
-            {report.blocking.map((w) => (
-              <li key={w.digest} className="bad">
-                {w.warning} — {w.reason}
-              </li>
-            ))}
-            {report.losses.map((w) => (
-              <li key={w.digest} className="loss">
-                {w.warning}
-              </li>
+            {[...report.blocking, ...report.losses].map((line, i) => (
+              <li key={i}>{line}</li>
             ))}
           </ul>
-          {report.notes.map((n) => (
-            <p key={n} className="hint">
-              {n}
-            </p>
+          {report.diagnostics.map((d, i) => (
+            <p key={i}>{d.message}</p>
           ))}
-          {report.hint && <p className="hint">{report.hint}</p>}
-          {report.status !== 'refused' && (
-            <button type="button" disabled={working} onClick={() => void send('all')}>
-              已知悉损失，确认入库
+          {report.status === 'needs-confirmation' && report.confirmation && (
+            <button type="button" disabled={working} onClick={() => void send(report.confirmation)}>
+              知悉损失，确认导入
             </button>
           )}
         </div>

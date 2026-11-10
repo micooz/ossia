@@ -978,3 +978,80 @@ async fn running_import_restore_export_cancellation_finishes_before_publishing()
     );
     f.finish().await;
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn browser_version_renders_are_immutable_and_edit_summaries_omit_credentials() {
+    let f = Fixture::new(true).await;
+    let edit = f.begin();
+    let snapshot = f.runtime.context(f.view).unwrap();
+    let activity = snapshot.edit_activity.unwrap();
+    assert_eq!(activity.author, "test-agent");
+    assert!(activity.owned_by_view);
+    let other = f
+        .runtime
+        .open_view(Some(f.doc.document_id))
+        .unwrap()
+        .view_id;
+    let public = serde_json::to_string(&f.runtime.context(other).unwrap()).unwrap();
+    assert!(!public.contains(&edit.edit_id.to_string()));
+    assert!(
+        !f.runtime
+            .context(other)
+            .unwrap()
+            .edit_activity
+            .unwrap()
+            .owned_by_view
+    );
+    let changed = f.save(b"\\score { { g'1 } }");
+    let before = f.runtime.context(f.view).unwrap().document.unwrap();
+    let job = f
+        .runtime
+        .render_version(f.doc.document_id, f.doc.head_version_id.unwrap())
+        .unwrap();
+    assert_eq!(job.source_hash, Some(f.doc.source_hash.clone()));
+    let job = wait_job(&f.runtime, job.job_id).await;
+    assert_eq!(job.state, JobState::Done);
+    let reference: RenderReference = serde_json::from_value(job.result.unwrap()).unwrap();
+    assert_eq!(reference.manifest.source_hash, f.doc.source_hash);
+    let geometry = f.runtime.geometry(&reference.render_key).unwrap();
+    assert_eq!(geometry.source_hash, f.doc.source_hash);
+    assert!(geometry.pages.iter().all(|p| p.regions.is_empty()));
+    let after = f.runtime.context(f.view).unwrap().document.unwrap();
+    assert_eq!(after, before);
+    assert_eq!(after.source_hash, changed);
+    assert_eq!(
+        f.runtime.library.history(f.doc.document_id).unwrap().len(),
+        1
+    );
+    assert!(f
+        .runtime
+        .render_version(DocumentId::new(), f.doc.head_version_id.unwrap())
+        .is_err());
+    assert!(f.runtime.geometry(&ContentHash::of(b"missing")).is_err());
+    assert!(f.runtime.export_location(job.job_id).is_err());
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn reveal_only_resolves_intact_completed_export_results() {
+    let f = Fixture::new(true).await;
+    let target = f.root.path().join("result.ly");
+    let job = f
+        .runtime
+        .export(ExportArgs {
+            document_id: f.doc.document_id,
+            version_id: f.doc.head_version_id.unwrap(),
+            format: ExportFormat::Ly,
+            output_path: Some(target.to_string_lossy().into_owned()),
+        })
+        .unwrap();
+    assert_eq!(wait_job(&f.runtime, job.job_id).await.state, JobState::Done);
+    assert_eq!(f.runtime.export_location(job.job_id).unwrap(), target);
+    std::fs::write(&target, b"changed").unwrap();
+    assert_eq!(
+        f.runtime.export_location(job.job_id).unwrap_err().code,
+        ErrorCode::StorageError
+    );
+    assert!(f.runtime.export_location(JobId::new()).is_err());
+    f.finish().await;
+}

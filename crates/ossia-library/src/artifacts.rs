@@ -13,6 +13,57 @@ pub fn render_key(document: DocumentId, render: &RenderManifest) -> ContentHash 
 }
 
 impl Library {
+    pub fn edit_activity(
+        &self,
+        document: DocumentId,
+        view: ViewId,
+    ) -> Result<Option<EditActivity>> {
+        Ok(
+            db::active_edit(&*self.db()?, document)?.map(|edit| EditActivity {
+                author: edit.author,
+                status: edit.status,
+                owned_by_view: edit.owner_view_id == view,
+            }),
+        )
+    }
+
+    pub fn render_snapshot(&self, key: &ContentHash) -> Result<SourceSnapshot> {
+        let (document, manifest) = self.render(key)?;
+        SourceSnapshot::new(document, self.store.get(&manifest.source_hash)?)
+    }
+
+    pub fn render_version(
+        &self,
+        engine: &dyn EngineBackend,
+        document: DocumentId,
+        version: VersionId,
+        context: &RunContext,
+    ) -> Result<RenderReference> {
+        let version = self.get_version(document, version)?;
+        let options = CompileOptions::default();
+        let options_hash = ContentHash::of(&serde_json::to_vec(&options).map_err(storage_error)?);
+        let cached: Option<String> = {
+            use rusqlite::OptionalExtension;
+            self.db()?.query_row("SELECT body FROM renders WHERE document_id=?1 AND source_hash=?2 AND engine_build_id=?3 AND options_hash=?4",
+                rusqlite::params![document.to_string(), version.source_hash.to_string(), engine.build_id(), options_hash.to_string()], |r| r.get(0)).optional().map_err(storage_error)?
+        };
+        let snapshot = self.version_snapshot(version.version_id)?;
+        let render = if let Some(body) = cached {
+            db::decode(body)?
+        } else {
+            engine.compile(&snapshot, &options, &self.artifact_root()?, context)?
+        };
+        if !self.validate_render(engine, &snapshot, &render)? {
+            return Err(compile_error(&render));
+        }
+        context.check()?;
+        db::record_render(&*self.db()?, document, &render)?;
+        Ok(RenderReference {
+            render_key: render_key(document, &render),
+            manifest: render,
+        })
+    }
+
     pub fn list_jobs(&self) -> Result<Vec<Job>> {
         let conn = self.db()?;
         let mut statement = conn

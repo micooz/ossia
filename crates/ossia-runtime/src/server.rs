@@ -239,3 +239,45 @@ async fn shutdown_signal() {
     }
     let _ = tokio::signal::ctrl_c().await;
 }
+
+/// Inspects configuration and resources without starting a service or opening the library.
+pub async fn doctor(config: &Config) -> Result<DoctorReport> {
+    let root = config.engine_root.clone();
+    let resource = tokio::task::spawn_blocking(move || {
+        let scratch = tempfile::tempdir().map_err(storage)?;
+        ossia_engine::Engine::verify(&root, scratch.path(), &ossia_engine::RunContext::default())
+            .map(|engine| engine.build_id().to_string())
+    })
+    .await
+    .map_err(storage)?;
+    let discovery = ipc::connect(&config.home).await;
+    Ok(DoctorReport {
+        home: config.home.to_string_lossy().into_owned(),
+        engine: match resource {
+            Ok(id) => EngineHealth {
+                ok: true,
+                build_id: Some(id),
+                error: None,
+            },
+            Err(error) => EngineHealth {
+                ok: false,
+                build_id: None,
+                error: Some(error),
+            },
+        },
+        runtime: match discovery {
+            Ok(d) => RuntimeHealth {
+                ok: true,
+                info: Some(d.runtime),
+                error: None,
+            },
+            Err(error) => RuntimeHealth {
+                ok: false,
+                info: None,
+                error: Some(error),
+            },
+        },
+        legacy_data_present: config.home.join("db.sqlite").exists()
+            && !config.home.join("library.sqlite").exists(),
+    })
+}

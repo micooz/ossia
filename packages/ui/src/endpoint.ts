@@ -1,33 +1,42 @@
-// Which API deployment to talk to, and the secret it expects.
-//
-// Two ways in, and no third: the Tauri shell resolves `{ baseUrl, token }` through the
-// `get_endpoint` command (env -> <app_data>/config.json -> loopback dev), and the browser dev build
-// reads VITE_API_BASE. The SPA never guesses a port, because two live deployments would otherwise
-// mean the UI talks to the wrong document store.
-export interface Endpoint {
-  baseUrl: string;
+import type { ExchangeResponse, ViewSnapshot } from './generated/protocol.ts';
+
+export interface Session {
   token: string;
-  /** Human-readable origin, for the status line. */
-  source: 'tauri' | 'env';
+  viewId: string;
 }
+const storageKey = (viewId: string) => `ossia:view:${viewId}`;
+let boot: Promise<{ session: Session; view?: ViewSnapshot }> | undefined;
 
-type TauriWindow = Window & { __OSSIA_ENDPOINT__?: { baseUrl: string; token: string } };
-
-export async function resolveEndpoint(): Promise<Endpoint> {
-  const injected = (window as TauriWindow).__OSSIA_ENDPOINT__;
-  if (injected?.baseUrl)
-    return { baseUrl: injected.baseUrl, token: injected.token ?? '', source: 'tauri' };
-
-  if ('__TAURI_INTERNALS__' in window) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    const r = await invoke<{ baseUrl: string; token: string }>('get_endpoint');
-    return { baseUrl: r.baseUrl, token: r.token, source: 'tauri' };
+export function resolveSession() {
+  return (boot ??= exchange());
+}
+async function exchange(): Promise<{ session: Session; view?: ViewSnapshot }> {
+  const fragment = new URLSearchParams(location.hash.slice(1));
+  const ticket = fragment.get('ticket');
+  if (ticket) {
+    history.replaceState(null, '', location.pathname + location.search);
+    const response = await fetch('/api/v1/sessions/exchange', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticket }),
+    });
+    if (!response.ok) throw new Error('打开链接已过期或已使用，请让 Agent 重新打开谱面。');
+    const result: ExchangeResponse = await response.json();
+    const session = { token: result.token, viewId: result.view.viewId };
+    sessionStorage.setItem(storageKey(session.viewId), JSON.stringify(session));
+    history.replaceState(null, '', `${location.pathname}${location.search}#view=${session.viewId}`);
+    return { session, view: result.view };
   }
-
-  const env = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://127.0.0.1:3210';
-  return {
-    baseUrl: env.replace(/\/$/, ''),
-    token: (import.meta.env.VITE_API_TOKEN as string | undefined) ?? '',
-    source: 'env',
-  };
+  const viewId = fragment.get('view');
+  if (viewId) {
+    const raw = sessionStorage.getItem(storageKey(viewId));
+    if (raw) {
+      const session: Session = JSON.parse(raw);
+      if (session.viewId === viewId && typeof session.token === 'string') return { session };
+    }
+  }
+  throw new Error('请让 Agent 使用 ossia_open 打开谱面。每个打开链接对应独立视图。');
+}
+export function forgetSession(session: Session) {
+  sessionStorage.removeItem(storageKey(session.viewId));
 }
