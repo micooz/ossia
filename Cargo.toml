@@ -1,7 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["crates/ossia-types", "crates/ossia-score", "packages/desktop/src-tauri"]
-default-members = ["crates/ossia-types", "crates/ossia-score"]
+members = [
+  "crates/ossia-types",
+  "crates/ossia-score",
+  "crates/ossia-engine",
+  "packages/desktop/src-tauri",
+]
+default-members = ["crates/ossia-types", "crates/ossia-score", "crates/ossia-engine"]
 
 [workspace.package]
 version = "0.0.0"

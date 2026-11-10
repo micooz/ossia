@@ -1,217 +1,286 @@
 import { execFileSync, execFile } from 'node:child_process';
 import crypto from 'node:crypto';
-// Vendored LilyPond engine: verify / install / self-heal (ADR-0001 D4, ADR-0002 §8).
-//
-// The engine is ~128 MB unpacked, so it lives in vendor/lilypond/<tag> and is
-// gitignored. vendor/ENGINE.lock is the committed source of truth: the tarball is
-// fetched once, sha256-verified, and extracted with `tar` (which restores mtimes —
-// LilyPond refuses to start when a compiled `.go` is older than its `.scm`).
-//
-//   node scripts/engine.mjs verify    # exit non-zero + reason when the tree is unusable
-//   node scripts/engine.mjs install   # download + extract when missing or broken
-//   node scripts/engine.mjs path      # print the engine root the server should use
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const VENDOR = path.join(ROOT, 'vendor');
-
-// `key = "value"` lines, `#` comments. Deliberately tiny: the lock is read at server
-// startup too, so it must not drag in a TOML dependency.
-export function parseLock(text) {
-  const out = {};
-  for (const line of text.split('\n')) {
-    const m = /^\s*([A-Za-z0-9_]+)\s*=\s*"([^"]*)"\s*$/.exec(line);
-    if (m) out[m[1]] = m[2];
-  }
-  return out;
-}
-
-export function readLock(root = ROOT) {
-  const p = path.join(root, 'vendor', 'ENGINE.lock');
-  if (!fs.existsSync(p)) throw new Error(`missing engine lock: ${p}`);
-  const lock = parseLock(fs.readFileSync(p, 'utf8'));
-  for (const k of ['tag', 'version', 'url', 'file', 'sha256']) {
-    if (!lock[k]) throw new Error(`engine lock missing field: ${k}`);
-  }
-  return lock;
-}
-
 export const sha256 = (file) =>
   crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-
-// Where the server looks for the engine, in precedence order. `OSSIA_LILYPOND_ROOT`
-// lets a developer point at a system install without touching the vendor tree.
-export function candidateRoots(root = ROOT, env = process.env, homedir = os.homedir()) {
-  const lock = readLock(root);
-  const list = [];
-  if (env.OSSIA_LILYPOND_ROOT) list.push({ src: 'env', dir: env.OSSIA_LILYPOND_ROOT });
-  list.push({ src: 'vendor', dir: path.join(root, 'vendor', 'lilypond', lock.tag) });
-  list.push({
-    src: 'appdata',
-    dir: path.join(homedir, 'Library', 'Application Support', 'Ossia', 'engine', lock.tag),
-  });
-  return { lock, roots: list };
+export function hostTarget(platform = process.platform, arch = process.arch) {
+  const target = `${platform === 'win32' ? 'mingw' : platform}-${arch === 'x64' ? 'x86_64' : arch}`;
+  if (
+    !['darwin-arm64', 'darwin-x86_64', 'mingw-x86_64', 'linux-arm64', 'linux-x86_64'].includes(
+      target,
+    )
+  )
+    throw new Error(`unsupported engine target: ${target}`);
+  return target;
 }
-
-export function lilypondBin(dir) {
-  return path.join(dir, 'bin', 'lilypond');
+export function parseLock(text) {
+  const lock = JSON.parse(text);
+  if (lock.schemaVersion !== 1 || lock.version !== '2.26.0' || !lock.targets)
+    throw new Error('unsupported engine lock');
+  return lock;
 }
-
-// Structural checks only; `--version` proves the Guile modules actually load.
-function verifyTree(dir, lock) {
-  const problems = [];
-  if (!fs.existsSync(dir)) return [`not extracted: ${dir}`];
-  const bin = lilypondBin(dir);
-  if (!fs.existsSync(bin)) problems.push(`missing ${bin}`);
-  const scm = path.join(dir, 'share', 'lilypond', lock.version, 'scm');
-  if (!fs.existsSync(scm)) problems.push(`missing ${scm}`);
-  if (problems.length) return problems;
-  // mtime rule: every compiled module must be at least as new as its source module.
-  const newest = (glob) => {
-    let max = 0;
-    for (const f of walk(dir, glob)) max = Math.max(max, fs.statSync(f).mtimeMs);
-    return max;
+export function readLock(root = ROOT, target = hostTarget()) {
+  const lock = parseLock(fs.readFileSync(path.join(root, 'vendor/ENGINE.lock'), 'utf8'));
+  const entry = lock.targets[target];
+  if (!entry) throw new Error(`unlocked engine target: ${target}`);
+  return { ...entry, version: lock.version, target, tag: `${lock.version}-${target}` };
+}
+function confined(root, relative) {
+  if (
+    !relative ||
+    relative.includes('\\') ||
+    relative.includes(':') ||
+    relative.split('/').some((p) => !p || p === '..' || p === '.')
+  )
+    throw new Error('invalid engine resource path');
+  const value = path.join(root, relative);
+  const base = fs.realpathSync(root);
+  let ancestor = value;
+  while (!fs.existsSync(ancestor)) {
+    if (
+      fs.lstatSync(ancestor, { throwIfNoEntry: false })?.isSymbolicLink() &&
+      !fs.existsSync(ancestor)
+    )
+      throw new Error('dangling resource symlink');
+    ancestor = path.dirname(ancestor);
+  }
+  const real = fs.realpathSync(ancestor);
+  if (real !== base && !real.startsWith(`${base}${path.sep}`))
+    throw new Error('engine path escapes root');
+  return value;
+}
+function files(root, dir = root) {
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .flatMap((entry) => {
+      const absolute = path.join(dir, entry.name);
+      const relative = path.relative(root, absolute).split(path.sep).join('/');
+      if (
+        relative === 'resources.json' ||
+        entry.name === '__pycache__' ||
+        entry.name.endsWith('.pyc')
+      )
+        return [];
+      if (entry.isDirectory()) return files(root, absolute);
+      if (!entry.isFile()) throw new Error('unexpected engine symlink or special file');
+      return [relative];
+    })
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+export function candidateRoots(root = ROOT, env = process.env, target = hostTarget()) {
+  const lock = readLock(root, target);
+  // An explicit developer override is authoritative; failure must not select another build.
+  return {
+    lock,
+    roots: [
+      {
+        src: env.OSSIA_LILYPOND_ROOT ? 'env' : 'vendor',
+        dir: env.OSSIA_LILYPOND_ROOT ?? path.join(root, 'vendor/lilypond', lock.tag),
+      },
+    ],
   };
-  const goMax = newest('.go');
-  const scmMax = newest('.scm');
-  if (scmMax > goMax) {
-    problems.push(
-      `compiled modules older than sources (max .scm ${new Date(scmMax).toISOString()}` +
-        ` > max .go ${new Date(goMax).toISOString()}); run \`node scripts/engine.mjs install --refetch\``,
-    );
+}
+export function lilypondBin(dir) {
+  return path.join(dir, process.platform === 'win32' ? 'bin/lilypond.exe' : 'bin/lilypond');
+}
+function command(dir, tool) {
+  return [confined(dir, tool.program), tool.args.map((arg) => confined(dir, arg))];
+}
+export function verifyTree(dir, lock, native = true) {
+  if (!lock.archive) throw new Error(`${lock.target} is unbuilt; use the locked native recipe`);
+  const inventory = JSON.parse(fs.readFileSync(confined(dir, 'resources.json'), 'utf8'));
+  if (
+    inventory.schemaVersion !== 1 ||
+    inventory.target !== lock.target ||
+    inventory.engineBuildId !== lock.engineBuildId ||
+    inventory.archiveSha256 !== lock.archive.sha256
+  )
+    throw new Error('engine inventory does not match lock');
+  const paths = inventory.files.map((f) => f.path);
+  if (
+    JSON.stringify([...paths].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))) !==
+    JSON.stringify(files(dir))
+  )
+    throw new Error('incomplete engine inventory');
+  for (const file of inventory.files) {
+    const absolute = confined(dir, file.path);
+    const stat = fs.statSync(absolute);
+    if (
+      stat.size !== file.bytes ||
+      sha256(absolute) !== file.sha256 ||
+      (process.platform !== 'win32' && file.executable && !(stat.mode & 0o111))
+    )
+      throw new Error(`damaged engine resource: ${file.path}`);
   }
+  for (const required of lock.requiredDirectories)
+    if (
+      !fs.statSync(confined(dir, required)).isDirectory() ||
+      !fs.readdirSync(confined(dir, required)).length
+    )
+      throw new Error(`missing engine dependency: ${required}`);
+  for (const tool of Object.values(lock.tools)) command(dir, tool);
+  if (!native) return;
+  if (lock.target !== hostTarget()) throw new Error('cannot execute a foreign-target engine');
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'ossia-engine-verify-'));
   try {
-    const out = execFileSync(bin, ['--version'], { encoding: 'utf8', timeout: 30000 });
-    if (!out.includes(lock.version))
-      problems.push(`lilypond --version says: ${out.split('\n')[0]}`);
-  } catch (e) {
-    problems.push(`lilypond --version failed: ${String(e.message).slice(0, 200)}`);
-  }
-  return problems;
-}
-
-// Cheap recursive filename scan (the tree is ~1900 files, so this is milliseconds).
-function* walk(dir, ext) {
-  const stack = [dir];
-  while (stack.length) {
-    const d = stack.pop();
-    let ents;
-    try {
-      ents = fs.readdirSync(d, { withFileTypes: true });
-    } catch {
-      continue;
+    for (const name of ['home', 'cache', 'tmp']) fs.mkdirSync(path.join(scratch, name));
+    const env = {
+      ...process.env,
+      HOME: path.join(scratch, 'home'),
+      USERPROFILE: path.join(scratch, 'home'),
+      XDG_CACHE_HOME: path.join(scratch, 'cache'),
+      TMPDIR: path.join(scratch, 'tmp'),
+      TMP: path.join(scratch, 'tmp'),
+      TEMP: path.join(scratch, 'tmp'),
+      GUILE_AUTO_COMPILE: '0',
+      PYTHONDONTWRITEBYTECODE: '1',
+      LC_ALL: 'C.UTF-8',
+    };
+    for (const key of ['PYTHONHOME', 'PYTHONPATH', 'GUILE_LOAD_PATH', 'GUILE_LOAD_COMPILED_PATH'])
+      delete env[key];
+    for (const tool of Object.values(lock.tools)) {
+      const [program, prefix] = command(dir, tool);
+      const output = execFileSync(program, [...prefix, '--version'], {
+        cwd: scratch,
+        env,
+        encoding: 'utf8',
+        timeout: 30000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      if (!/\b2\.26\.0(?:\s|$)/.test(output)) throw new Error('wrong engine tool version');
     }
-    for (const ent of ents) {
-      const p = path.join(d, ent.name);
-      if (ent.isDirectory()) stack.push(p);
-      else if (ent.isFile() && ent.name.endsWith(ext)) yield p;
-    }
+    fs.writeFileSync(
+      path.join(scratch, 'score.ly'),
+      '\\version "2.26.0"\n\\score { { c\'1 } \\layout {} }\n',
+    );
+    const [program, prefix] = command(dir, lock.tools.lilypond);
+    execFileSync(program, [...prefix, '--svg', '-o', 'score', 'score.ly'], {
+      cwd: scratch,
+      env,
+      timeout: 30000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (!fs.existsSync(path.join(scratch, 'score.svg')))
+      throw new Error('engine SVG smoke test produced no output');
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
   }
 }
-
-// tar -tzf listing is enough to know whether the archive is already on disk and correct;
-// we only hash when we are about to extract.
-async function ensureTarball(lock, opts = {}) {
-  const dist = path.join(VENDOR, 'dist');
-  const tarball = path.join(dist, lock.file);
-  fs.mkdirSync(dist, { recursive: true });
-  if (fs.existsSync(tarball) && !opts.refetch) {
-    const got = sha256(tarball);
-    if (got === lock.sha256) return tarball;
-    if (!opts.allowDownload) throw new Error(`tarball sha mismatch: ${got} != ${lock.sha256}`);
-  } else if (!opts.allowDownload) {
-    throw new Error(`engine tarball not present: ${tarball}`);
-  }
-  process.stderr.write(`downloading ${lock.url}\n`);
-  const res = await fetch(lock.url, { signal: AbortSignal.timeout(600000) });
-  if (!res.ok) throw new Error(`download failed: HTTP ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  const got = crypto.createHash('sha256').update(buf).digest('hex');
-  if (got !== lock.sha256) throw new Error(`downloaded sha mismatch: ${got} != ${lock.sha256}`);
-  fs.writeFileSync(tarball, buf);
-  return tarball;
-}
-
-// Extract with `tar` (preserves mtimes + executable bits). `.go` files are then touched so
-// the compiled modules are strictly newer than their sources on any host clock.
-export async function install(root = ROOT, opts = {}) {
-  const lock = readLock(root);
-  const dir = path.join(root, 'vendor', 'lilypond', lock.tag);
-  const tarball = await ensureTarball(lock, opts);
-  fs.rmSync(dir, { recursive: true, force: true });
-  fs.mkdirSync(dir, { recursive: true });
-  process.stderr.write(`extracting ${path.basename(tarball)} -> ${path.relative(root, dir)}\n`);
-  await run('tar', ['-xzf', tarball, '-C', dir, '--strip-components=1'], { maxBuffer: 1 << 24 });
-  const touched = await refreshGoMtimes(dir);
-  process.stderr.write(`refreshed ${touched} compiled modules\n`);
-  const problems = verifyTree(dir, lock);
-  if (problems.length) throw new Error(`engine still broken:\n  ${problems.join('\n  ')}`);
-  return { dir, lock };
-}
-
-// Heal the Guile mtime rule (alternatives-evaluation §3.13): a copy that flattens mtimes
-// makes LilyPond recompile its whole module tree on every run (measured: 0.3 s -> 165 s).
-// Touching every `.go` to "now, or just after the newest `.scm`" restores the invariant
-// without trusting the host clock. `fs.utimesSync` instead of `touch` because the file list
-// is long enough to blow the argv limit.
 export async function refreshGoMtimes(dir) {
-  let scmMax = 0;
-  for (const f of walk(dir, '.scm')) scmMax = Math.max(scmMax, fs.statSync(f).mtimeMs);
-  const stamp = new Date(Math.max(Date.now(), scmMax + 60_000));
-  const go = [...walk(dir, '.go')];
-  if (!go.length) throw new Error(`no compiled modules under ${dir}`);
-  for (const f of go) fs.utimesSync(f, stamp, stamp);
-  return go.length;
+  const all = files(dir);
+  const newest = Math.max(
+    0,
+    ...all.filter((f) => f.endsWith('.scm')).map((f) => fs.statSync(path.join(dir, f)).mtimeMs),
+  );
+  const stamp = new Date(Math.max(Date.now(), newest + 1000));
+  const compiled = all.filter((f) => f.endsWith('.go'));
+  if (!compiled.length) throw new Error('engine has no compiled Guile modules');
+  for (const file of compiled) fs.utimesSync(path.join(dir, file), stamp, stamp);
+  return compiled.length;
 }
-
+export function writeInventory(dir, lock) {
+  const inventory = {
+    schemaVersion: 1,
+    target: lock.target,
+    engineBuildId: lock.engineBuildId,
+    archiveSha256: lock.archive.sha256,
+    files: files(dir).map((file) => ({
+      path: file,
+      sha256: sha256(path.join(dir, file)),
+      bytes: fs.statSync(path.join(dir, file)).size,
+      executable: !!(fs.statSync(path.join(dir, file)).mode & 0o111),
+    })),
+  };
+  fs.writeFileSync(path.join(dir, 'resources.json'), `${JSON.stringify(inventory, null, 2)}\n`);
+}
+async function ensureArchive(root, lock, opts) {
+  if (!lock.archive) throw new Error(`${lock.target} has no locked binary archive`);
+  const dir = path.join(root, 'vendor/dist');
+  fs.mkdirSync(dir, { recursive: true });
+  const archive = path.join(dir, lock.archive.file);
+  if (!opts.refetch && fs.existsSync(archive) && sha256(archive) === lock.archive.sha256)
+    return archive;
+  if (!opts.allowDownload) throw new Error('verified engine archive missing; pass --download');
+  const response = await fetch(lock.archive.url, { signal: AbortSignal.timeout(600000) });
+  if (!response.ok) throw new Error(`engine download: HTTP ${response.status}`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (crypto.createHash('sha256').update(bytes).digest('hex') !== lock.archive.sha256)
+    throw new Error('engine archive checksum mismatch');
+  const temp = `${archive}.${crypto.randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temp, bytes);
+    fs.renameSync(temp, archive);
+  } finally {
+    fs.rmSync(temp, { force: true });
+  }
+  return archive;
+}
+export async function install(root = ROOT, opts = {}) {
+  const lock = readLock(root, opts.target ?? hostTarget());
+  const archive = await ensureArchive(root, lock, opts);
+  const parent = path.join(root, 'vendor/lilypond');
+  fs.mkdirSync(parent, { recursive: true });
+  const stage = fs.mkdtempSync(path.join(parent, '.prepare-'));
+  const dir = path.join(parent, lock.tag);
+  const previous = `${dir}.${crypto.randomUUID()}.old`;
+  try {
+    const { stdout } = await run('tar', ['-tf', archive], { maxBuffer: 16 << 20 });
+    for (const item of stdout.trim().split(/\r?\n/)) {
+      if (
+        !item.startsWith(lock.archive.stripPrefix) &&
+        item !== lock.archive.stripPrefix.slice(0, -1)
+      )
+        throw new Error('unexpected archive root');
+      if (item.includes('\\') || item.split('/').includes('..') || item.startsWith('/'))
+        throw new Error('unsafe archive path');
+    }
+    await run('tar', ['-xf', archive, '-C', stage, '--strip-components=1'], {
+      maxBuffer: 16 << 20,
+    });
+    await refreshGoMtimes(stage);
+    writeInventory(stage, lock);
+    verifyTree(stage, lock, lock.target === hostTarget());
+    if (fs.existsSync(dir)) fs.renameSync(dir, previous);
+    try {
+      fs.renameSync(stage, dir);
+    } catch (error) {
+      if (fs.existsSync(previous)) fs.renameSync(previous, dir);
+      throw error;
+    }
+    fs.rmSync(previous, { recursive: true, force: true });
+    return { dir, lock };
+  } finally {
+    fs.rmSync(stage, { recursive: true, force: true });
+  }
+}
 export async function main(argv) {
-  const cmd = argv[0] || 'verify';
-  const opts = { refetch: argv.includes('--refetch'), allowDownload: argv.includes('--download') };
-  const { lock, roots } = candidateRoots();
-  if (cmd === 'path') {
-    for (const c of roots)
-      if (!verifyTree(c.dir, lock).length) {
-        console.log(c.dir);
-        return;
-      }
-    console.error('no usable engine; run `node scripts/engine.mjs install`');
-    process.exitCode = 1;
-    return;
-  }
+  const cmd = argv[0] ?? 'verify';
+  const target =
+    argv.find((a) => a.startsWith('--target='))?.slice('--target='.length) ?? hostTarget();
   if (cmd === 'install') {
-    const { dir } = await install(ROOT, opts);
+    const { dir } = await install(ROOT, {
+      target,
+      refetch: argv.includes('--refetch'),
+      allowDownload: argv.includes('--download'),
+    });
     console.log(`engine ready: ${dir}`);
-    return;
-  }
-  if (cmd === 'verify') {
-    const usable = roots.filter((c) => fs.existsSync(c.dir));
-    if (!usable.length) {
-      console.error(`engine not installed (looked in:\n  ${roots.map((r) => r.dir).join('\n  ')})`);
-      console.error('run: node scripts/engine.mjs install');
-      process.exitCode = 1;
-      return;
-    }
-    const problems = verifyTree(usable[0].dir, lock);
-    if (problems.length) {
-      console.error(`engine unusable at ${usable[0].dir}:\n  ${problems.join('\n  ')}`);
-      process.exitCode = 1;
-      return;
-    }
-    console.log(`engine ok [${usable[0].src}] ${usable[0].dir} (lilypond ${lock.version})`);
-    return;
-  }
-  console.error(`unknown command: ${cmd}`);
-  process.exitCode = 2;
+  } else if (cmd === 'verify' || cmd === 'path') {
+    const { roots } = candidateRoots(ROOT, process.env, target);
+    const lock = readLock(ROOT, target);
+    const dir = roots[0].dir;
+    verifyTree(dir, lock, target === hostTarget());
+    console.log(cmd === 'path' ? dir : `engine ok: ${lock.target} (${lock.engineBuildId})`);
+  } else throw new Error(`unknown engine command: ${cmd}`);
 }
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  await main(process.argv.slice(2)).catch((e) => {
-    console.error(String(e.message || e));
-    process.exit(1);
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href)
+  await main(process.argv.slice(2)).catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
   });
-}

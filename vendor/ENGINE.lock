@@ -1,12 +1,240 @@
-# LilyPond engine pin (ADR-0001 D4 / ADR-0002 §8). Source of truth for scripts/engine.mjs.
-# The unpacked tree lives in vendor/lilypond/<tag> and is gitignored; it is reproducible
-# from this lock, so `git clone` + `pnpm engine` reconstructs it byte-for-byte.
-tag = "2.26.0-darwin-arm64"
-version = "2.26.0"
-url = "https://gitlab.com/api/v4/projects/lilypond%2Flilypond/packages/generic/lilypond/2.26.0/lilypond-2.26.0-darwin-arm64.tar.gz"
-file = "lilypond-2.26.0-darwin-arm64.tar.gz"
-sha256 = "18ffc454fef3753c26a015d95a3c232f89b22f052b897c046e0198740a1221be"
-# LilyPond compiles its Guile modules at first run and refuses to start when a `.go`
-# file is older than its `.scm` source (see ADR alternatives-evaluation §3.13). `tar`
-# restores mtimes, so extraction is safe; any copy that flattens mtimes is not.
-touch_newer = "*.go"
+{
+  "schemaVersion": 1,
+  "version": "2.26.0",
+  "recipeRevision": "ossia-p02-1",
+  "targets": {
+    "darwin-arm64": {
+      "requiredDirectories": [
+        "share/lilypond/2.26.0/ly",
+        "share/lilypond/2.26.0/scm",
+        "share/lilypond/2.26.0/fonts",
+        "licenses"
+      ],
+      "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+      "status": "upstream-archive",
+      "archive": {
+        "file": "lilypond-2.26.0-darwin-arm64.tar.gz",
+        "url": "https://gitlab.com/api/v4/projects/lilypond%2Flilypond/packages/generic/lilypond/2.26.0/lilypond-2.26.0-darwin-arm64.tar.gz",
+        "sha256": "18ffc454fef3753c26a015d95a3c232f89b22f052b897c046e0198740a1221be",
+        "format": "tar.gz",
+        "stripPrefix": "lilypond-2.26.0/"
+      },
+      "tools": {
+        "lilypond": {
+          "program": "bin/lilypond",
+          "args": []
+        },
+        "musicxml2ly": {
+          "program": "libexec/python3.14",
+          "args": [
+            "libexec/musicxml2ly"
+          ]
+        },
+        "midi2ly": {
+          "program": "libexec/python3.14",
+          "args": [
+            "libexec/midi2ly"
+          ]
+        }
+      },
+      "runtimeDependencies": {
+        "source": "included in archive; full tree inventoried at preparation",
+        "python": "3.14.3",
+        "guile": "3.0.11",
+        "ghostscript": "10.06.0",
+        "fonts": [
+          "Emmentaler",
+          "TeX Gyre",
+          "URW Base35"
+        ],
+        "dynamicLibraries": "upstream package DLLs / fundamental OS libraries; per-target native audit remains required"
+      }
+    },
+    "darwin-x86_64": {
+      "requiredDirectories": [
+        "share/lilypond/2.26.0/ly",
+        "share/lilypond/2.26.0/scm",
+        "share/lilypond/2.26.0/fonts",
+        "licenses"
+      ],
+      "engineBuildId": "lilypond-2.26.0-darwin-x86_64-ossia-p02-1-6dcbca34b13a",
+      "status": "upstream-archive",
+      "archive": {
+        "file": "lilypond-2.26.0-darwin-x86_64.tar.gz",
+        "url": "https://gitlab.com/api/v4/projects/lilypond%2Flilypond/packages/generic/lilypond/2.26.0/lilypond-2.26.0-darwin-x86_64.tar.gz",
+        "sha256": "6dcbca34b13ad6d4ba3606a0b48edd02688284fcd52e9c00141242df1996a148",
+        "format": "tar.gz",
+        "stripPrefix": "lilypond-2.26.0/"
+      },
+      "tools": {
+        "lilypond": {
+          "program": "bin/lilypond",
+          "args": []
+        },
+        "musicxml2ly": {
+          "program": "libexec/python3.14",
+          "args": [
+            "libexec/musicxml2ly"
+          ]
+        },
+        "midi2ly": {
+          "program": "libexec/python3.14",
+          "args": [
+            "libexec/midi2ly"
+          ]
+        }
+      },
+      "runtimeDependencies": {
+        "source": "included in archive; full tree inventoried at preparation",
+        "python": "3.14.3",
+        "guile": "3.0.11",
+        "ghostscript": "10.06.0",
+        "fonts": [
+          "Emmentaler",
+          "TeX Gyre",
+          "URW Base35"
+        ],
+        "dynamicLibraries": "upstream package DLLs / fundamental OS libraries; per-target native audit remains required"
+      }
+    },
+    "linux-x86_64": {
+      "requiredDirectories": [
+        "share/lilypond/2.26.0/ly",
+        "share/lilypond/2.26.0/scm",
+        "share/lilypond/2.26.0/fonts",
+        "licenses"
+      ],
+      "engineBuildId": "lilypond-2.26.0-linux-x86_64-ossia-p02-1-cd8a097a9f52",
+      "status": "upstream-archive",
+      "archive": {
+        "file": "lilypond-2.26.0-linux-x86_64.tar.gz",
+        "url": "https://gitlab.com/api/v4/projects/lilypond%2Flilypond/packages/generic/lilypond/2.26.0/lilypond-2.26.0-linux-x86_64.tar.gz",
+        "sha256": "cd8a097a9f52cb2b9f4e7914774786f203f4fc61fcd299afcbb63c23fa5c6b24",
+        "format": "tar.gz",
+        "stripPrefix": "lilypond-2.26.0/"
+      },
+      "tools": {
+        "lilypond": {
+          "program": "bin/lilypond",
+          "args": []
+        },
+        "musicxml2ly": {
+          "program": "libexec/python3.14",
+          "args": [
+            "libexec/musicxml2ly"
+          ]
+        },
+        "midi2ly": {
+          "program": "libexec/python3.14",
+          "args": [
+            "libexec/midi2ly"
+          ]
+        }
+      },
+      "runtimeDependencies": {
+        "source": "included in archive; full tree inventoried at preparation",
+        "python": "3.14.3",
+        "guile": "3.0.11",
+        "ghostscript": "10.06.0",
+        "fonts": [
+          "Emmentaler",
+          "TeX Gyre",
+          "URW Base35"
+        ],
+        "dynamicLibraries": "upstream package DLLs / fundamental OS libraries; per-target native audit remains required"
+      }
+    },
+    "mingw-x86_64": {
+      "requiredDirectories": [
+        "share/lilypond/2.26.0/ly",
+        "share/lilypond/2.26.0/scm",
+        "share/lilypond/2.26.0/fonts",
+        "licenses"
+      ],
+      "engineBuildId": "lilypond-2.26.0-mingw-x86_64-ossia-p02-1-14ddddc233b4",
+      "status": "upstream-archive",
+      "archive": {
+        "file": "lilypond-2.26.0-mingw-x86_64.zip",
+        "url": "https://gitlab.com/api/v4/projects/lilypond%2Flilypond/packages/generic/lilypond/2.26.0/lilypond-2.26.0-mingw-x86_64.zip",
+        "sha256": "14ddddc233b469ef60d4ffc1c7f35520f15ac6b58e38cab458c60bdcc3af650c",
+        "format": "zip",
+        "stripPrefix": "lilypond-2.26.0/"
+      },
+      "tools": {
+        "lilypond": {
+          "program": "bin/lilypond.exe",
+          "args": []
+        },
+        "musicxml2ly": {
+          "program": "bin/python.exe",
+          "args": [
+            "bin/musicxml2ly.py"
+          ]
+        },
+        "midi2ly": {
+          "program": "bin/python.exe",
+          "args": [
+            "bin/midi2ly.py"
+          ]
+        }
+      },
+      "runtimeDependencies": {
+        "source": "included in archive; full tree inventoried at preparation",
+        "python": "3.14.3",
+        "guile": "3.0.11",
+        "ghostscript": "10.06.0",
+        "fonts": [
+          "Emmentaler",
+          "TeX Gyre",
+          "URW Base35"
+        ],
+        "dynamicLibraries": "upstream package DLLs / fundamental OS libraries; per-target native audit remains required"
+      }
+    },
+    "linux-arm64": {
+      "requiredDirectories": [
+        "share/lilypond/2.26.0/ly",
+        "share/lilypond/2.26.0/scm",
+        "share/lilypond/2.26.0/fonts",
+        "licenses"
+      ],
+      "engineBuildId": "lilypond-2.26.0-linux-arm64-ossia-p02-1-unbuilt",
+      "status": "unbuilt",
+      "archive": null,
+      "source": {
+        "file": "lilypond-2.26.0.tar.gz",
+        "url": "https://gitlab.com/api/v4/projects/lilypond%2Flilypond/packages/generic/lilypond/2.26.0/lilypond-2.26.0.tar.gz",
+        "sha256": "bbe82dbeba7f7f99ddcd8d1fa134a0d89cafa6e8f815fde5bb01f4208b06fe05"
+      },
+      "recipe": "scripts/engine-linux-arm64.py",
+      "dependencyLock": "vendor/ENGINE.dependencies.json",
+      "tools": {
+        "lilypond": {
+          "program": "bin/lilypond",
+          "args": []
+        },
+        "musicxml2ly": {
+          "program": "libexec/python3.14",
+          "args": [
+            "libexec/musicxml2ly"
+          ]
+        },
+        "midi2ly": {
+          "program": "libexec/python3.14",
+          "args": [
+            "libexec/midi2ly"
+          ]
+        }
+      },
+      "runtimeDependencies": {
+        "policy": "native upstream static-dependency packaging; only fundamental OS shared libraries permitted",
+        "dependencies": "vendor/ENGINE.dependencies.json",
+        "fonts": [
+          "Emmentaler",
+          "TeX Gyre",
+          "URW Base35"
+        ]
+      }
+    }
+  }
+}

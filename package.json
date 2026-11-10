@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "engine:verify": "node scripts/engine.mjs verify",
-    "engine:install": "node scripts/engine.mjs install",
+    "test:engine": "node --test scripts/engine.test.mjs",
+    "engine:install": "node scripts/engine.mjs install --download",
     "setup": "pnpm install && pnpm engine:install",
     "dev:web": "pnpm --filter @ossia/ui dev",
     "dev:desktop": "pnpm --filter @ossia/desktop dev",

@@ -1,0 +1,760 @@
+{
+  "cases": [
+    {
+      "cacheAfterRestart": true,
+      "damagedAndMissingRebuilt": true,
+      "input": "polyphonic-pages.ly",
+      "render": {
+        "diagnostics": [
+          {
+            "message": "Processing `score.ly'",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Parsing...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Interpreting music...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Preprocessing graphical objects...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "MIDI output to `score.midi'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Finding the ideal number of pages...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Fitting music on 1 or 2 pages...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Drawing systems...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Success: compilation successfully completed",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Converting to `score.pdf'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          }
+        ],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "formatErrors": [],
+        "midi": {
+          "bytes": 245,
+          "path": "assets/30fc6154f73dade128bf610f2a9de0cbff7bebde640c30bcd4a5e2399694efd5.midi",
+          "sha256": "30fc6154f73dade128bf610f2a9de0cbff7bebde640c30bcd4a5e2399694efd5"
+        },
+        "optionsHash": "fd7ae225f7cb555295f34410f2aec6bca80a9e5bf41dba90a9f9c08f274524af",
+        "pages": [
+          {
+            "bytes": 8819,
+            "page": 1,
+            "path": "assets/58c4b14b9f4f24dd69422c6f83fbd7f7c9c38d44cc3e177f5c9c26858ed9976f.svg",
+            "sha256": "58c4b14b9f4f24dd69422c6f83fbd7f7c9c38d44cc3e177f5c9c26858ed9976f"
+          },
+          {
+            "bytes": 8361,
+            "page": 2,
+            "path": "assets/25268177135191ef81dcb78b142a12439baf29c1f209d842af3783b306e09d04.svg",
+            "sha256": "25268177135191ef81dcb78b142a12439baf29c1f209d842af3783b306e09d04"
+          }
+        ],
+        "pdf": {
+          "bytes": 32142,
+          "path": "assets/d3a612c1991d5d497b4efc01de8c7d214aa0b2139b01df0d8ec02ec50adcbb63.pdf",
+          "sha256": "d3a612c1991d5d497b4efc01de8c7d214aa0b2139b01df0d8ec02ec50adcbb63"
+        },
+        "sourceHash": "186765809384b7608f090f1ab7a722bd1b1afa60f01b87882c2f42514847ebbe"
+      },
+      "report": {
+        "blocking": [],
+        "confirmation": null,
+        "confirmed": false,
+        "diagnostics": [],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "inputHash": "186765809384b7608f090f1ab7a722bd1b1afa60f01b87882c2f42514847ebbe",
+        "losses": [],
+        "measures": 4,
+        "noteEvents": 12,
+        "source": "\\version \"2.26.0\"\n\\paper { ragged-last = ##t }\nUpper = \\relative c' { c1 | % 1\n d1 | % 2\n \\pageBreak e1 | % 3\n f1 | % 4\n}\nSecond = \\relative c' { g1 | % 1\n a1 | % 2\n b1 | % 3\n c1 | % 4\n}\nLower = \\relative c { c1 | % 1\n d1 | % 2\n e1 | % 3\n f1 | % 4\n}\n\\score { \\new PianoStaff <<\n \\new Staff = \"upper\" << \\context Voice = \"one\" { \\voiceOne \\Upper } \\context Voice = \"two\" { \\voiceTwo \\Second } >>\n \\new Staff = \"lower\" { \\clef bass \\context Voice = \"three\" { \\Lower } }\n>> \\layout {} \\midi {} }\n",
+        "sourceHash": "186765809384b7608f090f1ab7a722bd1b1afa60f01b87882c2f42514847ebbe",
+        "status": "clean",
+        "voices": 3
+      },
+      "sourceUnchanged": true
+    },
+    {
+      "cacheAfterRestart": true,
+      "damagedAndMissingRebuilt": true,
+      "input": "unicode-crlf-bom.ly",
+      "render": {
+        "diagnostics": [
+          {
+            "message": "Processing `score.ly'",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Parsing...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Interpreting music...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Preprocessing graphical objects...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "MIDI output to `score.midi'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Finding the ideal number of pages...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Fitting music on 1 page...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Drawing systems...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Success: compilation successfully completed",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Converting to `score.pdf'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          }
+        ],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "formatErrors": [],
+        "midi": {
+          "bytes": 137,
+          "path": "assets/a98d7e73110d39cfb84a0b7b6b62a89f2dd997e83d244fc72c8d1d1097f366c8.midi",
+          "sha256": "a98d7e73110d39cfb84a0b7b6b62a89f2dd997e83d244fc72c8d1d1097f366c8"
+        },
+        "optionsHash": "fd7ae225f7cb555295f34410f2aec6bca80a9e5bf41dba90a9f9c08f274524af",
+        "pages": [
+          {
+            "bytes": 5311,
+            "page": 1,
+            "path": "assets/151b2f13d1f8f952e3d5061e72eb367e7fe9799ab9f1a6f1de3f0a70e53dbebe.svg",
+            "sha256": "151b2f13d1f8f952e3d5061e72eb367e7fe9799ab9f1a6f1de3f0a70e53dbebe"
+          }
+        ],
+        "pdf": {
+          "bytes": 31067,
+          "path": "assets/4a8e73c7c58f3d4b4c374600365c604ad72843fa350950ba25e5c2a439608e3b.pdf",
+          "sha256": "4a8e73c7c58f3d4b4c374600365c604ad72843fa350950ba25e5c2a439608e3b"
+        },
+        "sourceHash": "87a50dbef4b3a26294abf9a272be9ad29f89ee2aa73b78e1e30e200aa3bf04ab"
+      },
+      "report": {
+        "blocking": [],
+        "confirmation": null,
+        "confirmed": false,
+        "diagnostics": [],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "inputHash": "87a50dbef4b3a26294abf9a272be9ad29f89ee2aa73b78e1e30e200aa3bf04ab",
+        "losses": [],
+        "measures": 1,
+        "noteEvents": 4,
+        "source": "﻿\\version \"2.26.0\"\r\n% 中文😀\r\nMusic = \\relative c' { c4^\\markup { \"中文😀\" }\td4 e4 f4 | }\r\n\\score { \\new Staff \\Music \\layout {} \\midi {} }\r\n",
+        "sourceHash": "87a50dbef4b3a26294abf9a272be9ad29f89ee2aa73b78e1e30e200aa3bf04ab",
+        "status": "clean",
+        "voices": 1
+      },
+      "sourceUnchanged": true
+    },
+    {
+      "cacheAfterRestart": true,
+      "damagedAndMissingRebuilt": true,
+      "input": "standard-include.ly",
+      "render": {
+        "diagnostics": [
+          {
+            "message": "Processing `score.ly'",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Parsing...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Interpreting music...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Preprocessing graphical objects...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "MIDI output to `score.midi'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Finding the ideal number of pages...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Fitting music on 1 page...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Drawing systems...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Success: compilation successfully completed",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Converting to `score.pdf'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          }
+        ],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "formatErrors": [],
+        "midi": {
+          "bytes": 110,
+          "path": "assets/68eb06b9f810effd752583298c9da0dd6609dfd407b47b3dd040494065311b2a.midi",
+          "sha256": "68eb06b9f810effd752583298c9da0dd6609dfd407b47b3dd040494065311b2a"
+        },
+        "optionsHash": "fd7ae225f7cb555295f34410f2aec6bca80a9e5bf41dba90a9f9c08f274524af",
+        "pages": [
+          {
+            "bytes": 4329,
+            "page": 1,
+            "path": "assets/edd27ad160814481b1184d2fb8d159bbdce7dbef06318f14cb2eb615ad3c184e.svg",
+            "sha256": "edd27ad160814481b1184d2fb8d159bbdce7dbef06318f14cb2eb615ad3c184e"
+          }
+        ],
+        "pdf": {
+          "bytes": 26699,
+          "path": "assets/6975446e1dfe21def8d9722c321f7c8cc87748af05a8a81dcc54a3d728873d9d.pdf",
+          "sha256": "6975446e1dfe21def8d9722c321f7c8cc87748af05a8a81dcc54a3d728873d9d"
+        },
+        "sourceHash": "beed9e91356a9ae703845f758c97cff7bb9dbd10f02c313661c1c1d45218bf6f"
+      },
+      "report": {
+        "blocking": [],
+        "confirmation": null,
+        "confirmed": false,
+        "diagnostics": [],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "inputHash": "beed9e91356a9ae703845f758c97cff7bb9dbd10f02c313661c1c1d45218bf6f",
+        "losses": [],
+        "measures": 1,
+        "noteEvents": 1,
+        "source": "\\version \"2.26.0\"\n\\include \"english.ly\"\n\\score { \\new Staff { cs'1 | } \\layout {} \\midi {} }\n",
+        "sourceHash": "beed9e91356a9ae703845f758c97cff7bb9dbd10f02c313661c1c1d45218bf6f",
+        "status": "clean",
+        "voices": 1
+      },
+      "sourceUnchanged": true
+    },
+    {
+      "cacheAfterRestart": true,
+      "damagedAndMissingRebuilt": true,
+      "input": "xml-clean.musicxml",
+      "render": {
+        "diagnostics": [
+          {
+            "message": "Processing `score.ly'",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Parsing...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Interpreting music...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Preprocessing graphical objects...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Finding the ideal number of pages...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Fitting music on 1 page...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Drawing systems...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Success: compilation successfully completed",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Converting to `score.pdf'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "MIDI output to `score.midi'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          }
+        ],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "formatErrors": [],
+        "midi": {
+          "bytes": 158,
+          "path": "assets/12994ddb5583cf97d5885aeb6caa1acb98b46648231dd6a7ab65d8eba5856754.midi",
+          "sha256": "12994ddb5583cf97d5885aeb6caa1acb98b46648231dd6a7ab65d8eba5856754"
+        },
+        "optionsHash": "fd7ae225f7cb555295f34410f2aec6bca80a9e5bf41dba90a9f9c08f274524af",
+        "pages": [
+          {
+            "bytes": 4863,
+            "page": 1,
+            "path": "assets/73b30f58500c7376d0b515137993374ac62318c50e73958aa5fd2565839a5756.svg",
+            "sha256": "73b30f58500c7376d0b515137993374ac62318c50e73958aa5fd2565839a5756"
+          }
+        ],
+        "pdf": {
+          "bytes": 40812,
+          "path": "assets/383ff0dfa9ebe704550795c1b98506d2d69a3f60964382b214845dddbb33d046.pdf",
+          "sha256": "383ff0dfa9ebe704550795c1b98506d2d69a3f60964382b214845dddbb33d046"
+        },
+        "sourceHash": "b2bb35451360731828e832a1dddb9339e1361af41a35222a68e9fede01c0706a"
+      },
+      "report": {
+        "blocking": [],
+        "confirmation": null,
+        "confirmed": false,
+        "diagnostics": [
+          {
+            "message": "musicxml2ly: Reading MusicXML from input.musicxml ...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "musicxml2ly: Converting part 'P1' (voice 1) to LilyPond expressions...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "musicxml2ly: Output to `converted.ly'",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          }
+        ],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "inputHash": "6ada801a3c065e360ddee5e7bc86d21b06225f3ffe5050b5268213ddc1bd3c76",
+        "losses": [],
+        "measures": 0,
+        "noteEvents": 1,
+        "source": "\\version \"2.26.0\"\n% automatically converted by musicxml2ly from input.musicxml\n\\pointAndClickOff\n\n\\header {\n  title = \"Ossia synthetic\"\n}\n\\layout {\n  \\context {\n    \\Staff\n    printKeyCancellation = ##f\n  }\n  \\context {\n    \\Score\n    autoBeaming = ##f\n  }\n}\nPartPOneVoiceOne = \\relative c' {\n  \\clef \"treble\" \\numericTimeSignature \\time 4/4 \\key c \\major c1 }\n\n\n% The score definition\n\\score {\n  <<\n    \\new Staff = \"P1\" <<\n      \\set Staff.instrumentName = \"Synthetic\"\n      \\context Staff <<\n        \\override Staff.BarLine.allow-span-bar = ##f\n        \\mergeDifferentlyDottedOn\n        \\mergeDifferentlyHeadedOn\n        \\context Voice = \"PartPOneVoiceOne\" {\n          \\PartPOneVoiceOne\n        }\n      >>\n    >>\n  >>\n  \\layout {}\n  % To create MIDI output, uncomment the following line:\n  % \\midi { \\tempo 4 = 100 }\n}\n\n",
+        "sourceHash": "b2bb35451360731828e832a1dddb9339e1361af41a35222a68e9fede01c0706a",
+        "status": "clean",
+        "voices": 1
+      },
+      "sourceUnchanged": true
+    },
+    {
+      "cacheAfterRestart": true,
+      "damagedAndMissingRebuilt": true,
+      "input": "xml-loss.musicxml",
+      "render": {
+        "diagnostics": [
+          {
+            "message": "Processing `score.ly'",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Parsing...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Interpreting music...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Preprocessing graphical objects...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Finding the ideal number of pages...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Fitting music on 1 page...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Drawing systems...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Success: compilation successfully completed",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Converting to `score.pdf'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "MIDI output to `score.midi'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          }
+        ],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "formatErrors": [],
+        "midi": {
+          "bytes": 158,
+          "path": "assets/12994ddb5583cf97d5885aeb6caa1acb98b46648231dd6a7ab65d8eba5856754.midi",
+          "sha256": "12994ddb5583cf97d5885aeb6caa1acb98b46648231dd6a7ab65d8eba5856754"
+        },
+        "optionsHash": "fd7ae225f7cb555295f34410f2aec6bca80a9e5bf41dba90a9f9c08f274524af",
+        "pages": [
+          {
+            "bytes": 4863,
+            "page": 1,
+            "path": "assets/73b30f58500c7376d0b515137993374ac62318c50e73958aa5fd2565839a5756.svg",
+            "sha256": "73b30f58500c7376d0b515137993374ac62318c50e73958aa5fd2565839a5756"
+          }
+        ],
+        "pdf": {
+          "bytes": 40812,
+          "path": "assets/383ff0dfa9ebe704550795c1b98506d2d69a3f60964382b214845dddbb33d046.pdf",
+          "sha256": "383ff0dfa9ebe704550795c1b98506d2d69a3f60964382b214845dddbb33d046"
+        },
+        "sourceHash": "b2bb35451360731828e832a1dddb9339e1361af41a35222a68e9fede01c0706a"
+      },
+      "report": {
+        "blocking": [],
+        "confirmation": "deb47abe16920b73ecc7d050948ba687311d388cf37729792a4baa9613c5e7d6",
+        "confirmed": false,
+        "diagnostics": [
+          {
+            "message": "musicxml2ly: Reading MusicXML from input.musicxml ...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "musicxml2ly: Converting part 'P1' (voice 1) to LilyPond expressions...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "musicxml2ly: warning: Invalid bpm value in metronome mark",
+            "position": null,
+            "rawPosition": null,
+            "severity": "warning"
+          },
+          {
+            "message": "musicxml2ly: Output to `converted.ly'",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          }
+        ],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "inputHash": "fef6401d59a8878841bffcf0ac99205b4eb5b452d8954761f159c83d43d74bf9",
+        "losses": [
+          "musicxml2ly: warning: Invalid bpm value in metronome mark"
+        ],
+        "measures": 0,
+        "noteEvents": 1,
+        "source": "\\version \"2.26.0\"\n% automatically converted by musicxml2ly from input.musicxml\n\\pointAndClickOff\n\n\\header {\n  title = \"Ossia synthetic\"\n}\n\\layout {\n  \\context {\n    \\Staff\n    printKeyCancellation = ##f\n  }\n  \\context {\n    \\Score\n    autoBeaming = ##f\n  }\n}\nPartPOneVoiceOne = \\relative c' {\n  \\clef \"treble\" \\numericTimeSignature \\time 4/4 \\key c \\major c1 }\n\n\n% The score definition\n\\score {\n  <<\n    \\new Staff = \"P1\" <<\n      \\set Staff.instrumentName = \"Synthetic\"\n      \\context Staff <<\n        \\override Staff.BarLine.allow-span-bar = ##f\n        \\mergeDifferentlyDottedOn\n        \\mergeDifferentlyHeadedOn\n        \\context Voice = \"PartPOneVoiceOne\" {\n          \\PartPOneVoiceOne\n        }\n      >>\n    >>\n  >>\n  \\layout {}\n  % To create MIDI output, uncomment the following line:\n  % \\midi { \\tempo 4 = 100 }\n}\n\n",
+        "sourceHash": "b2bb35451360731828e832a1dddb9339e1361af41a35222a68e9fede01c0706a",
+        "status": "needs-confirmation",
+        "voices": 1
+      },
+      "sourceUnchanged": true
+    },
+    {
+      "input": "xml-negative-skip.musicxml",
+      "report": {
+        "blocking": [
+          "musicxml2ly: warning: Negative skip -1/2 (from position 1 to 1/2)"
+        ],
+        "confirmation": null,
+        "confirmed": false,
+        "diagnostics": [
+          {
+            "message": "musicxml2ly: Reading MusicXML from input.musicxml ...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "musicxml2ly: Converting part 'P1' (voice 1) to LilyPond expressions...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "musicxml2ly: warning: Negative skip -1/2 (from position 1 to 1/2)",
+            "position": null,
+            "rawPosition": null,
+            "severity": "warning"
+          },
+          {
+            "message": "musicxml2ly: warning: Negative skip -1/2 (from position 1 to 1/2)",
+            "position": null,
+            "rawPosition": null,
+            "severity": "warning"
+          },
+          {
+            "message": "musicxml2ly: Output to `converted.ly'",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          }
+        ],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "inputHash": "a9e26c43e631a517e81e6d89d244296bfb295f3d138eeaf515ac477395708164",
+        "losses": [],
+        "measures": 0,
+        "noteEvents": 2,
+        "source": null,
+        "sourceHash": "f5625c11065c443369dafd6231f0296fc86683a78988455c039e45898ed21215",
+        "status": "refused",
+        "voices": 1
+      }
+    },
+    {
+      "cacheAfterRestart": true,
+      "damagedAndMissingRebuilt": true,
+      "input": "midi-valid.mid",
+      "render": {
+        "diagnostics": [
+          {
+            "message": "Processing `score.ly'",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Parsing...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Interpreting music...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Preprocessing graphical objects...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "MIDI output to `score.midi'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Finding the ideal number of pages...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Fitting music on 1 page...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Drawing systems...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Success: compilation successfully completed",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          },
+          {
+            "message": "Converting to `score.pdf'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          }
+        ],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "formatErrors": [],
+        "midi": {
+          "bytes": 127,
+          "path": "assets/ce74af8e58fa3c2b094ec27504c63473b021f88ac5ddf83ce56ff5052feda15c.midi",
+          "sha256": "ce74af8e58fa3c2b094ec27504c63473b021f88ac5ddf83ce56ff5052feda15c"
+        },
+        "optionsHash": "fd7ae225f7cb555295f34410f2aec6bca80a9e5bf41dba90a9f9c08f274524af",
+        "pages": [
+          {
+            "bytes": 3108,
+            "page": 1,
+            "path": "assets/2bfed93fbe178a0fb7fb69682c2eac22e98740deed6db649e50142df28269f89.svg",
+            "sha256": "2bfed93fbe178a0fb7fb69682c2eac22e98740deed6db649e50142df28269f89"
+          }
+        ],
+        "pdf": {
+          "bytes": 26429,
+          "path": "assets/d0316b60a2c4b6e206f38997cdd830d7cd4872f7676be696db8b01905d317ce3.pdf",
+          "sha256": "d0316b60a2c4b6e206f38997cdd830d7cd4872f7676be696db8b01905d317ce3"
+        },
+        "sourceHash": "763ec3d0e8d9afd0077629258f4b3d9d09c7157b1aba42e53873f35d1cec31c0"
+      },
+      "report": {
+        "blocking": [],
+        "confirmation": null,
+        "confirmed": false,
+        "diagnostics": [
+          {
+            "message": "LY output to `converted.ly'...",
+            "position": null,
+            "rawPosition": null,
+            "severity": "info"
+          }
+        ],
+        "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+        "inputHash": "7689899008d1372b795b9cb8c08f95703cd959978e09bc59b34d3b1fec79addc",
+        "losses": [],
+        "measures": 0,
+        "noteEvents": 1,
+        "source": "% Lily was here -- automatically converted by midi2ly from input.mid\n\\version \"2.14.0\"\n\n\\layout {\n  \\context {\n    \\Voice\n    \\remove Note_heads_engraver\n    \\consists Completion_heads_engraver\n    \\remove Rest_engraver\n    \\consists Completion_rest_engraver\n  }\n}\n\ntrackAchannelA = {\n  \\skip 4 \n}\n\ntrackAchannelB = \\relative c {\n  c'4 \n}\n\ntrackA = <<\n\n  \\clef bass\n  \n  \\context Voice = voiceA \\trackAchannelA\n  \\context Voice = voiceB \\trackAchannelB\n>>\n\n\n\\score {\n  <<\n    \\context Staff=trackA \\trackA\n  >>\n  \\layout {}\n  \\midi {}\n}\n",
+        "sourceHash": "763ec3d0e8d9afd0077629258f4b3d9d09c7157b1aba42e53873f35d1cec31c0",
+        "status": "clean",
+        "voices": 1
+      },
+      "sourceUnchanged": true
+    }
+  ],
+  "diagnosticSourceMapping": true,
+  "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+  "relocatedResourcesWithUnicodeAndSpaces": true,
+  "target": "darwin-arm64"
+}

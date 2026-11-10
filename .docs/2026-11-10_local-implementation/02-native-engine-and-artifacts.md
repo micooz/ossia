@@ -1,6 +1,7 @@
 # P02：原生引擎与渲染产物
 
-- 状态：待实施。
+- 状态：受阻（前序门槛）；本机实现完成、未集成，P00 Linux ARM64 原生验收仍未通过。
+- 技术方案：[02-technical-plan.md](02-technical-plan.md)。
 - 前置：[P01](01-rust-score-analysis.md)，并核对 P00 工具链探针；共享约定见[总索引](README.md)。
 - 后续：[P03 文档、编辑与版本](03-library-editing-and-history.md)。
 
@@ -60,18 +61,44 @@
 
 ## 4. 测试与退出条件
 
-- [ ] 验证错误版本、缺工具、损坏资源、路径带中文和空格时的明确错误。
-- [ ] 三种输入覆盖转换、SVG、PDF、MIDI；局部损失确认与阻断性拒绝都有测试。
-- [ ] 取消／超时／引擎崩溃后没有遗留子进程或 scratch 目录。
-- [ ] 源码无变化；中文和多页锚点仍映射到原始源位置。
-- [ ] 同源码不同引擎构建／选项不共用缓存，重启可命中正确产物，损坏文件会重新生成。
-- [ ] 原生环境运行验证与纯 mock 测试分开报告；五目标配方和 Linux ARM64 依赖清单齐备。
+- [x] 验证错误版本、缺工具、损坏资源；macOS ARM64 的工具链与 scratch 中文／空格路径通过。
+- [x] 本机三种输入覆盖转换、SVG、PDF、MIDI；局部损失确认与阻断性拒绝都有测试。
+- [x] macOS 的真实进程夹具覆盖正常退出／崩溃／超时／取消，无遗留后代进程或 scratch；Windows Job Object 仅完成静态检查。
+- [x] 本机源码无变化；中文和多页锚点映射到原始源位置，派生诊断位置通过核对。
+- [x] 构建／选项／格式隔离、跨实例命中、并发同键互斥、损坏／缺失重建与清单路径限制通过。
+- [x] 原生与替身结果分开；五目标配方、Linux ARM64 源码／打包脚本／20 项依赖归档校验和齐备，ARM64 构建未执行。
 
 新增 `cargo test -p ossia-engine`；真实工具链测试使用显式测试环境变量指向已验证资源，普通测试缺少引擎时不得伪报通过。取消树清理需要真实进程夹具，不能只测试模拟的状态变化。
 
-## 5. 实施交接（实施后填写）
+## 5. 实施交接
 
-- 代码基准与平台清单位置：未实施。
-- 实际入口、版本／校验和与 Linux ARM64 构建报告：未建立。
-- 测试命令、真实运行平台及未验证目标：未执行。
-- 下一阶段：P03 消费转换、编译和持久产物接口，不再自行启动引擎。
+### 基准与交付
+
+- 基于 `14da38f`。新增 `ossia-engine`，加入 workspace；共享导入／渲染／诊断 DTO 位于 `ossia-types`，不接数据库、HTTP 或 GUI。
+- 入口为 `Engine::verify`／`from_resources`、`convert`、`compile` 和可取消、带总截止时间的 `RunContext`；P03 使用方式见 [crate README](../../crates/ossia-engine/README.md)。
+- `vendor/ENGINE.lock` 现为 JSON 五目标清单。四个官方归档已实际下载、计算 SHA-256、解包并生成完整资源清单；`engineBuildId` 包含目标、项目配方版本和归档标识。实际工具入口、依赖和配方见 [vendor README](../../vendor/README.md)。
+- Linux ARM64 仍为 `archive: null`、unbuilt 标识。`vendor/ENGINE.dependencies.json` 固定上游源码打包脚本和 20 项 Linux 依赖／字体归档的 SHA-256；`scripts/engine-linux-arm64.py --fetch-only` 已通过，不曾启动 Linux、源码编译或生成 ARM64 二进制。真实构建后仍需记录构建工具／基础环境、依赖审计及原生运行结果。
+- 开发安装采用校验归档→暂存目录准备→资源清单／验证→替换，失败保留旧开发工具链。mtime 修复只发生在暂存目录；Rust 运行时不写工具链、不调用开发 Node 脚本、不静默使用系统版本。
+
+### 公共行为与边界
+
+- 三态导入保留损失与阻断信息。确认哈希绑定输入、转换源码、引擎和规范化损失，重试必须显式提供；拒绝结果不提供可入库源码。即使 Negative skip 位于进度日志之后，仍阻断且不能确认绕过。P03 负责执行确认后才建库的业务门槛，并保存原输入。
+- 编译按格式独立返回产物／错误；SVG 是后续提交门槛，MIDI 不是。MIDI 只对一个显式、平衡、可安全识别的 score 块派生；不改速度或节奏，使用 no-print-pages 避免依赖 PDF pass。隐式 score、多个 score/book、bookpart 或不透明 Scheme reader 可使相关格式不支持。
+- 静态 include 限定在经过校验的引擎标准库目录；用户依赖、动态 include 和已知外部图片／文件命令不支持。此判定不构成 Scheme 安全沙箱。
+- 原始 UTF-8 字节不变；锚点覆盖在派生文件中用等长空白处理，插入 MIDI 文本无原始位置。SVG 回链与诊断经原文映射，标准库／无法确定的位置不指向用户源码；日志去除机器路径。
+- 每次原生调用使用独立 cwd、HOME／cache／tmp；固定 C.UTF-8 locale、禁止 Python 字节码生成、清除 Python／Guile 路径覆盖。实测 `LC_ALL=C` 会导致中文临时路径下的 PDF 失败，UTF-8 locale 后通过。
+- Unix 进程组与 Windows suspended spawn→Job Object→resume 实现全树终止；实际进程夹具在 macOS 覆盖正常、崩溃、超时、取消。总截止时间包含缓存锁等待；日志上限 16 MiB。
+- 产物 CAS 与格式缓存清单由 P02 持久化；清单最后原子发布，OS 文件锁防止同键并发。新 Engine 实例可复用；哈希／大小损坏或文件丢失则重建。清单中的绝对路径、`..` 和越界符号链接被拒绝。P03 不应另写引擎或缓存实现。
+
+### 检查与证据
+
+- Rust 离线：P02 12 项回归，P01/types 24 项、桌面 7 项；另有文档测试。两个标记 ignored 的进程入口由生命周期回归显式启动，不代表跳过进程树验证。原生集成默认单独 ignored，显式调用缺资源会失败。
+- 原生：`OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p02-native.json" cargo test -p ossia-engine --test native_engine -- --ignored`。完整资源先复制到中文／空格目录后运行，7 个导入用例（6 个渲染、1 个阻断拒绝）覆盖 `.ly`、MusicXML、MIDI、所有输出格式、多页、BOM／CRLF／中文锚点、诊断映射、重启缓存及损坏／缺失重建；证据见 `tests/fixtures/local/evidence/p02-native.json`。
+- 开发脚本：`pnpm test:engine` 3 项通过；四目标归档准备通过；Linux 配方 `--fetch-only` 校验通过。普通单元测试没有伪报其他平台原生验收。
+- `cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、Windows 目标 `cargo check -p ossia-engine --all-targets --target x86_64-pc-windows-msvc`，以及现有 pnpm 基线／测试／类型／检查／Web 构建全部通过；`pnpm check` 为 0 errors、0 warnings。Python 配方语法、阶段文档链接和 `git diff --check` 通过。
+
+### 阻塞与下一阶段
+
+P02 本机实现完成、未集成，仍受 P00 Linux ARM64 原生门槛阻塞。其他 macOS 架构、Windows、Linux 的原生执行、Windows 进程树回收、签名资源和安装包均未验收；静态检查与解包完整性不能替代这些结果。本轮未进入 P03、发布、注入宿主或处理任何真实用户数据。
+
+P03 消费固定快照的 `RenderManifest`，在自身事务中额外核对编辑所有权、head 和当前文件哈希。失败编译不建立成功版本；独立的 PDF/MIDI 错误不得覆盖成功 SVG。重启后再次 verify 工具链、使用相同产物根目录即可恢复缓存；编辑凭据、数据库、原输入保存与工作区文件归 P03 管理。

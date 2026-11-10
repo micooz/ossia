@@ -218,3 +218,109 @@ impl fmt::Display for AppError {
     }
 }
 impl std::error::Error for AppError {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum InputFormat {
+    Ly,
+    MusicXml,
+    Midi,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ImportStatus {
+    Clean,
+    NeedsConfirmation,
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportReport {
+    pub status: ImportStatus,
+    pub input_hash: ContentHash,
+    pub engine_build_id: String,
+    pub source: Option<String>,
+    pub source_hash: Option<ContentHash>,
+    pub confirmation: Option<ContentHash>,
+    pub confirmed: bool,
+    pub measures: u32,
+    pub voices: usize,
+    pub note_events: usize,
+    pub losses: Vec<String>,
+    pub blocking: Vec<String>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RenderFormat {
+    Svg,
+    Pdf,
+    Midi,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Severity {
+    Info,
+    Warning,
+    Error,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnginePosition {
+    /// A normalized source name, never the machine's absolute path.
+    pub file: String,
+    pub line: usize,
+    pub column: usize,
+    pub char_offset: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Diagnostic {
+    pub severity: Severity,
+    pub message: String,
+    pub raw_position: Option<EnginePosition>,
+    pub position: Option<SourcePosition>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactRef {
+    /// Relative to the artifact root supplied by the caller.
+    pub path: String,
+    pub sha256: ContentHash,
+    pub bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderPage {
+    pub page: u32,
+    #[serde(flatten)]
+    pub artifact: ArtifactRef,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FormatError {
+    pub format: RenderFormat,
+    pub error: AppError,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderManifest {
+    pub source_hash: ContentHash,
+    pub engine_build_id: String,
+    pub options_hash: ContentHash,
+    pub pages: Vec<RenderPage>,
+    pub pdf: Option<ArtifactRef>,
+    pub midi: Option<ArtifactRef>,
+    pub diagnostics: Vec<Diagnostic>,
+    pub format_errors: Vec<FormatError>,
+}

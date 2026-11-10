@@ -1,7 +1,7 @@
 # Ossia 本地架构分阶段实施索引
 
 - 日期：2026-11-10
-- 状态：P00 本机基线与探针已交付，Linux ARM64 验收受阻；P01 代码与本机验证完成（未集成，阶段受前序门槛阻塞）；P02–P07 待实施。按用户指令已提前移除旧 Next.js 后端；未执行宿主注入、用户数据清理或新产品路径接入。
+- 状态：P00 本机基线与探针已交付，Linux ARM64 验收受阻；P01 代码与本机验证完成（未集成，阶段受前序门槛阻塞）；P02 本机实现完成（未集成，同样受前序门槛阻塞）；P03–P07 待实施。按用户指令已提前移除旧 Next.js 后端；未执行宿主注入、用户数据清理或新产品路径接入。
 - 产品决策：[本地架构调整方案](../2026-11-10_local-architecture-plan.md)。
 
 ## 1. 执行顺序与阅读方式
@@ -21,7 +21,7 @@
 
 按 P00 → P07 顺序验收。前序未通过时，可用测试替身开发后续模块，但必须标记为未集成，不能将阶段标记为完成。缺少平台环境时写明缺失目标，不用“编译通过”替代真实运行验证。
 
-P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、TS 观测、正确期望与已知差异在 `tests/fixtures/local/`。Linux ARM64 的原生构建和运行证据仍是 P00 的未通过门槛。P01 的 Rust 接口、本机验证与降级清单见[实施交接](01-rust-score-analysis.md#5-实施交接)。
+P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、TS 观测、正确期望与已知差异在 `tests/fixtures/local/`。Linux ARM64 的原生构建和运行证据仍是 P00 的未通过门槛。P01 的 Rust 接口、本机验证与降级清单见[实施交接](01-rust-score-analysis.md#5-实施交接)。P02 原生引擎、缓存、五目标配方与未验证平台见[实施交接](02-native-engine-and-artifacts.md#5-实施交接)。
 
 ## 2. 不再重新选择的约束
 
@@ -76,7 +76,7 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 | `Version` | `versionId, documentId, seq, parentVersionId?, sourceHash, origin, author, summary, createdAt` |
 | `Selection` | `viewId, documentId, sourceHash, locators[]`；每个 locator 为谱表／小节范围和可选声部 |
 | `LocatedRegion` | locator、`SourceSpan[]`、定位能力 `measure/anchor-only/none` 和原因 |
-| `RenderManifest` | `sourceHash, engineBuildId, optionsHash, pages[], pdf?, midi?, diagnostics`；区分缓存键与产物字节哈希 |
+| `RenderManifest` | `sourceHash, engineBuildId, optionsHash, pages[], pdf?, midi?, diagnostics, formatErrors[]`；格式独立返回结果，文件引用含相对 path、字节数和 SHA-256，区分缓存键与产物字节哈希 |
 | `EditSession` | `editId, documentId, ownerViewId, baseVersionId?, status, startedAt`；编辑凭据不广播给其他视图 |
 | `Job` | `jobId, kind, state, sourceHash?, phase, result?, error?`；状态为 queued/running/done/error/cancelled/interrupted |
 | `RuntimeInfo` | `runtimeVersion, protocolVersion, schemaVersion, instanceId, home, webBaseUrl, capabilities` |
@@ -104,6 +104,8 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 
 - `pnpm dev:web`／`pnpm build:web`：仅启动／构建 Vite SPA。
 - `pnpm dev:desktop`／`pnpm build:desktop`：启动／构建既有 Tauri 壳与 SPA。
+- `pnpm engine:install`／`pnpm engine:verify`：准备／校验本机锁定工具链；五目标配方见 `vendor/README.md`。
+- `pnpm test:engine`、`cargo test -p ossia-engine`：开发资源与引擎离线回归；原生集成测试显式启用。
 - `pnpm baseline:local --check`、`pnpm test:local`、`pnpm typecheck`、`pnpm check`：本地对照与检查。
 
 P04 本地服务和 P05 页面接入尚未实施，因此当前 SPA 的导入、谱面、编辑和导出交互没有可用运行时；构建成功不代表产品闭环完成。以上脚本在后续阶段接入 Rust，不回退到旧服务。宿主注入、安装包及旧数据处理仍按后续阶段验收。

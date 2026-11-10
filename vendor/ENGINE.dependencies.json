@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "sourceArchiveSha256": "bbe82dbeba7f7f99ddcd8d1fa134a0d89cafa6e8f815fde5bb01f4208b06fe05",
+  "target": "linux-arm64",
+  "buildScripts": [
+    {
+      "path": ".gitignore",
+      "sha256": "ef1dc674de078f4a3caf02391093068a7280952f20c4160000e1c0c70ccbae7b"
+    },
+    {
+      "path": ".pylintrc",
+      "sha256": "d156e9fe8bb37d4c242c6c57620cf919bb426c593b531d2b642048f01203fdbb"
+    },
+    {
+      "path": "Brewfile",
+      "sha256": "950fe103416dc9d87a6312ebe3804a599e3c406fd07d6a25b762238f20c9b80d"
+    },
+    {
+      "path": "README.md",
+      "sha256": "93d535113c40b9d69ee264d8c6b926bdaf631a7f149b920dc0464c37dc2f76d6"
+    },
+    {
+      "path": "ansible/.gitignore",
+      "sha256": "c5c928f98ee9cca2b94af76cd46486294fb797173f1c2cf6363a98fe88e6beb0"
+    },
+    {
+      "path": "ansible/README.md",
+      "sha256": "8a19dc82a6f62ca837004bf2463d40df2977e595cc72bb8ed9181f2797e44089"
+    },
+    {
+      "path": "ansible/alma8.yml",
+      "sha256": "dc9a28f4e9ed6cf616c7752cf4f124fd7efa25daa8ecdbc1bac551a086d64cb9"
+    },
+    {
+      "path": "ansible/ubuntu22.04.yml",
+      "sha256": "2cbded38421a7059f0892ab5875318da08c6ce80ca8a79b2e364130945525868"
+    },
+    {
+      "path": "build-dependencies",
+      "sha256": "c4fb9817b1bd8f751906e4445be5361a69b024ed05dc238c5f9f2d6560ed9d12"
+    },
+    {
+      "path": "build-lilypond",
+      "sha256": "75e0fdd264018033014ccebd94bb10ead1408383284c880f9647b87e4d49a715"
+    },
+    {
+      "path": "lib/__init__.py",
+      "sha256": "ad696a3f3eeeb8c051054136d3b50f64b155627cc8260ac5646b3a14ee35c171"
+    },
+    {
+      "path": "lib/build.py",
+      "sha256": "1aac2db53751b00479fa03bf81aeb98892985d94b9d46d6bec4b09a62a9b845f"
+    },
+    {
+      "path": "lib/config.py",
+      "sha256": "a2e59d2fcb5bc4a5d2de7d7591d0e5e239cf042318e5d170e6e628a2234ea9d9"
+    },
+    {
+      "path": "lib/dependencies.py",
+      "sha256": "21f7a4bb09a0dad017292e9b215e7b94c2cc31430d75889b0499fa188760d721"
+    },
+    {
+      "path": "lib/fonts.py",
+      "sha256": "3f145cdc4e584e8ee6220a4a73e8e344c8d7565570e634703981bafad1fbd5fc"
+    },
+    {
+      "path": "lib/lilypond.py",
+      "sha256": "91307d73996799c4eff7554428f4d3bc1684183b3a14469824e9efa9c3f33c6e"
+    },
+    {
+      "path": "lib/mingw_cross.txt",
+      "sha256": "1c6f51126b22944a2c564ed5e21929859e750ab72c7626ad4226771482281b48"
+    },
+    {
+      "path": "lib/pkg-config-static.sh",
+      "sha256": "15df141146aa11c8cf4860d5442c31eab8926b18190d0321c08e945645e7a601"
+    },
+    {
+      "path": "patches/0001-scm_i_divide2double-Refactor-to-use-scm_to_mpz.patch",
+      "sha256": "db2121995c7d3d6a2f6109b08c8da149c481a093d8bbcb1f88e0596585b92e63"
+    },
+    {
+      "path": "patches/0002-scm_integer_modulo_expt_nnn-Refactor-to-use-scm_to_m.patch",
+      "sha256": "f012a6612b0ebf6c8b9fd8720f71c273c24790d56a6510fea46f2dc4e6c40a46"
+    },
+    {
+      "path": "patches/0003-Rename-functions-that-should-accept-scm_t_inum.patch",
+      "sha256": "92a2baa914f2499ea5d3e00c1a9064dd6f87fad69642820b9df6c16ea100e424"
+    },
+    {
+      "path": "patches/0004-Decouple-scm_t_inum-from-long-datatype.patch",
+      "sha256": "cf4c792f795612d3d4f3a13c47e31ac00e634d6f8571e7ffd89940a213d5596e"
+    },
+    {
+      "path": "patches/0005-Store-hashes-as-uintptr_t.patch",
+      "sha256": "14fd9f308fbc3ecc625e4da64636aee4a722986b2518a5ba8577cdd645597859"
+    },
+    {
+      "path": "patches/0006-Use-inum_magnitude-for-inums.patch",
+      "sha256": "21a40a286eab6bf2a8ed65fbf0b09cddf8d9b668dfc05f4d0b8c1da31073effd"
+    },
+    {
+      "path": "patches/0007-Fix-inum-negation.patch",
+      "sha256": "a64da675be1f5064d6e3e099790f9ee0e5936ebcc91e75043801e6edd58d554d"
+    },
+    {
+      "path": "patches/0008-Avoid-using-long-integers-literals.patch",
+      "sha256": "8179ac39d9eb7f049638cfcf90e17a9cf285160ebcfea802b6c04f80f575f238"
+    },
+    {
+      "path": "patches/0009-mpz-integer-do-not-convert-to-bignum-if-inum-is-suff.patch",
+      "sha256": "1f83a56a4fdd3a1bbe0e03606132274ba12891ebfe08d137f0df3969fce78f98"
+    },
+    {
+      "path": "relocate/fontconfig.reloc",
+      "sha256": "1d123948c17792bc603527dbfe3b370cf6ddd279ec25f9f3a411d407d2b9452f"
+    },
+    {
+      "path": "relocate/guile.reloc",
+      "sha256": "1c5a704a03fed2b47aace540b97b5180c0f72326dd48cb73c164a4de5e75d404"
+    },
+    {
+      "path": "relocate/libexec.reloc",
+      "sha256": "3f2a353f3965d2ef8c0ae9493b76aca53a69bf13dcb3f08e4647c0626ef47429"
+    }
+  ],
+  "packages": [
+    {
+      "name": "Expat 2.7.4",
+      "version": "2.7.4",
+      "file": "expat-2.7.4.tar.xz",
+      "url": "https://github.com/libexpat/libexpat/releases/download/R_2_7_4/expat-2.7.4.tar.xz",
+      "sha256": "9e9cabb457c1e09de91db2706d8365645792638eb3be1f94dbb2149301086ac0"
+    },
+    {
+      "name": "zlib 1.3.1",
+      "version": "1.3.1",
+      "file": "zlib-1.3.1.tar.xz",
+      "url": "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.xz",
+      "sha256": "38ef96b8dfe510d42707d9c781877914792541133e1870841463bfa73f883e32"
+    },
+    {
+      "name": "FreeType 2.14.1",
+      "version": "2.14.1",
+      "file": "freetype-2.14.1.tar.xz",
+      "url": "https://download-mirror.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.xz",
+      "sha256": "32427e8c471ac095853212a37aef816c60b42052d4d9e48230bab3bdf2936ccc"
+    },
+    {
+      "name": "Fontconfig 2.17.1",
+      "version": "2.17.1",
+      "file": "fontconfig-2.17.1.tar.xz",
+      "url": "https://gitlab.freedesktop.org/api/v4/projects/890/packages/generic/fontconfig/2.17.1/fontconfig-2.17.1.tar.xz",
+      "sha256": "9f5cae93f4fffc1fbc05ae99cdfc708cd60dfd6612ffc0512827025c026fa541"
+    },
+    {
+      "name": "Ghostscript 10.06.0",
+      "version": "10.06.0",
+      "file": "ghostscript-10.06.0.tar.gz",
+      "url": "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10060/ghostscript-10.06.0.tar.gz",
+      "sha256": "5bd6da34794928cc7e616f288e32bd0be7f9a5ca2d3c206a0af2c19a4e3a318f"
+    },
+    {
+      "name": "libffi 3.5.2",
+      "version": "3.5.2",
+      "file": "libffi-3.5.2.tar.gz",
+      "url": "https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz",
+      "sha256": "f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc"
+    },
+    {
+      "name": "PCRE2 10.47",
+      "version": "10.47",
+      "file": "pcre2-10.47.tar.bz2",
+      "url": "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.47/pcre2-10.47.tar.bz2",
+      "sha256": "47fe8c99461250d42f89e6e8fdaeba9da057855d06eb7fc08d9ca03fd08d7bc7"
+    },
+    {
+      "name": "GLib 2.86.3",
+      "version": "2.86.3",
+      "file": "glib-2.86.3.tar.xz",
+      "url": "https://download.gnome.org/sources/glib/2.86/glib-2.86.3.tar.xz",
+      "sha256": "b3211d8d34b9df5dca05787ef0ad5d7ca75dec998b970e1aab0001d229977c65"
+    },
+    {
+      "name": "bdwgc 8.2.12",
+      "version": "8.2.12",
+      "file": "gc-8.2.12.tar.gz",
+      "url": "https://github.com/bdwgc/bdwgc/releases/download/v8.2.12/gc-8.2.12.tar.gz",
+      "sha256": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e"
+    },
+    {
+      "name": "libunistring 1.4.1",
+      "version": "1.4.1",
+      "file": "libunistring-1.4.1.tar.xz",
+      "url": "https://ftpmirror.gnu.org/gnu/libunistring/libunistring-1.4.1.tar.xz",
+      "sha256": "67d88430892527861903788868c77802a217b0959990f7449f2976126a307763"
+    },
+    {
+      "name": "Guile 3.0.11",
+      "version": "3.0.11",
+      "file": "guile-3.0.11.tar.xz",
+      "url": "https://ftpmirror.gnu.org/gnu/guile/guile-3.0.11.tar.xz",
+      "sha256": "818c79d236657a7fa96fb364137cc7b41b3bdee0d65c6174ca03769559579460"
+    },
+    {
+      "name": "HarfBuzz 12.3.2",
+      "version": "12.3.2",
+      "file": "harfbuzz-12.3.2.tar.xz",
+      "url": "https://github.com/harfbuzz/harfbuzz/releases/download/12.3.2/harfbuzz-12.3.2.tar.xz",
+      "sha256": "6f6db164359a2da5a84ef826615b448b33e6306067ad829d85d5b0bf936f1bb8"
+    },
+    {
+      "name": "FriBiDi 1.0.16",
+      "version": "1.0.16",
+      "file": "fribidi-1.0.16.tar.xz",
+      "url": "https://github.com/fribidi/fribidi/releases/download/v1.0.16/fribidi-1.0.16.tar.xz",
+      "sha256": "1b1cde5b235d40479e91be2f0e88a309e3214c8ab470ec8a2744d82a5a9ea05c"
+    },
+    {
+      "name": "Pango 1.57.0",
+      "version": "1.57.0",
+      "file": "pango-1.57.0.tar.xz",
+      "url": "https://download.gnome.org/sources/pango/1.57/pango-1.57.0.tar.xz",
+      "sha256": "890640c841dae77d3ae3d8fe8953784b930fa241b17423e6120c7bfdf8b891e7"
+    },
+    {
+      "name": "libpng 1.6.54",
+      "version": "1.6.54",
+      "file": "libpng-1.6.54.tar.xz",
+      "url": "https://downloads.sourceforge.net/libpng/libpng-1.6.54.tar.xz",
+      "sha256": "01c9d8a303c941ec2c511c14312a3b1d36cedb41e2f5168ccdaa85d53b887805"
+    },
+    {
+      "name": "pixman 0.46.4",
+      "version": "0.46.4",
+      "file": "pixman-0.46.4.tar.gz",
+      "url": "https://www.cairographics.org/releases/pixman-0.46.4.tar.gz",
+      "sha256": "d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c"
+    },
+    {
+      "name": "cairo 1.18.4",
+      "version": "1.18.4",
+      "file": "cairo-1.18.4.tar.xz",
+      "url": "https://www.cairographics.org/releases/cairo-1.18.4.tar.xz",
+      "sha256": "445ed8208a6e4823de1226a74ca319d3600e83f6369f99b14265006599c32ccb"
+    },
+    {
+      "name": "Python 3.14.3",
+      "version": "3.14.3",
+      "file": "Python-3.14.3.tar.xz",
+      "url": "https://www.python.org/ftp/python/3.14.3/Python-3.14.3.tar.xz",
+      "sha256": "a97d5549e9ad81fe17159ed02c68774ad5d266c72f8d9a0b5a9c371fe85d902b"
+    },
+    {
+      "name": "TeX Gyre 2.501",
+      "version": "2.501",
+      "file": "tg2_501otf.zip",
+      "url": "https://www.gust.org.pl/projects/e-foundry/tex-gyre/whole/tg2_501otf.zip",
+      "sha256": "d7f8be5317bec4e644cf16c5abf876abeeb83c43dbec0ccb4eee4516b73b1bbe"
+    },
+    {
+      "name": "(URW)++ base 35 fonts 20200910",
+      "version": "20200910",
+      "file": "20200910.zip",
+      "url": "https://github.com/ArtifexSoftware/urw-base35-fonts/archive/refs/tags/20200910.zip",
+      "sha256": "66eed7ca2dfbf44665aa34cb80559f4a90807d46858ccf76c34f9ac1701cfa27"
+    }
+  ]
+}
