@@ -1,11 +1,17 @@
 {
   "identifier": "management",
-  "description": "Only the local management window may inspect, start, stop and diagnose the selected runtime.",
+  "description": "Only the local management window may inspect, start, stop, diagnose and configure the selected runtime integration.",
   "windows": ["management"],
   "permissions": [
     "allow-management-status",
     "allow-management-start",
     "allow-management-stop",
-    "allow-management-doctor"
+    "allow-management-doctor",
+    "allow-management-integration-detect",
+    "allow-management-integration-plan",
+    "allow-management-integration-status",
+    "allow-management-integration-apply",
+    "allow-management-integration-repair",
+    "allow-management-integration-remove"
   ]
 }

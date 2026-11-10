@@ -26,6 +26,7 @@
     "generate:types": "cargo run --quiet -p ossia-types --bin generate-types --",
     "check:types": "cargo run --quiet -p ossia-types --bin generate-types -- --check",
     "test:runtime": "cargo test -p ossia-runtime",
+    "test:integrations": "cargo test -p ossia-integrations",
     "generate:contracts": "cargo run --quiet -p ossia-runtime --bin generate-contracts --",
     "check:contracts": "cargo run --quiet -p ossia-runtime --bin generate-contracts -- --check",
     "test:ui": "pnpm --filter @ossia/ui test",

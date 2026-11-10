@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-management-integration-detect"
+description = "Enables the management_integration_detect command without any pre-configured scope."
+commands.allow = ["management_integration_detect"]
+
+[[permission]]
+identifier = "deny-management-integration-detect"
+description = "Denies the management_integration_detect command without any pre-configured scope."
+commands.deny = ["management_integration_detect"]

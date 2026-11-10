@@ -10,6 +10,7 @@ ossia-types = { path = "../ossia-types" }
 ossia-score = { path = "../ossia-score" }
 ossia-engine = { path = "../ossia-engine" }
 ossia-library = { path = "../ossia-library" }
+ossia-integrations = { path = "../ossia-integrations" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

@@ -5,6 +5,7 @@ members = [
   "crates/ossia-score",
   "crates/ossia-engine",
   "crates/ossia-library",
+  "crates/ossia-integrations",
   "crates/ossia-runtime",
   "packages/desktop/src-tauri",
 ]
@@ -13,6 +14,7 @@ default-members = [
   "crates/ossia-score",
   "crates/ossia-engine",
   "crates/ossia-library",
+  "crates/ossia-integrations",
   "crates/ossia-runtime",
 ]
 
@@ -29,3 +31,4 @@ sha2 = "0.10"
 uuid = { version = "1", features = ["serde", "v4"] }
 regex = "1"
 quick-xml = "0.42"
+tempfile = "3"

@@ -1,7 +1,7 @@
 # Ossia 本地架构分阶段实施索引
 
 - 日期：2026-11-10
-- 状态：P00 本机基线与探针已交付，Linux ARM64 验收受阻；P01 代码与本机验证完成（未集成，阶段受前序门槛阻塞）；P02 本机实现完成（未集成，同样受前序门槛阻塞）；P03 本机实现完成（未集成，同样受前序门槛阻塞）；P04 本机实现完成（未集成，同样受前序门槛阻塞）；P05 本机实现完成（未集成，同样受 P00 Linux ARM64 前序门槛阻塞）；P06–P07 待实施。按用户指令已提前移除旧 Next.js 后端；未执行宿主注入、用户数据清理或后续发布切换。
+- 状态：P00 本机基线与探针已交付，Linux ARM64 验收受阻；P01 至 P05 本机实现完成；P06 本机实现完成、未集成，真实宿主 GUI 闭环和跨平台证据仍待后续；P07 待实施。未写用户默认宿主 profile、未发布、未处理旧数据。
 - 产品决策：[本地架构调整方案](../2026-11-10_local-architecture-plan.md)。
 
 ## 1. 执行顺序与阅读方式
@@ -16,7 +16,7 @@
 | P03 | [文档、编辑与版本](03-library-editing-and-history.md) | P02 | 公共源码、单文档编辑所有权、可恢复历史与提交一致性 |
 | P04 | [运行时、HTTP、CLI 与 MCP](04-runtime-and-agent-interfaces.md) | P03 | 可独立启动的本地服务、会话视图和 Agent 工具闭环 |
 | P05 | [侧边谱面与管理窗口](05-browser-score-and-desktop.md) | P04 | Agent 浏览器中的谱面交互和独立的 Tauri 管理窗口 |
-| P06 | [Skill／MCP／插件注入](06-host-integrations.md) | P05 | 本体内置的 Codex／DSH 本地集成，支持安装、修复和移除 |
+| P06 | [Skill／MCP／插件注入](06-host-integrations.md) | P05 | 本体内置的 Codex／DSH 本地集成，支持安装、修复和移除；本机实现完成 |
 | P07 | [五目标发布与切换](07-release-and-cutover.md) | P06 | 自包含安装包、跨端验收、旧数据进废纸篓及旧架构退出 |
 
 按 P00 → P07 顺序验收。前序未通过时，可用测试替身开发后续模块，但必须标记为未集成，不能将阶段标记为完成。缺少平台环境时写明缺失目标，不用“编译通过”替代真实运行验证。
@@ -108,9 +108,11 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 - `pnpm dev:web`／`pnpm build:web`：启动／构建 Vite 双入口 SPA；`index.html` 是谱面，`admin.html` 是管理窗口。
 - `pnpm dev:desktop`／`pnpm build:desktop`：启动／构建 Tauri 管理窗口；开发脚本向共享运行时配置显式传入项目 home、`3212`、工具链与静态资源。
 - `pnpm test:ui`／`pnpm test:ui:native`：运行浏览器 Playwright 与真实引擎／Tauri 共存原生场景。
+- `pnpm test:integrations`：集成计划的生成物与冲突回归；真实 Codex／DSH profile 的 round-trip 测试见 crate README 的显式环境变量命令。
 - `pnpm engine:install`／`pnpm engine:verify`：准备／校验本机锁定工具链；五目标配方见 `vendor/README.md`。
 - `cargo test -p ossia-library`：临时库、编辑／版本事务与崩溃恢复；原生闭环见 P03 交接。
 - `pnpm test:engine`、`cargo test -p ossia-engine`：开发资源与引擎离线回归；原生集成测试显式启用。
 - `pnpm baseline:local --check`、`pnpm test:local`、`pnpm typecheck`、`pnpm check`：本地对照与检查。
 
-P04 已提供可用的 headless 服务与工具闭环；P05 已把普通浏览器谱面和 Tauri 管理窗口接入同一 Rust 服务，并验证两者与 headless 实例共存。当前阶段不加载旧 Tauri API、部署发现、旧令牌或模型作业流程，也不回退到旧服务。宿主注入、安装包、跨平台原生验收及旧数据处理仍按 P06／P07 执行。
+P04 已提供可用的 headless 服务与工具闭环；P05 已把普通浏览器谱面和 Tauri 管理窗口接入同一 Rust 服务，并验证两者与 headless 实例共存。当前阶段不加载旧 Tauri API、部署发现、旧令牌或模型作业流程，也不回退到旧服务。默认 profile 与安装态宿主注入、安装包、跨平台原生验收及旧数据处理仍按 P07 执行。
+P06 已提供 `ossia integrate` 与管理窗口入口；宿主注入配置只在临时 profile 实测，默认 profile、模型会话工具列表、DSH 侧栏 GUI 与安装包注入仍按 P07 执行。

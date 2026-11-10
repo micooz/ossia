@@ -13,6 +13,7 @@ pub struct Config {
     pub engine_root: PathBuf,
     pub static_dir: Option<PathBuf>,
     pub dev_origin: Option<String>,
+    pub integration_root: PathBuf,
 }
 
 pub fn resolve_home(explicit: Option<PathBuf>) -> Result<PathBuf> {

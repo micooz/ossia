@@ -79,6 +79,20 @@ fn main() {
         EmptyArgs,
         RpcRequest,
         RpcResponse,
+        HostKind,
+        IntegrationMode,
+        IntegrationAction,
+        IntegrationState,
+        IntegrationOperation,
+        IntegrationRequest,
+        HostDetection,
+        IntegrationDetection,
+        IntegrationEntry,
+        IntegrationConflict,
+        IntegrationPlan,
+        IntegrationRecordView,
+        IntegrationObservation,
+        IntegrationStatus,
         serde_json::Value
     );
     let mut text =

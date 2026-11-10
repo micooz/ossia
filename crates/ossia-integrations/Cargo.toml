@@ -1,0 +1,19 @@
+[package]
+name = "ossia-integrations"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ossia-types = { path = "../ossia-types" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+tempfile.workspace = true
+fs2 = "0.4"
+dirs = "6"
+
+[dev-dependencies]
+tempfile.workspace = true
