@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.2" width="210.00mm" height="297.00mm" viewBox="0.0000 -0.0000 119.5016 169.0094">
+<style type="text/css">
+<![CDATA[
+tspan { white-space: pre; }
+]]>
+</style>
+<g transform="translate(8.5358, 8.6906)">
+<rect x="16.9132" y="-0.1000" width="1.9563" height="0.2000" ry="0.1000" fill="currentColor"/>
+</g>
+<g transform="translate(17.0717, 13.6906)">
+<line stroke-linejoin="round" stroke-linecap="round" stroke-width="0.1000" stroke="currentColor" x1="0.0500" y1="0" x2="11.6556" y2="0"/>
+</g>
+<g transform="translate(17.0717, 12.6906)">
+<line stroke-linejoin="round" stroke-linecap="round" stroke-width="0.1000" stroke="currentColor" x1="0.0500" y1="0" x2="11.6556" y2="0"/>
+</g>
+<g transform="translate(17.0717, 11.6906)">
+<line stroke-linejoin="round" stroke-linecap="round" stroke-width="0.1000" stroke="currentColor" x1="0.0500" y1="0" x2="11.6556" y2="0"/>
+</g>
+<g transform="translate(17.0717, 10.6906)">
+<line stroke-linejoin="round" stroke-linecap="round" stroke-width="0.1000" stroke="currentColor" x1="0.0500" y1="0" x2="11.6556" y2="0"/>
+</g>
+<g transform="translate(17.0717, 9.6906)">
+<line stroke-linejoin="round" stroke-linecap="round" stroke-width="0.1000" stroke="currentColor" x1="0.0500" y1="0" x2="11.6556" y2="0"/>
+</g>
+<a style="color:inherit;" xlink:href="textedit://<scratch>/midi-valid-render/score.ly:19:2:3">
+<g transform="translate(25.7751, 8.6906)">
+<path transform="scale(0.0040, -0.0040)" d="M0 -46c0 91 116 182 217 182c63 0 109 -35 109 -90c0 -87 -110 -182 -220 -182c-67 0 -106 39 -106 90z" fill="currentColor"/>
+</g>
+</a>
+<g transform="translate(17.8717, 10.6906)">
+<path transform="scale(0.0040, -0.0040)" d="M557 -125c0 28 23 51 51 51s51 -23 51 -51s-23 -51 -51 -51s-51 23 -51 51zM557 125c0 28 23 51 51 51s51 -23 51 -51s-23 -51 -51 -51s-51 23 -51 51zM232 263c172 0 293 -88 293 -251c0 -263 -263 -414 -516 -521c-3 -3 -6 -4 -9 -4c-7 0 -13 6 -13 13c0 3 1 6 4 9
+c202 118 412 265 412 493c0 120 -63 235 -171 235c-74 0 -129 -54 -154 -126c11 5 22 8 34 8c55 0 100 -45 100 -100c0 -58 -44 -106 -100 -106c-60 0 -112 47 -112 106c0 133 102 244 232 244z" fill="currentColor"/>
+</g>
+<g transform="translate(22.0751, 11.6906)">
+<path transform="scale(0.0040, -0.0040)" d="M433 -89c0 -22 -50 -174 -183 -174c-59 0 -250 19 -250 263c0 62 18 262 250 262c116 0 176 -106 176 -163c0 -40 -30 -72 -67 -72c-31 0 -75 25 -75 75c0 38 27 77 72 77c4 0 9 0 14 -1c-28 37 -72 59 -120 59c-106 0 -113 -73 -113 -186v-51v-51
+c0 -113 7 -187 113 -187c80 0 139 70 158 151c2 7 7 10 12 10c6 0 13 -4 13 -12z" fill="currentColor"/>
+</g>
+<g transform="translate(25.8401, 11.6906)">
+<rect x="-0.0650" y="-2.8138" width="0.1300" height="3.3138" ry="0.0400" fill="currentColor"/>
+</g>
+<g transform="translate(52.1198, 162.8440)">
+<a xlink:href="https://lilypond.org">
+<rect x="0.0000" y="-0.4748" width="15.2621" height="2.0024" fill="none" stroke="none" stroke-width="0.0"/>
+</a>
+</g>
+<g transform="translate(52.1198, 162.8440)">
+<text font-family="serif" font-size="2.2000" text-anchor="start" fill="currentColor">
+<tspan>LilyPond v2.26.0</tspan>
+</text>
+</g>
+</svg>

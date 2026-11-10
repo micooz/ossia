@@ -5,8 +5,7 @@ import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
   test: {
-    // Rust tests run through cargo (`pnpm test:desktop`). The JS/TS test layer is deliberately not
-    // written yet, so there are no suites here; this block only keeps derived trees out of scope.
+    // P00 probes use Node's test runner (`pnpm test:local`); Rust tests run through cargo.
     exclude: ['**/node_modules/**', '**/.next/**', '**/target/**', 'work/**'],
   },
   staged: {
@@ -21,6 +20,7 @@ export default defineConfig({
     // (pre-MVP spike scripts kept as evidence).
     ignorePatterns: [
       '.docs/',
+      'tests/fixtures/local/',
       'work/',
       'vendor/',
       'packages/desktop/src-tauri/{target,gen,icons}/',
@@ -32,6 +32,7 @@ export default defineConfig({
   lint: {
     ignorePatterns: [
       '.docs/',
+      'tests/fixtures/local/',
       'work/',
       'vendor/',
       'packages/desktop/src-tauri/{target,gen}/',

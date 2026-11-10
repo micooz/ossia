@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.2" width="210.00mm" height="297.00mm" viewBox="0.0000 -0.0000 119.5016 169.0094">
+<style type="text/css">
+<![CDATA[
+tspan { white-space: pre; }
+]]>
+</style>
+<a style="color:inherit;" xlink:href="textedit://<scratch>/chordmode/score.ly:2:21:22">
+<g transform="translate(17.5717, 11.6906)">
+<text font-family="sans" font-size="2.6165" text-anchor="start" fill="currentColor">
+<tspan>C</tspan>
+</text>
+</g>
+</a>
+<a style="color:inherit;" xlink:href="textedit://<scratch>/chordmode/score.ly:2:26:27">
+<g transform="translate(23.3697, 11.6906)">
+<text font-family="sans" font-size="2.6165" text-anchor="start" fill="currentColor">
+<tspan>G</tspan>
+</text>
+</g>
+<g transform="translate(25.3842, 10.5013)">
+<text font-family="sans" font-size="1.8500" text-anchor="start" fill="currentColor">
+<tspan>7</tspan>
+</text>
+</g>
+</a>
+<g transform="translate(52.1198, 162.8440)">
+<a xlink:href="https://lilypond.org">
+<rect x="0.0000" y="-0.4748" width="15.2621" height="2.0024" fill="none" stroke="none" stroke-width="0.0"/>
+</a>
+</g>
+<g transform="translate(52.1198, 162.8440)">
+<text font-family="serif" font-size="2.2000" text-anchor="start" fill="currentColor">
+<tspan>LilyPond v2.26.0</tspan>
+</text>
+</g>
+</svg>

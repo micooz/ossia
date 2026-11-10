@@ -10,10 +10,16 @@
     "dev:desktop": "pnpm --parallel --filter @ossia/backend --filter @ossia/desktop dev",
     "build:web": "pnpm --parallel --filter @ossia/backend --filter @ossia/ui build",
     "build:desktop": "pnpm --filter @ossia/desktop build",
-    "typecheck": "pnpm run -r typecheck",
+    "typecheck": "pnpm run -r typecheck && pnpm typecheck:local",
     "check": "vp check",
     "check:fix": "vp check --fix",
-    "test:desktop": "pnpm --filter @ossia/desktop test"
+    "test:desktop": "pnpm --filter @ossia/desktop test",
+    "baseline:fixtures": "node --experimental-strip-types scripts/local/fixtures.mts",
+    "baseline:local": "node --experimental-strip-types scripts/local/baseline.mts",
+    "probe:engine": "node --experimental-strip-types scripts/local/engine.mts",
+    "probe:host": "node --experimental-strip-types scripts/local/host.mts",
+    "test:local": "node --experimental-strip-types --test scripts/local/local.test.mts",
+    "typecheck:local": "pnpm --filter @ossia/ly exec tsc -p ../../scripts/local/tsconfig.json"
   },
   "devDependencies": {
     "vite-plus": "1.1.0"

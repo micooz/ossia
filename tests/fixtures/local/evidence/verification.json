@@ -1,0 +1,56 @@
+{
+  "formatVersion": 1,
+  "date": "2026-11-10",
+  "commands": [
+    {
+      "command": "pnpm baseline:fixtures",
+      "exitCode": 0,
+      "inputs": 25
+    },
+    {
+      "command": "pnpm probe:engine",
+      "exitCode": 0,
+      "renderedSources": 22,
+      "platform": "darwin-arm64"
+    },
+    {
+      "command": "pnpm baseline:local --check",
+      "exitCode": 0,
+      "result": "matches after native regeneration"
+    },
+    {
+      "command": "pnpm test:local",
+      "exitCode": 0,
+      "tests": 8,
+      "failures": 0
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm check",
+      "exitCode": 0,
+      "errors": 0,
+      "existingWarnings": 5
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "existingWarningLocations": [
+    "packages/backend/src/server/agent.ts:174",
+    "packages/backend/src/server/agent.ts:193",
+    "packages/backend/src/server/agent.ts:195",
+    "packages/backend/src/server/agent.ts:302",
+    "packages/backend/src/app/api/v1/documents/route.ts:68"
+  ],
+  "unverified": [
+    "linux-arm64 native build and execution",
+    "other native targets",
+    "plugin-driven host opening",
+    "DSH Web sandbox and download denial",
+    "installation packages"
+  ]
+}

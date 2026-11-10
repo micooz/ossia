@@ -1,0 +1,271 @@
+[
+  {
+    "id": "compressed-rest",
+    "source": "engine/compressed-rest/score.ly",
+    "pages": [
+      "engine/compressed-rest/score.svg"
+    ],
+    "midi": "engine/compressed-rest/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "polyphonic-pages",
+    "source": "engine/polyphonic-pages/score.ly",
+    "pages": [
+      "engine/polyphonic-pages/score-1.svg",
+      "engine/polyphonic-pages/score-2.svg"
+    ],
+    "midi": "engine/polyphonic-pages/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 or 2 pages...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 or 2 pages...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "named-variable",
+    "source": "engine/named-variable/score.ly",
+    "pages": [
+      "engine/named-variable/score.svg"
+    ],
+    "midi": "engine/named-variable/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "pitch-state",
+    "source": "engine/pitch-state/score.ly",
+    "pages": [
+      "engine/pitch-state/score.svg"
+    ],
+    "midi": "engine/pitch-state/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "midi-context-reuse",
+    "source": "engine/midi-context-reuse/score.ly",
+    "pages": [
+      "engine/midi-context-reuse/score.svg"
+    ],
+    "midi": "engine/midi-context-reuse/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nscore.ly:3:37: warning: this Voice needs a \\voiceXx or \\shiftXx setting\ntrackBchannelB = \\relative c { c1 | \n                                    d1 | }\nscore.ly:3:32: warning: this Voice needs a \\voiceXx or \\shiftXx setting\ntrackBchannelB = \\relative c { \n                               c1 | d1 | }\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nscore.ly:3:37: warning: this Voice needs a \\voiceXx or \\shiftXx setting\ntrackBchannelB = \\relative c { c1 | \n                                    d1 | }\nscore.ly:3:32: warning: this Voice needs a \\voiceXx or \\shiftXx setting\ntrackBchannelB = \\relative c { \n                               c1 | d1 | }\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "inline-staff",
+    "source": "engine/inline-staff/score.ly",
+    "pages": [
+      "engine/inline-staff/score.svg"
+    ],
+    "midi": "engine/inline-staff/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "absolute",
+    "source": "engine/absolute/score.ly",
+    "pages": [
+      "engine/absolute/score.svg"
+    ],
+    "midi": "engine/absolute/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "same-line",
+    "source": "engine/same-line/score.ly",
+    "pages": [
+      "engine/same-line/score.svg"
+    ],
+    "midi": "engine/same-line/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "unicode-crlf-bom",
+    "source": "engine/unicode-crlf-bom/score.ly",
+    "pages": [
+      "engine/unicode-crlf-bom/score.svg"
+    ],
+    "midi": "engine/unicode-crlf-bom/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "scheme-markup",
+    "source": "engine/scheme-markup/score.ly",
+    "pages": [
+      "engine/scheme-markup/score.svg"
+    ],
+    "midi": "engine/scheme-markup/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "chordmode",
+    "source": "engine/chordmode/score.ly",
+    "pages": [
+      "engine/chordmode/score.svg"
+    ],
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "repeat",
+    "source": "engine/repeat/score.ly",
+    "pages": [
+      "engine/repeat/score.svg"
+    ],
+    "midi": "engine/repeat/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "transpose",
+    "source": "engine/transpose/score.ly",
+    "pages": [
+      "engine/transpose/score.svg"
+    ],
+    "midi": "engine/transpose/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "standard-include",
+    "source": "engine/standard-include/score.ly",
+    "pages": [
+      "engine/standard-include/score.svg"
+    ],
+    "midi": "engine/standard-include/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "external-present",
+    "source": "engine/external-present/score.ly",
+    "pages": [
+      "engine/external-present/score.svg"
+    ],
+    "midi": "engine/external-present/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "xml-clean-render",
+    "source": "engine/xml-clean-render/score.ly",
+    "pages": [
+      "engine/xml-clean-render/score.svg"
+    ],
+    "midi": "engine/xml-clean-render/score.midi",
+    "log": [
+      "musicxml2ly: Reading MusicXML from input.musicxml ...",
+      "musicxml2ly: Converting part 'P1' (voice 1) to LilyPond expressions...",
+      "musicxml2ly: Output to `converted.ly'"
+    ]
+  },
+  {
+    "id": "xml-loss-render",
+    "source": "engine/xml-loss-render/score.ly",
+    "pages": [
+      "engine/xml-loss-render/score.svg"
+    ],
+    "midi": "engine/xml-loss-render/score.midi",
+    "log": [
+      "musicxml2ly: Reading MusicXML from input.musicxml ...",
+      "musicxml2ly: Converting part 'P1' (voice 1) to LilyPond expressions...",
+      "musicxml2ly: warning: Invalid bpm value in metronome mark",
+      "musicxml2ly: Output to `converted.ly'"
+    ]
+  },
+  {
+    "id": "xml-negative-skip-render",
+    "source": "engine/xml-negative-skip-render/score.ly",
+    "pages": [
+      "engine/xml-negative-skip-render/score.svg"
+    ],
+    "midi": "engine/xml-negative-skip-render/score.midi",
+    "log": [
+      "musicxml2ly: Reading MusicXML from input.musicxml ...",
+      "musicxml2ly: Converting part 'P1' (voice 1) to LilyPond expressions...",
+      "musicxml2ly: warning: Negative skip -1/2 (from position 1 to 1/2)",
+      "musicxml2ly: warning: Negative skip -1/2 (from position 1 to 1/2)",
+      "musicxml2ly: Output to `converted.ly'"
+    ]
+  },
+  {
+    "id": "midi-valid-render",
+    "source": "engine/midi-valid-render/score.ly",
+    "pages": [
+      "engine/midi-valid-render/score.svg"
+    ],
+    "midi": "engine/midi-valid-render/score.midi",
+    "log": [
+      "LY output to `converted.ly'..."
+    ]
+  },
+  {
+    "id": "columns-lf",
+    "source": "engine/columns-lf/score.ly",
+    "pages": [
+      "engine/columns-lf/score.svg"
+    ],
+    "midi": "engine/columns-lf/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "columns-plain",
+    "source": "engine/columns-plain/score.ly",
+    "pages": [
+      "engine/columns-plain/score.svg"
+    ],
+    "midi": "engine/columns-plain/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  },
+  {
+    "id": "columns-bom-crlf",
+    "source": "engine/columns-bom-crlf/score.ly",
+    "pages": [
+      "engine/columns-bom-crlf/score.svg"
+    ],
+    "midi": "engine/columns-bom-crlf/score.midi",
+    "log": [
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed",
+      "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    ]
+  }
+]

@@ -1,0 +1,32 @@
+:root {
+  font:
+    16px/1.6 system-ui,
+    sans-serif;
+  color-scheme: light dark;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 46rem;
+  padding: 2rem;
+  margin: auto;
+}
+#measures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+button {
+  font: inherit;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+}
+button[aria-pressed='true'] {
+  background: #2457a7;
+  color: white;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

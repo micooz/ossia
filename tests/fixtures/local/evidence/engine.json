@@ -1,0 +1,1695 @@
+{
+  "formatVersion": 1,
+  "platform": "darwin",
+  "architecture": "arm64",
+  "osRelease": "27.2.0",
+  "engineVersion": "2.26.0",
+  "engineLock": "# LilyPond engine pin (ADR-0001 D4 / ADR-0002 §8). Source of truth for scripts/engine.mjs.\n# The unpacked tree lives in vendor/lilypond/<tag> and is gitignored; it is reproducible\n# from this lock, so `git clone` + `pnpm engine` reconstructs it byte-for-byte.\ntag = \"2.26.0-darwin-arm64\"\nversion = \"2.26.0\"\nurl = \"https://gitlab.com/api/v4/projects/lilypond%2Flilypond/packages/generic/lilypond/2.26.0/lilypond-2.26.0-darwin-arm64.tar.gz\"\nfile = \"lilypond-2.26.0-darwin-arm64.tar.gz\"\nsha256 = \"18ffc454fef3753c26a015d95a3c232f89b22f052b897c046e0198740a1221be\"\n# LilyPond compiles its Guile modules at first run and refuses to start when a `.go`\n# file is older than its `.scm` source (see ADR alternatives-evaluation §3.13). `tar`\n# restores mtimes, so extraction is safe; any copy that flattens mtimes is not.\ntouch_newer = \"*.go\"\n",
+  "binaryArchitecture": "<engine>/bin/lilypond: Mach-O 64-bit executable arm64",
+  "sourceUnmodifiedForDirectCompiles": true,
+  "commands": [
+    {
+      "id": "version",
+      "tool": "lilypond",
+      "args": [
+        "--version"
+      ],
+      "cwd": "<scratch>",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "GNU LilyPond 2.26.0 (running Guile 3.0)\n\nCopyright (c) 1996--2026 by\n  Han-Wen Nienhuys <hanwen@xs4all.nl>\n  Jan Nieuwenhuizen <janneke@gnu.org>\n  and others.\n\nThis program is free software.  It is covered by the GNU General Public\nLicense and you are welcome to change it and/or distribute copies of it\nunder certain conditions.  Invoke as `lilypond --warranty' for more\ninformation."
+    },
+    {
+      "id": "compressed-rest",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/compressed-rest",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "compressed-rest",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/compressed-rest",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "compressed-rest",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 121,
+            "sha256": "ed2a2463c8f42fd3855085f52ae7a9cfd2348c4b6c10907ed9c10f6e5bf6eac6",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 27664,
+            "sha256": "6b9cfce139855d4ea270e2e3f4e820b673dbc6e73b9b4e1cca1b7fd1249a017d",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 5560,
+            "sha256": "3ff167fb946f62d5caf2c7efd7054cda28683e2593f2bdf506ab6a883e84b1f3",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 27664
+          }
+        ],
+        "midi": "engine/compressed-rest/score.midi"
+      }
+    },
+    {
+      "id": "polyphonic-pages",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/polyphonic-pages",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 or 2 pages...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "polyphonic-pages",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/polyphonic-pages",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 or 2 pages...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "polyphonic-pages",
+      "artifacts": {
+        "pages": 2,
+        "files": [
+          {
+            "file": "score-1.svg",
+            "bytes": 8981,
+            "sha256": "099996d64e27a0bbb6782c5428787d77c365abb6d4c0d8bad4a03eab473072c0",
+            "normalizedPaths": true
+          },
+          {
+            "file": "score-2.svg",
+            "bytes": 8523,
+            "sha256": "7698f2407fc563d1e7948ea52ce27d2776f0c4b1b5f0a2879923a7707135d50b",
+            "normalizedPaths": true
+          },
+          {
+            "file": "score.midi",
+            "bytes": 245,
+            "sha256": "30fc6154f73dade128bf610f2a9de0cbff7bebde640c30bcd4a5e2399694efd5",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 31866,
+            "sha256": "f0a9833727ed11c5056e143c118cac74ae3b7f4cf38c17430e2830e89285f681",
+            "normalizedPaths": false
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 31866
+          }
+        ],
+        "midi": "engine/polyphonic-pages/score.midi"
+      }
+    },
+    {
+      "id": "named-variable",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/named-variable",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "named-variable",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/named-variable",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "named-variable",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 119,
+            "sha256": "08fb30f4ef269b2aadd4729f6aba16314a28a4e7c4d8d923a389688c1849a4a7",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 26770,
+            "sha256": "7d52e9392d9a1abb83b2a66bf4cc1b4ed5998cb90bc6c23b07288b4e7f2b124c",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 4275,
+            "sha256": "c252a0d7791da01e51e8b508fef4e0b6a11a4996d0ed50b554e3105ce1919a0e",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 26770
+          }
+        ],
+        "midi": "engine/named-variable/score.midi"
+      }
+    },
+    {
+      "id": "pitch-state",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/pitch-state",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "pitch-state",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/pitch-state",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "pitch-state",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 155,
+            "sha256": "11ff96d2780115844b58aef1e6c4a83deb1930054a3b7fa6efb4a2277f5c0ea0",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 28530,
+            "sha256": "425e2f18c269c5197b0c9d7e55d4dbc4de5aa7853139eb2c011aa27b56f82f67",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 7046,
+            "sha256": "d86719f886ad5def953b91e68a9f22bf0b71cb90a02d562ed5678b786f259e55",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 28530
+          }
+        ],
+        "midi": "engine/pitch-state/score.midi"
+      }
+    },
+    {
+      "id": "midi-context-reuse",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/midi-context-reuse",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nscore.ly:3:37: warning: this Voice needs a \\voiceXx or \\shiftXx setting\ntrackBchannelB = \\relative c { c1 | \n                                    d1 | }\nscore.ly:3:32: warning: this Voice needs a \\voiceXx or \\shiftXx setting\ntrackBchannelB = \\relative c { \n                               c1 | d1 | }\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "midi-context-reuse",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/midi-context-reuse",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nscore.ly:3:37: warning: this Voice needs a \\voiceXx or \\shiftXx setting\ntrackBchannelB = \\relative c { c1 | \n                                    d1 | }\nscore.ly:3:32: warning: this Voice needs a \\voiceXx or \\shiftXx setting\ntrackBchannelB = \\relative c { \n                               c1 | d1 | }\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "midi-context-reuse",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 152,
+            "sha256": "789807cbb2a57807d70d3401d9613c732bd367e637c1cd1c61d3ab915537f1ab",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 27393,
+            "sha256": "353b537dbbcd2ec436f62ca8f07da05fae5cfaaac5575a0bc115d4b3ffc0cd5b",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 6078,
+            "sha256": "e52fa5af879645f5fe0b8cf79e88b35dc52f1a5891a1e1d037384db70550ed87",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 27393
+          }
+        ],
+        "midi": "engine/midi-context-reuse/score.midi"
+      }
+    },
+    {
+      "id": "inline-staff",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/inline-staff",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "inline-staff",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/inline-staff",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "inline-staff",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 119,
+            "sha256": "08fb30f4ef269b2aadd4729f6aba16314a28a4e7c4d8d923a389688c1849a4a7",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 26766,
+            "sha256": "37dd0d6c174006f81f57a9094a421a5922e8b9ad7ccee2d118e71fb41d7609bf",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 4271,
+            "sha256": "a2ed97f6d92ee8f3637c633851829b00121c7122b81d3e0321e0ada6de4d1d54",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 26766
+          }
+        ],
+        "midi": "engine/inline-staff/score.midi"
+      }
+    },
+    {
+      "id": "absolute",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/absolute",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "absolute",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/absolute",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "absolute",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 129,
+            "sha256": "769cdb2b714a4c53e7d3571337ab5a886a5c2cb3aec06a4ffda280de11b45fb7",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 27511,
+            "sha256": "1a2fc233f19a18bc7bd26bc6b64142f32a43e78f652db25e6710323057f754b6",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 5279,
+            "sha256": "f491ea0d1342fcf1af59d80062911d40ca124501d5393eb26bf199f8ca385b07",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 27511
+          }
+        ],
+        "midi": "engine/absolute/score.midi"
+      }
+    },
+    {
+      "id": "same-line",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/same-line",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "same-line",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/same-line",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "same-line",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 119,
+            "sha256": "08fb30f4ef269b2aadd4729f6aba16314a28a4e7c4d8d923a389688c1849a4a7",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 26760,
+            "sha256": "05c8142765843ef1c4562777977ca0cf49575f1c18f3c419d3a4a85679e19814",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 4265,
+            "sha256": "ccdca19b37c397afa2f70caecb93f586c6791da2f08cb56490a5641138ea46f0",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 26760
+          }
+        ],
+        "midi": "engine/same-line/score.midi"
+      }
+    },
+    {
+      "id": "unicode-crlf-bom",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/unicode-crlf-bom",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "unicode-crlf-bom",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/unicode-crlf-bom",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "unicode-crlf-bom",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 137,
+            "sha256": "a98d7e73110d39cfb84a0b7b6b62a89f2dd997e83d244fc72c8d1d1097f366c8",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 30950,
+            "sha256": "55ad4241c9924b77c5cc33ba19014c237cadc5a440dd96f274b3f2375a3b6dc0",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 5446,
+            "sha256": "95013a5509bbb75db6a1d21ac1d8d14c1cf81cf887e264b2cea12d5490efb0db",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 30950
+          }
+        ],
+        "midi": "engine/unicode-crlf-bom/score.midi"
+      }
+    },
+    {
+      "id": "raw-emoji",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/raw-emoji",
+      "exitCode": 1,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nscore.ly:1:2: error: syntax error, unexpected end of input, expecting '.' or '='\n😀\n \r\nscore.ly:1: warning: no \\version statement found, please add\n\n\\version \"2.26.0\"\n\nfor future compatibility\nfatal error: failed files: \"score.ly\""
+    },
+    {
+      "id": "raw-emoji",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/raw-emoji",
+      "exitCode": 1,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nscore.ly:1:2: error: syntax error, unexpected end of input, expecting '.' or '='\n😀\n \r\nscore.ly:1: warning: no \\version statement found, please add\n\n\\version \"2.26.0\"\n\nfor future compatibility\nfatal error: failed files: \"score.ly\""
+    },
+    {
+      "id": "scheme-markup",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/scheme-markup",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "scheme-markup",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/scheme-markup",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "scheme-markup",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 110,
+            "sha256": "f6b540300fef3ea532828f4c497a17cbbf5f6617550906248c0267d94af878e4",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 27192,
+            "sha256": "5936ff7caf21dfd4c2151d93836ee193c080d99e0187fe5c9dfab5284237e8d5",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 4008,
+            "sha256": "8beb2715ee034d4e360854dd525d4af7711e92e07cb7aa6bf86c4e06f3ac50f2",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 27192
+          }
+        ],
+        "midi": "engine/scheme-markup/score.midi"
+      }
+    },
+    {
+      "id": "chordmode",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/chordmode",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "chordmode",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/chordmode",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "chordmode",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.pdf",
+            "bytes": 27078,
+            "sha256": "dbf70ad0a0b786994dc115f8d4012773334b8de8c7e54d936a5aa69fe25b295e",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 1298,
+            "sha256": "67ccdf43aa9a3aa909e5e853f6ca888b806d3da69f243cf90bff8066945e42de",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 27078
+          }
+        ],
+        "midi": null
+      }
+    },
+    {
+      "id": "repeat",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/repeat",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "repeat",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/repeat",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "repeat",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 119,
+            "sha256": "08fb30f4ef269b2aadd4729f6aba16314a28a4e7c4d8d923a389688c1849a4a7",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 26870,
+            "sha256": "a131d8d7542329e1e8fd61100c938effbcb7b220ea692b0bef59f037ac714963",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 4768,
+            "sha256": "59e908295f90a94183ee262308029af27874d1b784b54b1301876b7e417567c4",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 26870
+          }
+        ],
+        "midi": "engine/repeat/score.midi"
+      }
+    },
+    {
+      "id": "transpose",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/transpose",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "transpose",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/transpose",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "transpose",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 110,
+            "sha256": "04074a32f2a6795e8b7e8a8fd51b3ebdb1df36028c33e011b1df8aacca6e7675",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 26451,
+            "sha256": "e1ca50bd41339b875e9ab9a9a5c49e6db765ed4aa92e681e08edb98a8f184e65",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 3591,
+            "sha256": "87e70bcaa709fc7d0e6054e6e23701ae10618321a04a708d91e8bffd78111aa6",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 26451
+          }
+        ],
+        "midi": "engine/transpose/score.midi"
+      }
+    },
+    {
+      "id": "standard-include",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/standard-include",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "standard-include",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/standard-include",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "standard-include",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 110,
+            "sha256": "68eb06b9f810effd752583298c9da0dd6609dfd407b47b3dd040494065311b2a",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 26676,
+            "sha256": "93fe32918fd7e4a234498247b1fa5c4e0376a39c218e442d50d72913965f58ce",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 4356,
+            "sha256": "a476b92935298bac6e6a8f10a1d4ca2ac657fcc34fc628ebbd59b01580f69ff2",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 26676
+          }
+        ],
+        "midi": "engine/standard-include/score.midi"
+      }
+    },
+    {
+      "id": "external-missing",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/external-missing",
+      "exitCode": 1,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nscore.ly:2:10: error: cannot find file: `user-music.ily'\n(search path: `<repo>/vendor/lilypond/2.26.0-darwin-arm64/share/lilypond/2.26.0/ly:<repo>/vendor/lilypond/2.26.0-darwin-arm64/share/lilypond/2.26.0/ps:<repo>/vendor/lilypond/2.26.0-darwin-arm64/share/lilypond/2.26.0/scm:<repo>/vendor/lilypond/2.26.0-darwin-arm64/share/lilypond/2.26.0/fonts/otf/:<repo>/vendor/lilypond/2.26.0-darwin-arm64/share/lilypond/2.26.0/fonts/svg/:')\n\\include \n         \"user-music.ily\"\nscore.ly:3:21: error: unknown command: `\\UserMusic'\n\\score { \\new Staff \n                    \\UserMusic \\layout {} \\midi {} }\nscore.ly:3:21: error: syntax error, unexpected STRING\n\\score { \\new Staff \n                    \\UserMusic \\layout {} \\midi {} }\nscore.ly:3:52: error: syntax error, unexpected '}'\n\\score { \\new Staff \\UserMusic \\layout {} \\midi {} \n                                                   }\nfatal error: failed files: \"score.ly\""
+    },
+    {
+      "id": "external-missing",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/external-missing",
+      "exitCode": 1,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nscore.ly:2:10: error: cannot find file: `user-music.ily'\n(search path: `<repo>/vendor/lilypond/2.26.0-darwin-arm64/share/lilypond/2.26.0/ly:<repo>/vendor/lilypond/2.26.0-darwin-arm64/share/lilypond/2.26.0/ps:<repo>/vendor/lilypond/2.26.0-darwin-arm64/share/lilypond/2.26.0/scm:<repo>/vendor/lilypond/2.26.0-darwin-arm64/share/lilypond/2.26.0/fonts/otf/:<repo>/vendor/lilypond/2.26.0-darwin-arm64/share/lilypond/2.26.0/fonts/svg/:')\n\\include \n         \"user-music.ily\"\nscore.ly:3:21: error: unknown command: `\\UserMusic'\n\\score { \\new Staff \n                    \\UserMusic \\layout {} \\midi {} }\nscore.ly:3:21: error: syntax error, unexpected STRING\n\\score { \\new Staff \n                    \\UserMusic \\layout {} \\midi {} }\nscore.ly:3:52: error: syntax error, unexpected '}'\n\\score { \\new Staff \\UserMusic \\layout {} \\midi {} \n                                                   }\nfatal error: failed files: \"score.ly\""
+    },
+    {
+      "id": "external-present",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/external-present",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "external-present",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/external-present",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "external-present",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 110,
+            "sha256": "f6b540300fef3ea532828f4c497a17cbbf5f6617550906248c0267d94af878e4",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 26488,
+            "sha256": "63ded9985d171d05be2ad51014550848de3f6da5cdba5ab75ce01e8b1ba46668",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 3747,
+            "sha256": "b63f0fbe77a9338788e88955aaded3e24a4a53ab33d47908e2334a9d3dc7b4b0",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 26488
+          }
+        ],
+        "midi": "engine/external-present/score.midi"
+      }
+    },
+    {
+      "id": "xml-clean",
+      "tool": "musicxml2ly",
+      "args": [
+        "-o",
+        "converted.ly",
+        "input.musicxml"
+      ],
+      "cwd": "<scratch>/xml-clean",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "musicxml2ly: Reading MusicXML from input.musicxml ...\nmusicxml2ly: Converting part 'P1' (voice 1) to LilyPond expressions...\nmusicxml2ly: Output to `converted.ly'"
+    },
+    {
+      "id": "xml-clean",
+      "importReport": {
+        "status": "clean",
+        "measures": 1,
+        "voices": 1,
+        "noteEvents": 1,
+        "warnings": [],
+        "blocking": [],
+        "losses": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "xml-clean-render",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/xml-clean-render",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "xml-clean-render",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/xml-clean-render",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "xml-clean-render",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 158,
+            "sha256": "16aa0acecbb06d2242e8e8e94e2ea56f3cad35c1743896153c45ab5312acc9da",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 40766,
+            "sha256": "37dbe6ff221c3812ace09fc09e7f140844f33caf5b6e63556ed57e57a71853f1",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 4944,
+            "sha256": "f7c72c4e67c6d892954024b6f40e11e3147381b93a792a66e9ef9ae8dc01e683",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 40766
+          }
+        ],
+        "midi": "engine/xml-clean-render/score.midi"
+      }
+    },
+    {
+      "id": "xml-loss",
+      "tool": "musicxml2ly",
+      "args": [
+        "-o",
+        "converted.ly",
+        "input.musicxml"
+      ],
+      "cwd": "<scratch>/xml-loss",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "musicxml2ly: Reading MusicXML from input.musicxml ...\nmusicxml2ly: Converting part 'P1' (voice 1) to LilyPond expressions...\nmusicxml2ly: warning: Invalid bpm value in metronome mark\nmusicxml2ly: Output to `converted.ly'"
+    },
+    {
+      "id": "xml-loss",
+      "importReport": {
+        "status": "needs-confirmation",
+        "measures": 1,
+        "voices": 1,
+        "noteEvents": 1,
+        "warnings": [
+          "musicxml2ly: warning: Invalid bpm value in metronome mark"
+        ],
+        "blocking": [],
+        "losses": [
+          "musicxml2ly: warning: Invalid bpm value in metronome mark"
+        ],
+        "notes": [
+          "节拍器速度标记无法解析：仅影响该速度文本，音高与时值不受影响"
+        ]
+      }
+    },
+    {
+      "id": "xml-loss-render",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/xml-loss-render",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "xml-loss-render",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/xml-loss-render",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "xml-loss-render",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 158,
+            "sha256": "16aa0acecbb06d2242e8e8e94e2ea56f3cad35c1743896153c45ab5312acc9da",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 40764,
+            "sha256": "802b6ed15beddc9e289581fc734b495ad30852a07e60f60adbb33253dce98699",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 4941,
+            "sha256": "31a9b8ee7ed564e46dfc107ba28d4b3fafb4765c6d39c98588f091098ae6eedb",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 40764
+          }
+        ],
+        "midi": "engine/xml-loss-render/score.midi"
+      }
+    },
+    {
+      "id": "xml-negative-skip",
+      "tool": "musicxml2ly",
+      "args": [
+        "-o",
+        "converted.ly",
+        "input.musicxml"
+      ],
+      "cwd": "<scratch>/xml-negative-skip",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "musicxml2ly: Reading MusicXML from input.musicxml ...\nmusicxml2ly: Converting part 'P1' (voice 1) to LilyPond expressions...\nmusicxml2ly: warning: Negative skip -1/2 (from position 1 to 1/2)\nmusicxml2ly: warning: Negative skip -1/2 (from position 1 to 1/2)\nmusicxml2ly: Output to `converted.ly'"
+    },
+    {
+      "id": "xml-negative-skip",
+      "importReport": {
+        "status": "refused",
+        "measures": 1,
+        "voices": 1,
+        "noteEvents": 2,
+        "warnings": [
+          "musicxml2ly: warning: Negative skip -1/2 (from position 1 to 1/2)",
+          "musicxml2ly: warning: Negative skip -1/2 (from position 1 to 1/2)"
+        ],
+        "blocking": [
+          "musicxml2ly: warning: Negative skip -1/2 (from position 1 to 1/2)",
+          "musicxml2ly: warning: Negative skip -1/2 (from position 1 to 1/2)"
+        ],
+        "losses": [],
+        "notes": [
+          "声部时间线被压缩/错位（§3.11）：需要声部预处理后重转，MVP 未实现（ADR-OPEN-2）"
+        ]
+      }
+    },
+    {
+      "id": "xml-negative-skip-render",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/xml-negative-skip-render",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "xml-negative-skip-render",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/xml-negative-skip-render",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "xml-negative-skip-render",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 167,
+            "sha256": "dbd5c124845a0b4fe253c2b53f037ec89bc8817b59da0d870b4807521a29d21d",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 41076,
+            "sha256": "f86d069a75155fa0de50cce3da7e41644cae9ce229bdf76b3667aaa8103eb213",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 5372,
+            "sha256": "4bde7a79bae41d563c553bfa9e68ca74315a0c7f265b1f22bb2a8af2b769aadb",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 41076
+          }
+        ],
+        "midi": "engine/xml-negative-skip-render/score.midi"
+      }
+    },
+    {
+      "id": "midi-valid",
+      "tool": "midi2ly",
+      "args": [
+        "-o",
+        "converted.ly",
+        "input.mid"
+      ],
+      "cwd": "<scratch>/midi-valid",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "LY output to `converted.ly'..."
+    },
+    {
+      "id": "midi-valid",
+      "importReport": {
+        "status": "clean",
+        "measures": 1,
+        "voices": 1,
+        "noteEvents": 1,
+        "warnings": [],
+        "blocking": [],
+        "losses": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "midi-valid-render",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/midi-valid-render",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "midi-valid-render",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/midi-valid-render",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "midi-valid-render",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 127,
+            "sha256": "ce74af8e58fa3c2b094ec27504c63473b021f88ac5ddf83ce56ff5052feda15c",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 26407,
+            "sha256": "ad1543c542033a7951545d32f7b99caf924d7c434f4d1d015278d5fea4102349",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 3136,
+            "sha256": "76b150e5f0f28d57e1a3a178a2978b27026a7e209fa65ed4ecd9fcfff7a625ee",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 26407
+          }
+        ],
+        "midi": "engine/midi-valid-render/score.midi"
+      }
+    },
+    {
+      "id": "columns-lf",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/columns-lf",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "columns-lf",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/columns-lf",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "columns-lf",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 151,
+            "sha256": "4ea9689c62dbc7a6f62d55618e3d2e4941ff4d2684357433964e9d51b6eef9d3",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 30923,
+            "sha256": "9d51a40c59c4f37ed0df825751c44075e2e158b68da9fca9fba28d08927512f1",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 5417,
+            "sha256": "5e23d552da1511575a7db3930b3f0b3e55697562b2e6444f829092b6fd630c6c",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 30923
+          }
+        ],
+        "midi": "engine/columns-lf/score.midi"
+      }
+    },
+    {
+      "id": "columns-lf",
+      "sourceHash": "c9eb2fa8abb04e81b85d42710be3b3b8f1d5ebef299635ec1e21f0131eb76a88",
+      "note": {
+        "raw": "c4",
+        "byte": 73,
+        "line": 2,
+        "column": 49,
+        "utf16ColumnZero": 49,
+        "unicodeColumnZero": 48,
+        "byteColumnZero": 55,
+        "tabExpandedColumnZero": 49
+      },
+      "rawLinks": [
+        "textedit://<scratch>/columns-lf/score.ly:2:48:50",
+        "textedit://<scratch>/columns-lf/score.ly:2:23:24",
+        "textedit://<scratch>/columns-lf/score.ly:2:51:53",
+        "textedit://<scratch>/columns-lf/score.ly:2:54:56",
+        "textedit://<scratch>/columns-lf/score.ly:2:57:59"
+      ]
+    },
+    {
+      "id": "columns-lf-diagnostic",
+      "tool": "lilypond",
+      "args": [
+        "--svg",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/columns-lf-diagnostic",
+      "exitCode": 1,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nscore.ly:2:50: error: unknown command: `\\unknownProbe'\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }\t \n                                                 \\unknownProbe c4 d4 e4 f4 | }\nscore.ly:2:50: error: string outside of text script or \\lyricmode\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }\t \n                                                 \\unknownProbe c4 d4 e4 f4 | }\nInterpreting music...\nscore.ly:2:76: warning: bar check failed at: 1/4\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }\t \\unknownProbe c4 d4 e4 f4 \n                                                                           | }\nPreprocessing graphical objects...\nInterpreting music...\nscore.ly:2:76: warning: bar check failed at: 1/4\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }\t \\unknownProbe c4 d4 e4 f4 \n                                                                           | }\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nfatal error: failed files: \"score.ly\""
+    },
+    {
+      "id": "columns-plain",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/columns-plain",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "columns-plain",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/columns-plain",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "columns-plain",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 151,
+            "sha256": "4ea9689c62dbc7a6f62d55618e3d2e4941ff4d2684357433964e9d51b6eef9d3",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 30938,
+            "sha256": "9e8e8bddbd0feb7bd359d708b48ddcb982e48d51830dd34e0db192fe9bd0501e",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 5432,
+            "sha256": "739258544f60b345bd3bb24e9b5ed15b2db9cc3b27e6e83b258ba54004788e8f",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 30938
+          }
+        ],
+        "midi": "engine/columns-plain/score.midi"
+      }
+    },
+    {
+      "id": "columns-plain",
+      "sourceHash": "5e11eb9b9ca847e9d2bf187de27ae1762b15edec13d8553a91e5a315ce9f98d1",
+      "note": {
+        "raw": "c4",
+        "byte": 73,
+        "line": 2,
+        "column": 49,
+        "utf16ColumnZero": 49,
+        "unicodeColumnZero": 48,
+        "byteColumnZero": 55,
+        "tabExpandedColumnZero": 48
+      },
+      "rawLinks": [
+        "textedit://<scratch>/columns-plain/score.ly:2:48:49",
+        "textedit://<scratch>/columns-plain/score.ly:2:23:24",
+        "textedit://<scratch>/columns-plain/score.ly:2:51:52",
+        "textedit://<scratch>/columns-plain/score.ly:2:54:55",
+        "textedit://<scratch>/columns-plain/score.ly:2:57:58"
+      ]
+    },
+    {
+      "id": "columns-plain-diagnostic",
+      "tool": "lilypond",
+      "args": [
+        "--svg",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/columns-plain-diagnostic",
+      "exitCode": 1,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nscore.ly:2:49: error: unknown command: `\\unknownProbe'\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }  \n                                                \\unknownProbe c4 d4 e4 f4 | }\nscore.ly:2:49: error: string outside of text script or \\lyricmode\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }  \n                                                \\unknownProbe c4 d4 e4 f4 | }\nInterpreting music...\nscore.ly:2:75: warning: bar check failed at: 1/4\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }  \\unknownProbe c4 d4 e4 f4 \n                                                                          | }\nPreprocessing graphical objects...\nInterpreting music...\nscore.ly:2:75: warning: bar check failed at: 1/4\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }  \\unknownProbe c4 d4 e4 f4 \n                                                                          | }\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nfatal error: failed files: \"score.ly\""
+    },
+    {
+      "id": "columns-bom-crlf",
+      "tool": "lilypond",
+      "args": [
+        "-dpoint-and-click=#t",
+        "--svg",
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/columns-bom-crlf",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "columns-bom-crlf",
+      "tool": "lilypond",
+      "args": [
+        "-o",
+        "score",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/columns-bom-crlf",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nInterpreting music...\nPreprocessing graphical objects...\nInterpreting music...\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nConverting to `score.pdf'...\nSuccess: compilation successfully completed"
+    },
+    {
+      "id": "columns-bom-crlf",
+      "artifacts": {
+        "pages": 1,
+        "files": [
+          {
+            "file": "score.midi",
+            "bytes": 151,
+            "sha256": "4ea9689c62dbc7a6f62d55618e3d2e4941ff4d2684357433964e9d51b6eef9d3",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.pdf",
+            "bytes": 30953,
+            "sha256": "a872849b2e324ee864b8f01cff101771962950e3932d5f7ed0928d53a84bd6d6",
+            "normalizedPaths": false
+          },
+          {
+            "file": "score.svg",
+            "bytes": 5447,
+            "sha256": "71e87c7ee9af698829e81de3d544968f9c3483189f20121232a115bb5c526899",
+            "normalizedPaths": true
+          }
+        ],
+        "pdfs": [
+          {
+            "file": "score.pdf",
+            "bytes": 30953
+          }
+        ],
+        "midi": "engine/columns-bom-crlf/score.midi"
+      }
+    },
+    {
+      "id": "columns-bom-crlf",
+      "sourceHash": "69e80b0a67ce9f78d1b545b7e9fd1ab553655bb2d7795a1a2bc11dbdec53c334",
+      "note": {
+        "raw": "c4",
+        "byte": 78,
+        "line": 2,
+        "column": 50,
+        "utf16ColumnZero": 50,
+        "unicodeColumnZero": 49,
+        "byteColumnZero": 56,
+        "tabExpandedColumnZero": 57
+      },
+      "rawLinks": [
+        "textedit://<scratch>/columns-bom-crlf/score.ly:2:49:58",
+        "textedit://<scratch>/columns-bom-crlf/score.ly:2:23:24",
+        "textedit://<scratch>/columns-bom-crlf/score.ly:2:52:61",
+        "textedit://<scratch>/columns-bom-crlf/score.ly:2:55:64",
+        "textedit://<scratch>/columns-bom-crlf/score.ly:2:58:67"
+      ]
+    },
+    {
+      "id": "columns-bom-crlf-diagnostic",
+      "tool": "lilypond",
+      "args": [
+        "--svg",
+        "score.ly"
+      ],
+      "cwd": "<scratch>/columns-bom-crlf-diagnostic",
+      "exitCode": 1,
+      "signal": null,
+      "error": null,
+      "log": "Processing `score.ly'\nParsing...\nscore.ly:2:58: error: unknown command: `\\unknownProbe'\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }\t\t \n                                                         \\unknownProbe c4 d4 e4 f4 | }\r\nscore.ly:2:58: error: string outside of text script or \\lyricmode\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }\t\t \n                                                         \\unknownProbe c4 d4 e4 f4 | }\r\nInterpreting music...\nscore.ly:2:84: warning: bar check failed at: 1/4\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }\t\t \\unknownProbe c4 d4 e4 f4 \n                                                                                   | }\r\nPreprocessing graphical objects...\nInterpreting music...\nscore.ly:2:84: warning: bar check failed at: 1/4\nMusic = \\relative c' { \\mark \\markup { \"中文😀\" }\t\t \\unknownProbe c4 d4 e4 f4 \n                                                                                   | }\r\nMIDI output to `score.midi'...\nFinding the ideal number of pages...\nFitting music on 1 page...\nDrawing systems...\nfatal error: failed files: \"score.ly\""
+    }
+  ],
+  "failures": []
+}
