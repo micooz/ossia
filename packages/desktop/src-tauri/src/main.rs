@@ -1,6 +1,17 @@
-// Prevents an extra console window on Windows in release builds.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(
+    all(not(debug_assertions), feature = "gui"),
+    windows_subsystem = "windows"
+)]
 
 fn main() {
-    ossia_desktop_lib::run()
+    if let Some(code) = ossia_runtime::cli::entry() {
+        std::process::exit(code);
+    }
+    #[cfg(feature = "gui")]
+    ossia_desktop_lib::run();
+    #[cfg(not(feature = "gui"))]
+    {
+        eprintln!("GUI feature disabled; use serve, mcp or another CLI command");
+        std::process::exit(1);
+    }
 }

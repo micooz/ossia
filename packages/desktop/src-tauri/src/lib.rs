@@ -1,3 +1,4 @@
+#![cfg(feature = "gui")]
 // Desktop bootstrap; local runtime and management-window wiring are pending P04/P05.
 use std::path::{Path, PathBuf};
 

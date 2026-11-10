@@ -3,16 +3,21 @@ name = "ossia-desktop"
 version = "0.0.0"
 description = "Ossia — piano score editor with a local engraving engine"
 edition = "2021"
-rust-version = "1.80"
+rust-version.workspace = true
 
 [lib]
 name = "ossia_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+default = ["gui"]
+gui = ["dep:tauri", "dep:tauri-build"]
+
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2", features = [], optional = true }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = [], optional = true }
+ossia-runtime = { path = "../../../crates/ossia-runtime" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

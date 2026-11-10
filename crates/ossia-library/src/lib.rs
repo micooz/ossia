@@ -1,4 +1,6 @@
 #![doc = include_str!("../README.md")]
+mod artifacts;
+pub use artifacts::render_key;
 mod db;
 mod recovery;
 mod storage;

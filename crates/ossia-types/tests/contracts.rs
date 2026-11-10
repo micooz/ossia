@@ -52,3 +52,31 @@ fn library_contract_examples_keep_ids_metadata_and_error_codes() {
         assert_eq!(serde_json::to_value(code).unwrap(), json!(wire));
     }
 }
+
+#[test]
+fn runtime_examples_and_omitted_credentials_match_protocol_one() {
+    let examples: Value = serde_json::from_str(include_str!(
+        "../../../tests/fixtures/local/contract-examples.json"
+    ))
+    .unwrap();
+    let runtime: RuntimeInfo = serde_json::from_value(examples["runtimeInfo"].clone()).unwrap();
+    assert_eq!(runtime.protocol_version, PROTOCOL_VERSION);
+    let _: RenderManifest = serde_json::from_value(examples["renderManifest"].clone()).unwrap();
+    let _: Selection = serde_json::from_value(examples["selection"].clone()).unwrap();
+    let _: ViewSnapshot = serde_json::from_value(examples["viewSnapshot"].clone()).unwrap();
+    for (code, wire) in [
+        (ErrorCode::Unauthorized, "unauthorized"),
+        (ErrorCode::Forbidden, "forbidden"),
+        (ErrorCode::RuntimeUnavailable, "runtime-unavailable"),
+    ] {
+        assert_eq!(serde_json::to_value(code).unwrap(), json!(wire));
+    }
+    let response = RpcResponse {
+        result: Some(json!({})),
+        error: None,
+    };
+    assert_eq!(
+        serde_json::to_value(response).unwrap(),
+        json!({"result":{}})
+    );
+}

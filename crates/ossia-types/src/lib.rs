@@ -10,8 +10,9 @@ pub const SCHEMA_VERSION: u32 = 1;
 
 macro_rules! identifier {
     ($($name:ident),+ $(,)?) => {$ (
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
         #[serde(transparent)]
+        #[ts(type = "string")]
         pub struct $name(Uuid);
         impl FromStr for $name {
             type Err = uuid::Error;
@@ -30,8 +31,11 @@ macro_rules! identifier {
 }
 identifier!(DocumentId, VersionId, EditId, ViewId, JobId);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(try_from = "String", into = "String")]
+#[ts(type = "string")]
 pub struct ContentHash(String);
 
 impl ContentHash {
@@ -67,7 +71,9 @@ impl fmt::Display for ContentHash {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct SourcePosition {
     pub byte: usize,
@@ -76,7 +82,9 @@ pub struct SourcePosition {
     pub column: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceSpan {
     /// Half-open byte range. Consumers must validate it against the same source snapshot.
@@ -86,7 +94,7 @@ pub struct SourceSpan {
     pub end: SourcePosition,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(
     rename_all = "camelCase",
     try_from = "SnapshotWire",
@@ -98,7 +106,7 @@ pub struct SourceSnapshot {
     bytes: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 struct SnapshotWire {
     document_id: DocumentId,
@@ -149,7 +157,7 @@ impl From<SourceSnapshot> for SnapshotWire {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Locator {
     pub staff_index: usize,
@@ -158,7 +166,9 @@ pub struct Locator {
     pub voice: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum LocationCapability {
     Measure,
@@ -166,7 +176,7 @@ pub enum LocationCapability {
     None,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct LocatedRegion {
     pub locator: Locator,
@@ -175,7 +185,9 @@ pub struct LocatedRegion {
     pub reason: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum ErrorCode {
     InvalidRequest,
@@ -195,14 +207,18 @@ pub enum ErrorCode {
     LegacyDataPresent,
     StorageError,
     LibraryBusy,
+    Unauthorized,
+    Forbidden,
+    RuntimeUnavailable,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct AppError {
     pub code: ErrorCode,
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub detail: Option<serde_json::Value>,
 }
 impl AppError {
@@ -227,7 +243,9 @@ impl fmt::Display for AppError {
 }
 impl std::error::Error for AppError {}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum InputFormat {
     Ly,
@@ -235,7 +253,9 @@ pub enum InputFormat {
     Midi,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum ImportStatus {
     Clean,
@@ -243,7 +263,7 @@ pub enum ImportStatus {
     Refused,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportReport {
     pub status: ImportStatus,
@@ -261,7 +281,19 @@ pub struct ImportReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+    ts_rs::TS,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum RenderFormat {
     Svg,
@@ -269,7 +301,9 @@ pub enum RenderFormat {
     Midi,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
     Info,
@@ -277,7 +311,7 @@ pub enum Severity {
     Error,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct EnginePosition {
     /// A normalized source name, never the machine's absolute path.
@@ -287,7 +321,7 @@ pub struct EnginePosition {
     pub char_offset: Option<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Diagnostic {
     pub severity: Severity,
@@ -296,7 +330,7 @@ pub struct Diagnostic {
     pub position: Option<SourcePosition>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ArtifactRef {
     /// Relative to the artifact root supplied by the caller.
@@ -305,7 +339,7 @@ pub struct ArtifactRef {
     pub bytes: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderPage {
     pub page: u32,
@@ -313,14 +347,14 @@ pub struct RenderPage {
     pub artifact: ArtifactRef,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct FormatError {
     pub format: RenderFormat,
     pub error: AppError,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderManifest {
     pub source_hash: ContentHash,
@@ -333,7 +367,9 @@ pub struct RenderManifest {
     pub format_errors: Vec<FormatError>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum EditStatus {
     Active,
@@ -342,7 +378,7 @@ pub enum EditStatus {
     Ended,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct EditSession {
     pub edit_id: EditId,
@@ -355,7 +391,9 @@ pub struct EditSession {
     pub author: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum DocumentEditState {
     Idle,
@@ -365,7 +403,7 @@ pub enum DocumentEditState {
 }
 
 /// Public document state deliberately omits the edit capability.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct DocumentState {
     pub document_id: DocumentId,
@@ -379,7 +417,9 @@ pub struct DocumentState {
     pub last_check: Option<Job>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum VersionOrigin {
     Import,
@@ -387,7 +427,7 @@ pub enum VersionOrigin {
     Restore,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Version {
     pub version_id: VersionId,
@@ -401,7 +441,9 @@ pub struct Version {
     pub created_at: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum JobState {
     Queued,
@@ -412,7 +454,7 @@ pub enum JobState {
     Interrupted,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Job {
     pub job_id: JobId,
@@ -425,7 +467,7 @@ pub struct Job {
     pub error: Option<AppError>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportOutcome {
     pub report: ImportReport,
@@ -434,7 +476,7 @@ pub struct ImportOutcome {
     pub job: Option<Job>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckOutcome {
     pub job: Job,
@@ -442,3 +484,6 @@ pub struct CheckOutcome {
     /// False when the public file changed while this snapshot was compiling.
     pub current: bool,
 }
+
+mod runtime;
+pub use runtime::*;

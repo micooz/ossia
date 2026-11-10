@@ -18,6 +18,7 @@ export default defineConfig({
     // (pre-MVP spike scripts kept as evidence).
     ignorePatterns: [
       '.docs/',
+      'packages/ui/src/generated/',
       'tests/fixtures/local/',
       'work/',
       'vendor/',
@@ -30,6 +31,7 @@ export default defineConfig({
   lint: {
     ignorePatterns: [
       '.docs/',
+      'packages/ui/src/generated/',
       'tests/fixtures/local/',
       'work/',
       'vendor/',

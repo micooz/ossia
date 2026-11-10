@@ -1,0 +1,43 @@
+{
+  "arch": "aarch64",
+  "automaticPreview": true,
+  "cases": [
+    {
+      "exports": [
+        "ly",
+        "pdf",
+        "midi"
+      ],
+      "input": "inline-staff.ly",
+      "svgPages": 1,
+      "versions": 3
+    },
+    {
+      "exports": [
+        "ly",
+        "pdf",
+        "midi"
+      ],
+      "input": "xml-clean.musicxml",
+      "svgPages": 1,
+      "versions": 3
+    },
+    {
+      "exports": [
+        "ly",
+        "pdf",
+        "midi"
+      ],
+      "input": "midi-valid.mid",
+      "svgPages": 1,
+      "versions": 3
+    }
+  ],
+  "concurrentStartup": true,
+  "engineBuildId": "lilypond-2.26.0-darwin-arm64-ossia-p02-1-18ffc454fef3",
+  "mcpDisconnectKeepsServe": true,
+  "platform": "macos",
+  "protocolVersion": 1,
+  "restart": true,
+  "tools": 14
+}

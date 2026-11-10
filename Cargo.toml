@@ -5,6 +5,7 @@ members = [
   "crates/ossia-score",
   "crates/ossia-engine",
   "crates/ossia-library",
+  "crates/ossia-runtime",
   "packages/desktop/src-tauri",
 ]
 default-members = [
@@ -12,6 +13,7 @@ default-members = [
   "crates/ossia-score",
   "crates/ossia-engine",
   "crates/ossia-library",
+  "crates/ossia-runtime",
 ]
 
 [workspace.package]

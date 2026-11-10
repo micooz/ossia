@@ -20,7 +20,14 @@
     "probe:engine": "node --experimental-strip-types scripts/local/engine.mts",
     "probe:host": "node --experimental-strip-types scripts/local/host.mts",
     "test:local": "node --experimental-strip-types --test scripts/local/local.test.mts",
-    "typecheck:local": "pnpm --filter @ossia/ly exec tsc -p ../../scripts/local/tsconfig.json"
+    "typecheck:local": "pnpm --filter @ossia/ly exec tsc -p ../../scripts/local/tsconfig.json",
+    "dev:runtime": "node scripts/runtime-dev.mjs",
+    "build:headless": "cargo build -p ossia-desktop --no-default-features",
+    "generate:types": "cargo run --quiet -p ossia-types --bin generate-types --",
+    "check:types": "cargo run --quiet -p ossia-types --bin generate-types -- --check",
+    "test:runtime": "cargo test -p ossia-runtime",
+    "generate:contracts": "cargo run --quiet -p ossia-runtime --bin generate-contracts --",
+    "check:contracts": "cargo run --quiet -p ossia-runtime --bin generate-contracts -- --check"
   },
   "devDependencies": {
     "vite-plus": "1.1.0"

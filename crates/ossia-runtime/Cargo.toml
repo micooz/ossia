@@ -1,0 +1,58 @@
+[package]
+name = "ossia-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ossia-types = { path = "../ossia-types" }
+ossia-score = { path = "../ossia-score" }
+ossia-engine = { path = "../ossia-engine" }
+ossia-library = { path = "../ossia-library" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+tokio = { version = "1", features = [
+  "rt-multi-thread",
+  "macros",
+  "net",
+  "io-util",
+  "io-std",
+  "process",
+  "sync",
+  "time",
+  "signal",
+] }
+axum = { version = "0.8", features = ["multipart"] }
+tower-http = { version = "0.6", features = ["fs", "limit"] }
+notify = "8"
+interprocess = { version = "=2.4.4", features = ["tokio"] }
+rmcp = { version = "0.8", features = ["server", "macros", "transport-io", "schemars"] }
+schemars = "1"
+clap = { version = "4", features = ["derive"] }
+futures-util = "0.3"
+async-stream = "0.3"
+rand = "0.9"
+hex = "0.4"
+dirs = "6"
+fs2 = "0.4"
+tempfile = "3"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+widestring = "1"
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_System_Threading",
+  "Win32_System_Console",
+] }
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "stream"] }
+rmcp = { version = "0.8", features = ["client", "transport-child-process"] }

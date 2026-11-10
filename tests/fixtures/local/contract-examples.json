@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "note": "Illustrative shared-contract values, not implemented production DTOs. SourceSnapshot bytes and page hash reference the synthetic compressed-rest fixture.",
+  "note": "Synthetic protocol 1 examples. SourceSnapshot bytes and SVG hashes reference the compressed-rest fixture; paths and instance IDs are illustrative.",
   "sourceSnapshot": {
     "documentId": "10000000-0000-4000-8000-000000000001",
     "sourceHash": "7182e8457ad62ba44f2fa762b486525056fd0e73ff862f1fcc73dae207e84727",
@@ -138,10 +138,14 @@
       {
         "page": 1,
         "path": "assets/3ff167fb946f62d5caf2c7efd7054cda28683e2593f2bdf506ab6a883e84b1f3.svg",
-        "sha256": "3ff167fb946f62d5caf2c7efd7054cda28683e2593f2bdf506ab6a883e84b1f3"
+        "sha256": "3ff167fb946f62d5caf2c7efd7054cda28683e2593f2bdf506ab6a883e84b1f3",
+        "bytes": 5560
       }
     ],
-    "diagnostics": []
+    "diagnostics": [],
+    "pdf": null,
+    "midi": null,
+    "formatErrors": []
   },
   "version": {
     "versionId": "20000000-0000-4000-8000-000000000001",
@@ -163,5 +167,43 @@
     "startedAt": "2026-11-10T00:01:00Z",
     "sourcePath": "/synthetic/ossia/documents/10000000-0000-4000-8000-000000000001/score.ly",
     "author": "synthetic-agent"
+  },
+  "runtimeInfo": {
+    "runtimeVersion": "0.0.0",
+    "protocolVersion": 1,
+    "schemaVersion": 1,
+    "instanceId": "synthetic-instance",
+    "home": "/synthetic/ossia",
+    "webBaseUrl": "http://127.0.0.1:3211",
+    "capabilities": [
+      "documents",
+      "views",
+      "jobs",
+      "events",
+      "cli",
+      "mcp"
+    ]
+  },
+  "selection": {
+    "viewId": "00000000-0000-4000-8000-000000000001",
+    "documentId": "10000000-0000-4000-8000-000000000001",
+    "sourceHash": "7182e8457ad62ba44f2fa762b486525056fd0e73ff862f1fcc73dae207e84727",
+    "locators": [
+      {
+        "staffIndex": 0,
+        "measureStart": 1,
+        "measureEnd": 1,
+        "voice": null
+      }
+    ]
+  },
+  "viewSnapshot": {
+    "instanceId": "synthetic-instance",
+    "seq": 1,
+    "viewId": "00000000-0000-4000-8000-000000000001",
+    "document": null,
+    "selection": null,
+    "regions": [],
+    "render": null
   }
 }

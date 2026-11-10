@@ -1,0 +1,434 @@
+[
+  {
+    "name": "ossia_guide",
+    "description": "Read the local score editing workflow and supported capabilities.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "title": "EmptyArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_doctor",
+    "description": "Inspect the connected runtime and verified engine build; use CLI doctor for offline resource diagnostics.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "title": "EmptyArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_status",
+    "description": "Inspect runtime, engine, library and durable jobs.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "title": "EmptyArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_list",
+    "description": "List documents in the selected library.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "title": "EmptyArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_import",
+    "description": "Queue an absolute-path file import; poll jobId for result and conversion confirmation.",
+    "inputSchema": {
+      "$defs": {
+        "ContentHash": {
+          "type": "string"
+        },
+        "InputFormat": {
+          "enum": [
+            "ly",
+            "music-xml",
+            "midi"
+          ],
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "confirmation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContentHash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "format": {
+          "$ref": "#/$defs/InputFormat"
+        },
+        "path": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "format",
+        "path",
+        "author"
+      ],
+      "title": "ImportArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_open",
+    "description": "Create an isolated view and a one-use local browser link.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "documentId": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "title": "OpenArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_context",
+    "description": "Read this explicit view's document, selection, source spans and event cursor.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "viewId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "viewId"
+      ],
+      "title": "ContextArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_edit",
+    "description": "Explicitly begin, resume, end, discard or acknowledge recovery; keep editId private.",
+    "inputSchema": {
+      "$defs": {
+        "ContentHash": {
+          "type": "string"
+        },
+        "EditAction": {
+          "enum": [
+            "begin",
+            "resume",
+            "end",
+            "discard",
+            "resolve-recovery-conflict"
+          ],
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/EditAction"
+        },
+        "adoptWorkspace": {
+          "default": false,
+          "type": "boolean"
+        },
+        "author": {
+          "default": "agent",
+          "type": "string"
+        },
+        "baseVersionId": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "documentId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "editId": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expectedSourceHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "viewId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "documentId",
+        "viewId",
+        "expectedSourceHash"
+      ],
+      "title": "EditArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_check",
+    "description": "Queue a check of exact expectedSourceHash; editId binds successful checks to commit.",
+    "inputSchema": {
+      "$defs": {
+        "ContentHash": {
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "documentId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "editId": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expectedSourceHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "viewId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "documentId",
+        "viewId",
+        "expectedSourceHash"
+      ],
+      "title": "CheckArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_commit",
+    "description": "Commit the exact checked source and base version; no human acceptance step.",
+    "inputSchema": {
+      "$defs": {
+        "ContentHash": {
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "baseVersionId": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "documentId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "editId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "expectedSourceHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "viewId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "documentId",
+        "viewId",
+        "editId",
+        "expectedSourceHash",
+        "summary"
+      ],
+      "title": "CommitArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_history",
+    "description": "List distinct version nodes in order.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "documentId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "documentId"
+      ],
+      "title": "HistoryArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_restore",
+    "description": "Queue restoration as a new version; requires clean workspace and no active edit.",
+    "inputSchema": {
+      "$defs": {
+        "ContentHash": {
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "baseVersionId": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "documentId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "expectedSourceHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "versionId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "documentId",
+        "versionId",
+        "expectedSourceHash",
+        "author",
+        "summary"
+      ],
+      "title": "RestoreArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_export",
+    "description": "Queue immutable version export; never overwrite an existing destination.",
+    "inputSchema": {
+      "$defs": {
+        "ExportFormat": {
+          "enum": [
+            "ly",
+            "pdf",
+            "midi"
+          ],
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "documentId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "format": {
+          "$ref": "#/$defs/ExportFormat"
+        },
+        "outputPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "versionId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "documentId",
+        "versionId",
+        "format"
+      ],
+      "title": "ExportArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_job",
+    "description": "Query or cancel a durable job; terminal states are immutable.",
+    "inputSchema": {
+      "$defs": {
+        "JobAction": {
+          "enum": [
+            "get",
+            "cancel"
+          ],
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/JobAction"
+        },
+        "jobId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jobId",
+        "action"
+      ],
+      "title": "JobArgs",
+      "type": "object"
+    }
+  }
+]
