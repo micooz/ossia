@@ -9,6 +9,20 @@ The release workflows expect the private repository `micooz/ossia`, with `main` 
   `OSSIA_BOT_PRIVATE_KEY` as a repository secret, for automatic tagging.
 - A GitHub App installed on the repository with **Contents: write** permission.
 
+Set the DeepSeek key without putting it in shell history:
+
+```sh
+gh secret set DEEPSEEK_API_KEY --repo micooz/ossia
+```
+
+Set the GitHub App credentials after downloading its PEM private key:
+
+```sh
+gh variable set OSSIA_BOT_CLIENT_ID --repo micooz/ossia --body '<client-id>'
+gh variable set OSSIA_BOT_APP_ID --repo micooz/ossia --body '<app-id>'
+gh secret set OSSIA_BOT_PRIVATE_KEY --repo micooz/ossia < /path/to/ossia-bot.pem
+```
+
 `Check` runs on pull requests, `main` pushes and release tags. `Auto tag` creates
 the next patch tag only after a successful `main` check. The first release tag
 must be created manually because there is no earlier tag to increment.
@@ -26,10 +40,10 @@ Stable tags become the Latest release. Beta tags become Pre-releases and never
 become Latest. Tags are immutable; a failed or superseded tag is abandoned and
 the next beta or patch version is used.
 
-Automatic tagging follows aidget exactly: it allocates the next stable patch
-above every existing release tag, including beta tags. During beta testing,
-create and push beta tags manually and avoid pushing unrelated commits to
-`main` if that would trigger an unwanted stable tag.
+Automatic tagging allocates the next stable patch above every existing release
+tag, including beta tags. During beta testing, create and push beta tags
+manually and avoid pushing unrelated commits to `main` if that would trigger an
+unwanted stable tag.
 
 ## Release flow
 
