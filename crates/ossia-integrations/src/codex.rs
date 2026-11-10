@@ -977,7 +977,10 @@ mod tests {
 
         let mcp = files.iter().find(|file| file.kind == "mcp").unwrap();
         let mcp: Value = serde_json::from_slice(&mcp.bytes).unwrap();
-        assert_eq!(mcp["mcpServers"]["ossia"]["command"], "/bin/sh");
+        assert_eq!(
+            mcp["mcpServers"]["ossia"]["command"],
+            json!(integrator.executable().to_string_lossy())
+        );
         assert_eq!(
             mcp["mcpServers"]["ossia"]["args"],
             json!(["mcp", "--home", integrator.home().to_string_lossy()])

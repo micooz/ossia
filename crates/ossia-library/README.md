@@ -94,4 +94,4 @@ OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p03-native.json" \
 cargo test -p ossia-library --test native_library -- --ignored
 ```
 
-Ordinary tests include a subprocess helper marked ignored; lock/crash regressions explicitly launch it and verify process death recovery. Native integration is opt-in and fails when resources are missing. The recorded native evidence covers macOS ARM64 only. Other operating systems, actual power loss, signed bundles and P04 runtime integration remain unverified. The workspace requires Rust 1.89; validation uses the installed Rust 1.98.1.
+Ordinary tests include a subprocess helper marked ignored; lock/crash regressions explicitly launch it and verify process death recovery. Native integration is opt-in and fails when resources are missing. The recorded native evidence covers macOS ARM64 only. Other operating systems, actual power loss, signed bundles and P04 runtime integration remain unverified. The workspace requires Rust 1.90; validation uses the installed Rust 1.98.1.

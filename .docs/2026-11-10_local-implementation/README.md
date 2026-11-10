@@ -55,7 +55,7 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 | `integrations/` | Skill、Codex 本地插件、DSH 预构建插件的源资源 |
 | `tests/fixtures/local/` | 可提交、可重建的合成样本和参考结果 |
 
-依赖方向为 `types ← score ← engine ← library ← runtime`，集成模块通过运行时客户端接入。纯分析模块不依赖 Tauri、数据库、网络或已启动的 GUI。根 Cargo workspace 纳入这些 crate 和既有桌面 crate，共用锁文件；最低 Rust 版本为 1.89（P03 的 bundled SQLite 依赖要求），本机验证使用 1.98.1；P01 建立工作区，后续阶段按需加入实际 crate，不预建空壳模块。
+依赖方向为 `types ← score ← engine ← library ← runtime`，集成模块通过运行时客户端接入。纯分析模块不依赖 Tauri、数据库、网络或已启动的 GUI。根 Cargo workspace 纳入这些 crate 和既有桌面 crate，共用锁文件；最低 Rust 版本为 1.90（Tauri 2.12 的构建要求），本机验证使用 1.98.1；P01 建立工作区，后续阶段按需加入实际 crate，不预建空壳模块。
 
 ### 3.2 标识、位置和数据目录
 

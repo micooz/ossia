@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: dtolnay/rust-toolchain@1.90.0
       - name: Install Rust target
         run: rustup target add "${{ matrix.target }}"
       - name: Check release dependency cache
@@ -102,7 +102,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: dtolnay/rust-toolchain@1.90.0
         with:
           components: rustfmt, clippy
       - uses: pnpm/action-setup@v4

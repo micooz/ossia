@@ -128,7 +128,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: dtolnay/rust-toolchain@1.90.0
         with:
           targets: ${{ matrix.target }}
       - uses: pnpm/action-setup@v4

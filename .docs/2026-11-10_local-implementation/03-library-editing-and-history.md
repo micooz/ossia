@@ -84,7 +84,7 @@
 
 - `ossia-library` 位于 workspace，依赖 types／score／engine；不接 HTTP、MCP、GUI 或用户真实库。
 - 工程与调用示例见 [crate README](../../crates/ossia-library/README.md)。共享 DTO 包含 DocumentState、Version、EditSession、Job、ImportOutcome 和 CheckOutcome；错误码包含 `storage-error`、`library-busy`，P04 已映射。
-- bundled SQLite 使用 `rusqlite 0.41.1`／`libsqlite3-sys 0.39.1`，gzip 使用 flate2；保留并更新根锁文件。SQLite 依赖要求最低 Rust 1.89，因此同步 workspace 声明；本机实际使用 Rust 1.98.1，未单独运行 1.89 工具链。最低版本提升引出的四处 Clippy 建议在 score 中作等价改写，原有分析回归通过。
+- bundled SQLite 使用 `rusqlite 0.41.1`／`libsqlite3-sys 0.39.1`，gzip 使用 flate2；保留并更新根锁文件。当前 workspace 声明最低 Rust 1.90，桌面构建要求来自 Tauri 2.12；本机实际使用 Rust 1.98.1。最低版本提升引出的四处 Clippy 建议在 score 中作等价改写，原有分析回归通过。
 
 ### Schema、文件与恢复
 
