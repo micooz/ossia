@@ -137,7 +137,9 @@ impl Library {
             .open(store.path("library.lock")?)
             .map_err(storage_error)?;
         lock.try_lock_exclusive().map_err(|e| {
-            if e.kind() == std::io::ErrorKind::WouldBlock {
+            let busy = e.kind() == std::io::ErrorKind::WouldBlock
+                || (cfg!(windows) && matches!(e.raw_os_error(), Some(32 | 33)));
+            if busy {
                 AppError::new(ErrorCode::LibraryBusy, "another process owns this library")
             } else {
                 storage_error(e)
