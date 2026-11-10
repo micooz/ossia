@@ -32,6 +32,7 @@ packages/desktop/src-tauri/gen/
 
 # Shared Rust workspace artifacts
 /target/
+artifacts/
 
 # Browser test and UI review artifacts
 packages/ui/test-results/

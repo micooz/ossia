@@ -10,7 +10,7 @@ pnpm engine:verify
 pnpm dev:runtime
 ```
 
-`dev:runtime` explicitly selects the repository `.ossia`, port 3212, the prepared engine and UI dist, and permits `http://127.0.0.1:5173`. It does not start Vite or install resources. A legacy library blocks startup without changing its files; P07 owns cutover. The P05 score SPA and Tauri admin window consume the same local API; `pnpm dev:desktop` also drives the development service and Vite.
+`dev:runtime` explicitly selects the repository `.ossia`, port 3212, the prepared engine and UI dist, and permits `http://127.0.0.1:5173`. It does not start Vite or install resources. The runtime uses `library.sqlite` in the selected home. The P05 score SPA and Tauri admin window consume the same local API; `pnpm dev:desktop` also drives the development service and Vite.
 
 The binary is `target/debug/ossia-desktop`. Global options precede or follow the subcommand:
 
@@ -26,7 +26,7 @@ target/debug/ossia-desktop --home /absolute/test-library stop
 
 Home selection is `--home`, `OSSIA_HOME`, then the user's `.ossia`; explicit paths are absolute. Engine selection is `--engine-root`, `OSSIA_ENGINE_ROOT`, then the executable's resources/engine. macOS bundles use `Contents/Resources`; other layouts use resources beside the executable. Static files default to resources/ui and can be supplied with `--static-dir`. Resources are never found through cwd or PATH. Packaging these resources belongs to P07.
 
-CLI commands accept one JSON object matching the corresponding MCP tool. Successful commands print JSON; failures print `{error:{code,message,detail?}}` and exit nonzero. `serve` and `mcp` reserve stdout for their respective protocol roles. Doctor reports offline engine verification, discovery and legacy-library diagnostics; integrate returns unsupported until P06.
+CLI commands accept one JSON object matching the corresponding MCP tool. Successful commands print JSON; failures print `{error:{code,message,detail?}}` and exit nonzero. `serve` and `mcp` reserve stdout for their respective protocol roles. Doctor reports offline engine verification and discovery; integrate returns unsupported until P06.
 
 ```sh
 target/debug/ossia-desktop --home /absolute/test-library import \

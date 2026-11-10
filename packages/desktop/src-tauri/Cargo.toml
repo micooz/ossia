@@ -1,6 +1,6 @@
 [package]
 name = "ossia-desktop"
-version = "0.0.0"
+version.workspace = true
 description = "Ossia — piano score editor with a local engraving engine"
 edition = "2021"
 rust-version.workspace = true

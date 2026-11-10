@@ -29,7 +29,7 @@ SVG 经鉴权 fetch 后以 Blob 图片显示；覆盖层沿用 viewBox，通过 
 
 admin.html 展示服务状态、当前目录、运行时/工具链版本、doctor 与启停。窄范围 Tauri commands 复用配置解析、ensure_runtime 和 IPC；CLI 只解析一次，GUI 遵守 --home > OSSIA_HOME > 默认。启动时连接/启动独立服务，刷新与 doctor 不重启。关闭窗口不停止服务，显式停止遵守 P04。GUI 不打开数据库。
 
-收紧 capability/CSP，移除旧远程端点。P06 注入显示未接入。开发命令显式设置项目 home、3212、工具链及静态资源；旧库仅显示 P07 阻断诊断。
+收紧 capability/CSP，移除旧远程端点。P06 注入显示未接入。开发命令显式设置项目 home、3212、工具链及静态资源；MVP 只识别当前 `library.sqlite`。
 
 ## 验证与交接
 

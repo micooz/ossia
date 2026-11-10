@@ -1,0 +1,64 @@
+name: Package local Ossia
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: ${{ matrix.artifact }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact: macos-arm64
+            engine: darwin-arm64
+            runner: macos-14
+          - artifact: macos-x86_64
+            engine: darwin-x86_64
+            runner: macos-13
+          - artifact: windows-x86_64
+            engine: mingw-x86_64
+            runner: windows-2022
+          - artifact: linux-x86_64
+            engine: linux-x86_64
+            runner: ubuntu-22.04
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux bundle dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/engine.mjs install --target=${{ matrix.engine }} --download
+      - run: pnpm package --target=${{ matrix.engine }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ossia-${{ matrix.artifact }}-unsigned-test
+          path: artifacts/${{ matrix.artifact }}
+          if-no-files-found: error
+
+  linux-arm64-blocked:
+    name: linux-arm64 blocked on native engine lock
+    if: ${{ false }}
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - run: |
+          echo "P07 remains blocked: build the native LilyPond engine with"
+          echo "scripts/engine-linux-arm64.py, audit its native dependencies,"
+          echo "and commit the resulting archive hash/build identity before packaging."
+          exit 1

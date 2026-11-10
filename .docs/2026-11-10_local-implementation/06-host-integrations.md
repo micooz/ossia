@@ -2,7 +2,7 @@
 
 - 状态：本机实现完成、未集成；受 P00 Linux ARM64 前序门槛阻塞，不标“已验收”。基于 `bdd48a2`，技术方案见 [06-technical-plan.md](06-technical-plan.md)。
 - 前置：[P05](05-browser-score-and-desktop.md)，接入参考使用 P00 的宿主探针结果；共享约束见[总索引](README.md)。
-- 后续：[P07 发布与切换](07-release-and-cutover.md)。
+- 后续：[P07 发布](07-release.md)。
 
 ## 1. 阶段目标
 
@@ -104,5 +104,5 @@ MCP 配置调用本体的 `mcp --home <absolute-home>` 模式。命令路径和�
 
 - Codex 插件必须重启桌面宿主后才可能加载；本轮没有在模型会话中列出插件工具，也没有证明 Codex 内置浏览器从消息链接打开。
 - DSH Desktop profile 由 Electron 管理，CLI 无法 `--dump-config`；实现以 profile manifest 与 bundle link 核对配置，Browser capability 使用 Desktop 默认为启用的已知事实。DSH 应用中的真实工具列表、侧栏打开与两宿主共享库尚未做 GUI 闭环。
-- 未写用户默认 Codex／DSH profile，未发布插件、未打安装包、未处理旧数据；Linux ARM64 与其他目标仍待 P07。
+- 未写用户默认 Codex／DSH profile，未发布插件、未打安装包；Linux ARM64 与其他目标仍待 P07。
 - 下一阶段：P07 将本体与 `integrations/` 资源一起打包，在全新安装态重做注入、侧栏、工具列表与跨宿主共享库验证。

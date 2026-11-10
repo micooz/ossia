@@ -251,18 +251,16 @@ impl Fixture {
 }
 
 #[test]
-fn initialization_legacy_schema_and_writer_lock_are_isolated() {
+fn initialization_schema_and_writer_lock_are_isolated() {
     let root = tempfile::tempdir().unwrap();
-    fs::write(root.path().join("db.sqlite"), b"legacy bytes").unwrap();
-    assert_eq!(
-        Library::open(root.path()).err().unwrap().code,
-        ErrorCode::LegacyDataPresent
-    );
-    assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+    fs::write(root.path().join("db.sqlite"), b"unrelated bytes").unwrap();
+    let library = Library::open(root.path()).unwrap();
+    assert!(root.path().join(storage::DATABASE).is_file());
     assert_eq!(
         fs::read(root.path().join("db.sqlite")).unwrap(),
-        b"legacy bytes"
+        b"unrelated bytes"
     );
+    drop(library);
     let other = tempfile::tempdir().unwrap();
     let library = Library::open(other.path()).unwrap();
     assert_eq!(

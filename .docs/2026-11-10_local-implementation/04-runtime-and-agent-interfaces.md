@@ -8,7 +8,7 @@
 
 实现 `ossia-runtime`，让浏览器、CLI 和 Agent 通过同一个本地实例操作库。发布入口支持 headless serve／mcp 模式，未初始化 Tauri 也能完成完整工具闭环。GUI 的改造留到 P05。
 
-本阶段提供命令、协议和集成测试，不注入真实宿主配置，不占用旧库。旧 Next.js 服务已按用户指令提前移除，本阶段须建立实际 Rust 服务入口并接入开发命令，不设置旧服务回退。
+本阶段提供命令、协议和集成测试，不注入真实宿主配置，使用临时库。旧 Next.js 服务已按用户指令提前移除，本阶段须建立实际 Rust 服务入口并接入开发命令，不设置旧服务回退。
 
 ## 2. 启动、发现与调度
 
@@ -103,7 +103,7 @@ MCP 工具保留架构方案中的 `ossia_guide/status/list/import/open/context/
 - CLI 示例：`ossia-desktop --home /absolute/library --engine-root /absolute/engine --port 3211 serve`；同一 home 下运行 `mcp`、`open '{}'`、`status`、`stop`。业务命令接受与 MCP 相同的 JSON 参数；doctor 可离线检查资源与发现信息，integrate 明确返回 P06 未实现。
 - MCP 经真实 rmcp 客户端验证 initialize／tools/list／tools/call；14 个工具包含 13 个工作流工具和 doctor。stdout 仅承载 MCP 协议；MCP 断开不终止服务。
 - `cargo test --workspace`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`；运行时离线测试覆盖 11 项鉴权／任务／监听／HTTP／事件回归，类型契约 3 项。默认忽略的原生套件单独运行，不计入离线通过项。
-- 原生命令：`OSSIA_TEST_EXECUTABLE="$PWD/target/debug/ossia-desktop" OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p04-native.json" cargo test -p ossia-runtime --test native_runtime -- --ignored`。证据分别记录于 `tests/fixtures/local/evidence/p04-native.json` 和 `p04-lifecycle.json`。两个原生测试覆盖三类输入自动预览→显式检查→提交→历史→恢复→三格式导出，以及并发启动、MCP 断开、SIGKILL、陈旧发现、编辑恢复、旧令牌失效、端口冲突和旧库字节不变。
+- 原生命令：`OSSIA_TEST_EXECUTABLE="$PWD/target/debug/ossia-desktop" OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p04-native.json" cargo test -p ossia-runtime --test native_runtime -- --ignored`。证据分别记录于 `tests/fixtures/local/evidence/p04-native.json` 和 `p04-lifecycle.json`。两个原生测试覆盖三类输入自动预览→显式检查→提交→历史→恢复→三格式导出，以及并发启动、MCP 断开、SIGKILL、陈旧发现、编辑恢复、旧令牌失效和端口冲突。
 - `pnpm check:types`、`pnpm check:contracts`、`pnpm baseline:local --check`、`pnpm test:local`（8 项）、`pnpm typecheck`、`pnpm check`、`pnpm build:web`。新增 CI 配置使用 Rust 1.89 检查生成差异与运行时回归；尚未触发远端 CI。本机 Rust 1.98.1，未单独运行 1.89；锁文件将 notify-types 固定到兼容最低版本的 2.0.0，interprocess 固定 2.4.4。
 
 ### 阻塞与下一阶段

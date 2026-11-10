@@ -1,27 +1,23 @@
 # Local migration fixtures
 
-The old Next.js backend has been removed; pure comparison modules now live in `scripts/local/reference/`. These inputs are original synthetic examples. They contain no user scores or library data. `manifest.json` lists each input's coverage and normative expectations; `known-differences.json` separates old TypeScript bugs and gaps from the P01 target behavior.
+The old Next.js backend and the P00 TypeScript comparison scripts were removed. These inputs are original synthetic examples and contain no user scores or library data. `manifest.json` lists each input's coverage and normative expectations; `known-differences.json` separates the retired TypeScript behavior from the Rust target behavior.
 
 ## Commands
 
-Requires the repository's Node.js/pnpm toolchain. The native probe additionally requires LilyPond 2.26.0 at the vendored macOS ARM64 path, or an explicit `OSSIA_LILYPOND_ROOT` pointing to that version.
+The committed fixtures are the stable reference. Rust tests read them directly; there is no TypeScript regeneration step in the daily checks. Native engine tests require LilyPond 2.26.0 at the vendored macOS ARM64 path or an explicit `OSSIA_TEST_LILYPOND_ROOT`.
 
 ```sh
-pnpm baseline:fixtures       # rebuild synthetic text and binary inputs
-pnpm probe:engine            # regenerate native reference inputs and evidence
-pnpm baseline:local          # regenerate normalized TS observations
-pnpm baseline:local --check  # compare without changing references
-pnpm test:local
-pnpm probe:host              # print two single-use, five-minute launch URLs
+cargo test -p ossia-score --test fixtures
+cargo test -p ossia-score --test layout
+OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" \
+  cargo test -p ossia-score --test native_engine -- --ignored
 ```
-
-Scripts locate the repository from their module URL. For a different cwd, invoke the baseline script by absolute path with `node --experimental-strip-types`, or use `pnpm --dir <repository>`.
 
 ## Reference data
 
-- `inputs/`: editable `.ly` and MusicXML; MIDI binaries have byte-level recipes in `scripts/local/fixtures.mts`. `raw-emoji` is deliberately invalid LilyPond. `xml-negative-skip` deliberately overlaps events in one voice.
+- `inputs/`: editable `.ly` and MusicXML; MIDI binaries are committed byte-level fixtures. `raw-emoji` is deliberately invalid LilyPond. `xml-negative-skip` deliberately overlaps events in one voice.
 - `engine/`: 2.26.0 converter sources, normalized SVG and MIDI, plus a render manifest. Converter originals are kept separately from the derived `*-render/score.ly`; only derived sources enable anchors/MIDI. Direct `.ly` compiles use unchanged input bytes and the command-line point-and-click option.
-- `observed.json`: current TS behavior with raw UTF-16 tokens, canonical UTF-8 spans, pitches, geometry, locators and MIDI. Raw `s/from/to` fields remain observations of old TS offsets; canonical locations are under `span`.
+- `observed.json`: historical TypeScript observations with raw UTF-16 tokens, canonical UTF-8 spans, pitches, geometry, locators and MIDI. Raw `s/from/to` fields remain observations of old offsets; canonical locations are under `span`.
 - `contract-examples.json`: illustrative shared DTO values. The bytes and SVG hash reference `compressed-rest`; these are not implemented production interfaces.
 - `evidence/`: native commands, diagnostics, artifact hashes and host observations. PDF hashes may vary due to engine metadata and are excluded from baseline equality. Native raw scratch files are deleted after evidence is saved.
 

@@ -53,7 +53,7 @@ admin 入口仅展示：运行／停止状态、所选数据目录、运行时�
 - 默认不打开谱面窗口，不注册开机启动。关闭管理窗口不应误杀正在运行的 Agent 任务；显式退出服务按 P04 关闭。
 - P06 未完成前，宿主注入入口明确未接通，不显示假成功或写未经实现的配置。
 - 更新 Tauri capability／CSP 时只授予管理窗口实际需要的能力，不给网页谱面注入 native bridge。
-- 开发流程使用项目 `.ossia/` 和开发端口；旧数据阻断时给出待 P07 切换的诊断，不在 UI 初始化中自动移入废纸篓。
+- 开发流程使用项目 `.ossia/` 和开发端口；MVP 只识别当前 `library.sqlite`，其他文件不影响启动。
 
 ## 5. 测试与退出条件
 
@@ -83,7 +83,7 @@ admin 入口仅展示：运行／停止状态、所选数据目录、运行时�
 - `cargo fmt --all -- --check`、`cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings` 与 `cargo build -p ossia-desktop` 通过；`pnpm build:desktop` 另行构建并打包出 `target/release/bundle/macos/Ossia.app`（20.04 MiB）。
 - `pnpm check`、`pnpm check:types`、`pnpm check:contracts`、`pnpm typecheck`、`pnpm baseline:local --check`、`pnpm test:local`（8 项）、`pnpm test:engine`（3 项）和 `pnpm build:web` 通过。
 - `pnpm test:ui` 的 7 个 Playwright 浏览器场景通过，覆盖 ticket／刷新／重连、双视图隔离、多页与缩放、上下谱表、多选与键盘、stale-selection、失败编译保留旧谱面、过期响应及 dirty／busy 冲突。
-- `pnpm test:ui:native` 的真实引擎场景通过。另行重跑默认忽略的原生套件，`native_crash_stale_endpoint_edit_recovery_port_conflict_and_legacy_protection` 与 `real_mcp_cli_http_native_loop_and_runtime_lifecycle` 共 2 项通过。
+- `pnpm test:ui:native` 的真实引擎场景通过。另行重跑默认忽略的原生套件，`native_crash_stale_endpoint_edit_recovery_port_conflict` 与 `real_mcp_cli_http_native_loop_and_runtime_lifecycle` 共 2 项通过。
 - Impeccable detector 对 `packages/ui/src` 返回空结果。390px 与 1440px 截图检查了长路径、禁用态、焦点外观、键盘入口和谱面坐标；没有用组件测试代替真实页面。
 
 ### 6.3 原生证据与平台边界
@@ -93,4 +93,4 @@ admin 入口仅展示：运行／停止状态、所选数据目录、运行时�
 - macOS 本地 `.app` 已实际打开 `admin.html`；doctor 显示运行时与 LilyPond 可用。关闭窗口后，同一 headless 运行实例继续存活并保持服务，未启动第二个写库实例。
 - 本轮只实测 macOS ARM64。Linux ARM64 仍受 P00 原生构建与运行门槛阻塞；Windows、Linux x86_64、macOS x86_64、安装包、Codex／DSH 实际宿主侧栏和打包资源签名均未完成原生验收。自动测试与 Tauri 窗口共存证据不能替代这些平台验收。
 
-下一阶段：P06 接入本体管理窗口和已可打开的谱面 URL，不另建插件专用谱面 UI；继续保留宿主注入、发布与旧数据切换边界。
+下一阶段：P06 接入本体管理窗口和已可打开的谱面 URL，不另建插件专用谱面 UI；继续保留宿主注入与发布边界。

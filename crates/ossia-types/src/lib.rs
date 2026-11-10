@@ -204,7 +204,6 @@ pub enum ErrorCode {
     ImportRefused,
     Cancelled,
     RuntimeIncompatible,
-    LegacyDataPresent,
     StorageError,
     LibraryBusy,
     Unauthorized,

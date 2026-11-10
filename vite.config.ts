@@ -3,7 +3,7 @@ import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
   test: {
-    // P00 probes use Node's test runner (`pnpm test:local`); Rust tests run through cargo.
+    // Rust tests run through cargo; the P00 TypeScript comparison probes were retired in P07.
     exclude: ['**/node_modules/**', '**/.next/**', '**/target/**', 'work/**'],
   },
   staged: {

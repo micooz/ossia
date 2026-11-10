@@ -13,7 +13,7 @@
 - `skill-mcp`：安装公共 Skill，并通过宿主受支持的配置入口注册 stdio MCP。
 - `plugin`：安装带 Skill／MCP 的薄本地插件；DSH 同时声明 Host／Client 入口。
 
-本轮使用临时 `CODEX_HOME`、`DSH_HOME` 和测试 profile 验证，不写入用户默认宿主配置。发布、真实默认 profile、安装包与旧数据切换留给 P07。
+本轮使用临时 `CODEX_HOME`、`DSH_HOME` 和测试 profile 验证，不写入用户默认宿主配置。发布、真实默认 profile 和安装包留给 P07。
 
 ## 2. 工程布局
 
@@ -125,6 +125,6 @@ Skill 固定描述真实工作流：`status/guide` → `list/import` → `open` 
 
 ## 9. 明确边界
 
-- 不发布独立插件、不打包安装器、不清理旧数据、不修改默认用户宿主 profile。
+- 不发布独立插件、不打包安装器、不修改默认用户宿主 profile。
 - 不兼容旧 `OSSIA_DATA_DIR`，不接管模型会话或凭证。
 - Linux ARM64 及其他平台的原生宿主行为仍待 P07／目标机验收。

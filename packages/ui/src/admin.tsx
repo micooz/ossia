@@ -245,9 +245,6 @@ function Admin() {
         {doctor && (
           <div>
             <p>工具链：{doctor.engine.ok ? doctor.engine.buildId : doctor.engine.error?.message}</p>
-            {doctor.legacyDataPresent && (
-              <p className="warn">检测到旧数据，需等待 P07 切换；不会自动清理。</p>
-            )}
             <details>
               <summary>诊断详情</summary>
               <pre>{JSON.stringify(doctor, null, 2)}</pre>

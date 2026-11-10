@@ -373,7 +373,7 @@ async fn ipc_job(endpoint: &str, id: JobId) -> Job {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[ignore = "requires OSSIA_TEST_EXECUTABLE and OSSIA_TEST_LILYPOND_ROOT"]
-async fn native_crash_stale_endpoint_edit_recovery_port_conflict_and_legacy_protection() {
+async fn native_crash_stale_endpoint_edit_recovery_port_conflict() {
     let executable = PathBuf::from(
         std::env::var_os("OSSIA_TEST_EXECUTABLE").expect("set OSSIA_TEST_EXECUTABLE"),
     );
@@ -396,22 +396,6 @@ async fn native_crash_stale_endpoint_edit_recovery_port_conflict_and_legacy_prot
         "MCP startup errors must not pollute protocol stdout"
     );
     assert!(String::from_utf8_lossy(&output.stderr).contains("error"));
-    let legacy = work.path().join("legacy");
-    std::fs::create_dir(&legacy).unwrap();
-    std::fs::write(legacy.join("db.sqlite"), b"user-owned old bytes").unwrap();
-    let output = command(&executable, &legacy, &engine)
-        .arg("serve")
-        .output()
-        .await
-        .unwrap();
-    assert!(!output.status.success());
-    let error: Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(error["error"]["code"], "legacy-data-present");
-    assert_eq!(
-        std::fs::read(legacy.join("db.sqlite")).unwrap(),
-        b"user-owned old bytes"
-    );
-    assert_eq!(std::fs::read_dir(&legacy).unwrap().count(), 1);
     let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = occupied.local_addr().unwrap().port();
     let conflict = work.path().join("port-conflict");
@@ -543,6 +527,6 @@ async fn native_crash_stale_endpoint_edit_recovery_port_conflict_and_legacy_prot
     assert!(!home.join("run/runtime.json").exists());
     if let Some(path) = std::env::var_os("OSSIA_NATIVE_EVIDENCE") {
         let path = PathBuf::from(path).with_file_name("p04-lifecycle.json");
-        std::fs::write(path,serde_json::to_vec_pretty(&json!({"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"sigkillRecovery":true,"staleEndpointReplaced":true,"sourceBytesPreserved":true,"editCapabilityResume":true,"oldViewAndTokenInvalidated":true,"occupiedPortRejected":true,"legacyBytesUnchanged":true,"explicitStopRemovesDiscovery":true})).unwrap()).unwrap();
+        std::fs::write(path,serde_json::to_vec_pretty(&json!({"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"sigkillRecovery":true,"staleEndpointReplaced":true,"sourceBytesPreserved":true,"editCapabilityResume":true,"oldViewAndTokenInvalidated":true,"occupiedPortRejected":true,"explicitStopRemovesDiscovery":true})).unwrap()).unwrap();
     }
 }

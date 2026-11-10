@@ -151,12 +151,6 @@ pub(crate) fn preflight(home: &Path) -> Result<bool> {
             .is_ok()
         && &header[..16] == b"SQLite format 3\0"
         && u32::from_be_bytes(header[68..72].try_into().unwrap()) == APPLICATION_ID;
-    if !recognized && fs::symlink_metadata(home.join("db.sqlite")).is_ok() {
-        return Err(AppError::new(
-            ErrorCode::LegacyDataPresent,
-            "legacy data is present; cutover is not enabled",
-        ));
-    }
     if (exists && !recognized)
         || (recognized && u32::from_be_bytes(header[60..64].try_into().unwrap()) != SCHEMA_VERSION)
     {

@@ -7,7 +7,7 @@
 ## 存储与模块
 
 - 加入 Cargo workspace；使用 bundled SQLite、WAL、外键、FULL 同步，以及 gzip CAS 和 OS 持库锁。
-- 显式传入 home；先检查旧库和新库标识，再初始化。旧库返回 `legacy-data-present`，不修改目录。
+- 显式传入 home；只识别当前 `library.sqlite` 标识，不检查、迁移或清理其他数据文件。
 - schema 1 持久化文档、独立 UUID 版本、编辑、任务、渲染引用与文件恢复 intent。源码固定为 `documents/<documentId>/score.ly`，原输入保存在 original。
 - CAS 完整落盘后才提交引用；P02 继续管理产物缓存。引擎执行不持数据库锁。
 

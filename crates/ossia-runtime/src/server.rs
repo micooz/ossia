@@ -153,13 +153,6 @@ pub async fn ensure_runtime(config: &Config, executable: &Path) -> Result<ipc::D
         Err(error) if error.code == ErrorCode::RuntimeIncompatible => return Err(error),
         _ => {}
     }
-    // Preflight rejects legacy data without creating run files or spawning a server against it.
-    if config.home.join("db.sqlite").exists() && !config.home.join("library.sqlite").exists() {
-        return Err(AppError::new(
-            ErrorCode::LegacyDataPresent,
-            "legacy library present; cutover belongs to P07",
-        ));
-    }
     let startup = tempfile::NamedTempFile::new().map_err(storage)?;
     let mut command = tokio::process::Command::new(executable);
     command
@@ -278,7 +271,5 @@ pub async fn doctor(config: &Config) -> Result<DoctorReport> {
                 error: Some(error),
             },
         },
-        legacy_data_present: config.home.join("db.sqlite").exists()
-            && !config.home.join("library.sqlite").exists(),
     })
 }

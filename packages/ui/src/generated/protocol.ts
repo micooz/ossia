@@ -24,7 +24,7 @@ export type ContextArgs = { viewId: ViewId, };
 
 export type Diagnostic = { severity: Severity, message: string, rawPosition: EnginePosition | null, position: SourcePosition | null, };
 
-export type DoctorReport = { home: string, engine: EngineHealth, runtime: RuntimeHealth, legacyDataPresent: boolean, };
+export type DoctorReport = { home: string, engine: EngineHealth, runtime: RuntimeHealth, };
 
 export type DocumentEditState = "idle" | "active" | "interrupted" | "recovery-conflict";
 
@@ -54,7 +54,7 @@ export type EnginePosition = {
  */
 file: string, line: number, column: number, charOffset: number | null, };
 
-export type ErrorCode = "invalid-request" | "invalid-encoding" | "invalid-input" | "not-found" | "conflict" | "edit-busy" | "dirty-workspace" | "stale-selection" | "compile-failed" | "unsupported-source" | "import-confirm-required" | "import-refused" | "cancelled" | "runtime-incompatible" | "legacy-data-present" | "storage-error" | "library-busy" | "unauthorized" | "forbidden" | "runtime-unavailable";
+export type ErrorCode = "invalid-request" | "invalid-encoding" | "invalid-input" | "not-found" | "conflict" | "edit-busy" | "dirty-workspace" | "stale-selection" | "compile-failed" | "unsupported-source" | "import-confirm-required" | "import-refused" | "cancelled" | "runtime-incompatible" | "storage-error" | "library-busy" | "unauthorized" | "forbidden" | "runtime-unavailable";
 
 export type ExchangeRequest = { ticket: string, };
 

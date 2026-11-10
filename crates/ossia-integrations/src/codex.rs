@@ -805,20 +805,10 @@ fn plugin_files(integrator: &Integrator) -> Result<Vec<FilePlan>, AppError> {
         "mcpServers": "./mcp.json",
         "extensions": {"com.openai": {"interface": interface.clone()}},
     });
-    let mut compat = manifest.clone();
-    compat["interface"] = interface;
-    compat.as_object_mut().unwrap().remove("extensions");
     let portable_mcp = json!({
         "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
         "mcpServers": {"ossia": server.clone()},
     });
-    let legacy_server = json!({
-        "command": integrator.executable().to_string_lossy(),
-        "args": integrator.mcp_command(),
-        "env": integrator.host_env(),
-        "tool_timeout_sec": 3600,
-    });
-    let legacy_mcp = json!({"mcpServers": {"ossia": legacy_server}});
     let marketplace = json!({
         "name": MARKETPLACE,
         "interface": {"displayName": "Ossia Local"},
@@ -836,13 +826,7 @@ fn plugin_files(integrator: &Integrator) -> Result<Vec<FilePlan>, AppError> {
             "marketplace",
         ),
         json_file(root.join("plugin.json"), manifest, "plugin-manifest"),
-        json_file(
-            root.join(".codex-plugin/plugin.json"),
-            compat,
-            "plugin-manifest",
-        ),
         json_file(root.join("mcp.json"), portable_mcp, "mcp"),
-        json_file(root.join(".mcp.json"), legacy_mcp, "mcp"),
         FilePlan {
             path: root.join("skills/ossia/SKILL.md"),
             bytes: skill.into_bytes(),
@@ -978,7 +962,7 @@ mod tests {
     fn plugin_files_are_self_contained_and_point_to_the_absolute_runtime() {
         let (_root, integrator) = fixture();
         let files = plugin_files(&integrator).unwrap();
-        assert_eq!(files.len(), 7);
+        assert_eq!(files.len(), 5);
 
         let marketplace = files
             .iter()

@@ -2,10 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <!-- No bundled interpreter is executed any more: the shell only opens a window and talks HTTP to
-       a deployed server, so the hardened-runtime code-execution exceptions are gone. If a future
-       build spawns a child process, re-add allow-unsigned-executable-memory / allow-jit deliberately. -->
-  <!-- Outbound only: the API and the LLM gateway are both clients of this app. -->
+  <!-- The local runtime launches the bundled LilyPond and Python converters. It does not load
+       unsigned executable memory or JIT code in-process, so hardened-runtime JIT exceptions remain
+       intentionally absent. Re-evaluate this file if the engine's execution model changes. -->
   <key>com.apple.security.network.client</key>
   <true/>
   <key>com.apple.security.files.user-selected.read-write</key>

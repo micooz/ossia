@@ -5,6 +5,8 @@
 - 环境：macOS arm64，Darwin 27.2.0；Node 22.22.0，pnpm 12.4.1；原生 LilyPond 2.26.0。
 - 状态：本机交付完成，P00 整体受阻；Linux ARM64 原生构建与执行未验收。
 
+> P07 更新：本文记录的 `pnpm baseline:*`、`probe:*` 和 `test:local` 命令属于 P00 历史证据；对应 TypeScript 对照脚本和 `packages/ly` 已在 P07 移除。合成输入、历史观测和证据仍保留在 `tests/fixtures/local/`，当前回归由 Rust 测试直接读取这些文件。本文实测值不回填。
+
 ## 1. 交付与复现
 
 [技术方案](00-technical-plan.md)已落盘。脚本位于 `scripts/local/`；合成输入、规范化输出、差异及机器证据位于 [tests/fixtures/local](../../tests/fixtures/local/)（相对仓库根路径；具体入口见下表）。

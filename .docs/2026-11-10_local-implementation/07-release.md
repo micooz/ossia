@@ -1,12 +1,12 @@
-# P07：五目标发布与旧架构切换
+# P07：五目标发布
 
-- 状态：待实施。
+- 状态：受阻（macOS arm64 本机发布切片已实施；Windows／Linux／macOS x86_64、真实宿主与正式签名分发未验收）。
 - 前置：[P06](06-host-integrations.md)；所有前序阶段需有可复查交付，目标范围见[总索引](README.md)。
 - 最终结果：以本地 Rust 运行时取代旧后端路径；产出自包含本体安装包和实际验收证据。
 
 ## 1. 阶段边界与发布矩阵
 
-本阶段完成打包、安装态验证、旧代码退出和一次性数据切换。默认产出本地／CI 制品；没有发布指令时不上传公开 Release 或插件目录。插件资源随本体内置，不生成单独的插件发布渠道。
+本阶段完成打包、安装态验证和旧代码退出。默认产出本地／CI 制品；没有发布指令时不上传公开 Release 或插件目录。插件资源随本体内置，不生成单独的插件发布渠道。
 
 | 目标 | Rust target | 本体制品 | 工具链 |
 |---|---|---|---|
@@ -34,7 +34,7 @@ Windows ARM64 不构建、不发布；不将模拟执行标成原生目标。Lin
 
 ## 3. 退出旧架构
 
-旧 Next.js 后端、模型调用及专用依赖已在 P01 后按用户指令提前移除，纯分析对照迁入 `scripts/local/reference/`；这不代表新产品路径已接通。以下剩余清理及数据切换仍须等 Rust 核心、页面和宿主闭环通过后执行：
+旧 Next.js 后端、模型调用及专用依赖已在 P01 后按用户指令提前移除；P00 的纯 TypeScript 对照脚本和 `packages/ly` 已在 P07 退出，合成样本、历史观测和证据保留在 `tests/fixtures/local/`。以下剩余清理按本阶段记录：
 
 1. 保存已确定的合成 fixture 和独立期望结果，确保移除 TS 后仍有可复查的测试证据。
 2. 复查已移除的 `packages/backend` 及 Next.js 专用依赖／配置／路由，排除服务端模型网关或旧部署回退。用户本机环境文件不因代码清理自动删除。
@@ -44,19 +44,9 @@ Windows ARM64 不构建、不发布；不将模拟执行标成原生目标。Lin
 
 退出后检查源码、脚本和有效文档引用，排除 OSSIA_MODEL_API_KEY、模型 HTTP 调用、Next 路由与后台静默回退。历史决策文档中的引用无需为搜索零命中而抹除。
 
-## 4. 一次性旧数据切换
+## 4. 数据目录
 
-用户已确定：默认 `~/.ossia/`，项目内 `.ossia/`；旧历史数据移入废纸篓，无兼容、迁移或额外备份。
-
-实现或提供开发用切换工具，输入为明确的旧数据根目录列表，默认候选只包含当前仓库 `.ossia/` 和当前用户 `~/.ossia/`。操作步骤：
-
-1. 检查目录规范化路径、旧库标识和是否被运行实例占用。先停止确认为该目录服务的旧实例；不能杀未知进程或遍历清理其他项目。
-2. 若目录已含新 `library.sqlite3`／新库标识，则拒绝把它作为旧目录整体移走；报告混合或已切换状态，避免删除新工作区。
-3. 使用平台系统废纸篓／回收站能力移入整个已确认旧目录，覆盖 db、WAL／SHM、CAS、文档、补丁和缓存。失败则停止，不退化为永久删除。
-4. 记录源目录和回收结果，确认原位置已腾空，再由新运行时按所选路径创建空库。
-5. 缺失目录直接跳过；重复执行不清理新库。此工具不进入日常启动、普通升级或隐式初始化流程，也不清空系统废纸篓。
-
-先用合成旧目录测试完整切换。真实目录切换安排在新路径可以验收之后；不搬运旧文档到新 schema，不创建 `.bak` 或版本子目录保留旧库。
+运行时使用所选 home 中的 `library.sqlite`。默认位置为 `~/.ossia/`，项目开发脚本显式使用仓库 `.ossia/`。首次启动初始化当前库，后续启动复用同一目录。
 
 ## 5. 最终验收
 
@@ -69,7 +59,7 @@ Windows ARM64 不构建、不发布；不将模拟执行标成原生目标。Lin
 - [ ] 连续保存、语法错误、超时、取消、异常退出后，公共文件和历史可恢复。
 - [ ] 在可用的 Codex／DSH 实际宿主中从安装态本体注入，打开侧边页面并完成编辑闭环；纯 CLI 环境只验收明确支持的能力。
 - [ ] 五目标制品的资源、依赖与许可证材料齐全，Linux ARM64 有真实目标运行证据。
-- [ ] 旧目录进废纸篓，新库为空；再次启动和升级不会再执行清理。
+- [ ] 首次启动正确初始化 `library.sqlite`，后续启动复用同一目录。
 - [ ] `pnpm check`、UI typecheck／build、Cargo workspace 测试、HTTP／MCP／浏览器回归全部通过。
 
 完整闭环为：安装本体 → 注入宿主 → Agent open → 侧边导入／选小节 → edit 取得公共路径 → Agent 改文件 → 自动预览 → check → commit → 历史／restore → export。
@@ -78,8 +68,20 @@ Windows ARM64 不构建、不发布；不将模拟执行标成原生目标。Lin
 
 ## 6. 实施交接（实施后填写）
 
-- 制品、校验和、许可证与源码材料：未生成。
-- 五目标实际安装／引擎／宿主证据：未建立。
-- 旧数据切换与再次启动验证：未执行。
-- 被移除的旧路径、最终测试和未完成事项：由实施者填写。
-- 全部验收通过后更新主方案实施状态；本阶段文档本身不代表工作已经完成。
+### 6.1 本机交付
+
+- 基准 `32683b7`。新增 `scripts/package.mjs` 与 `scripts/package.test.mjs`，按 `ENGINE.lock` 选择引擎树，拒绝 unbuilt 目标；生成 Tauri 安装资源，macOS arm64 产出 app、app zip、DMG、`SHA256SUMS`、`release.json` 和 `materials/`。
+- macOS 制品位于 `artifacts/macos-arm64/`，当前版本 `0.1.0`。安装资源包含 `engine/`、`ui/`、`integrations/`、`licenses/`；`licenses/` 含 Ossia GPL 全文、完整引擎许可树、Rust／npm 运行时许可材料、`THIRD-PARTY-NOTICES.md` 和 `SOURCE-MANIFEST.json`。源码包为 `materials/ossia-0.1.0-source.tar.gz`（`git archive HEAD`）。
+- 制品是 ad-hoc linker 签名、未公证的测试制品；`release.json` 明确 `notarized=false`，没有创建公开 Release，也没有上传插件目录。
+- `doctor`、`serve` 和 DMG 临时安装副本均从安装资源定位引擎与页面，不依赖仓库 cwd 或 `--engine-root`／`--static-dir`。app 内 `.go` mtime 与执行位在打包副本中按 inventory 修复，未改变资源字节哈希。
+
+### 6.2 旧架构退出
+
+- 删除 `packages/ly` 与 `scripts/local`，移除 `baseline:*`、`probe:*`、`test:local`、`typecheck:local`；保留 `tests/fixtures/local/` 的合成输入、observed、manifest 和证据，Rust 测试直接消费。P00 报告与两份旧架构文档已加历史说明。
+
+### 6.3 检查与未验证边界
+
+- `cargo test --workspace`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 通过；原生 runtime 2 项、engine 1 项、library 1 项、score 1 项通过。
+- `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm check:types`、`pnpm check:contracts`、`pnpm typecheck`、`pnpm build:web`、`pnpm test:package`、`pnpm test:ui`（7 项）和 `pnpm test:ui:native`（1 项）通过。Playwright 首次在沙箱内因系统 Chrome 启动被拒绝而失败，退出沙箱重跑后通过，不是页面断言失败。
+- macOS arm64 已完成 app/DMG 实际启动、资源 doctor、HTTP 首页、DMG 挂载副本与校验和检查。CI 配置 `.github/workflows/release.yml` 本轮未运行。
+- macOS x86_64、Windows x86_64、Linux x86_64、Linux arm64 没有目标机安装／运行证据；Linux ARM64 引擎仍未构建和锁定，CI 中保留为显式 blocked。真实 Codex／DSH 安装态侧栏、Developer ID 签名、公证和公开发布仍未完成，因此本阶段只能标记“受阻”，不能标记已验收。

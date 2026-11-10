@@ -307,7 +307,6 @@ pub struct DoctorReport {
     pub home: String,
     pub engine: EngineHealth,
     pub runtime: RuntimeHealth,
-    pub legacy_data_present: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]

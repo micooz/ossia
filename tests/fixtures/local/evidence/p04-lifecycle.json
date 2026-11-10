@@ -2,7 +2,6 @@
   "arch": "aarch64",
   "editCapabilityResume": true,
   "explicitStopRemovesDiscovery": true,
-  "legacyBytesUnchanged": true,
   "occupiedPortRejected": true,
   "oldViewAndTokenInvalidated": true,
   "platform": "macos",

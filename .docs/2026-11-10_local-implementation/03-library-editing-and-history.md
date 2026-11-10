@@ -7,7 +7,7 @@
 
 ## 1. 阶段目标
 
-交付 `ossia-library`，管理新库、公共源码、编辑任务和不可变版本。通过核心接口即可完成导入、编辑、校验后提交、历史查询和回退。此阶段不改变真实用户库，不实现旧数据迁移或自动清理。
+交付 `ossia-library`，管理新库、公共源码、编辑任务和不可变版本。通过核心接口即可完成导入、编辑、校验后提交、历史查询和回退。此阶段不修改用户数据。
 
 旧 `store.ts` 已随 Next.js 后端移除，仅作职责参考，可用 `git show 1f9974c:packages/backend/src/server/store.ts` 查阅。新版本节点用 UUID 与 parentVersionId 区分，不能沿用重复内容哈希即同一历史节点的歧义。
 
@@ -26,7 +26,7 @@
 
 - 源码固定为 `documents/<documentId>/score.ly`，原输入副本在同文档 original 目录中；数据库不接受任意外部源码路径作为文档真源。
 - 不可变内容按字节哈希写 gzip CAS；先完整写入 CAS 再提交引用，允许失败时出现可清理的无引用内容，不允许数据库指向未写完的内容。
-- 不为本次建立旧 schema 兼容层。初始化发现旧库时返回 legacy-data-present，切换处理留给 P07。
+- 初始化使用当前 `library.sqlite`。
 - 库初始化、schema 检查和内容恢复均显式传入数据根目录，测试不得默认写家目录。
 
 ## 3. 工作流程与不变量
@@ -91,7 +91,7 @@
 - 数据根目录必须显式传入；持库锁为 `library.lock`，数据库为 `library.sqlite`，SQLite application_id 为 `0x4f535349`，schema/user_version 为 1；WAL、外键和 FULL 同步已验证。
 - schema 包含 documents、versions、edits、jobs、contents、renders、worktree_intents，以及私有 check_requests／check_receipts。检查任务中的编辑凭据不进入公开 Job；文档状态也不返回 editId。
 - 公共文件为 `documents/<documentId>/score.ly`；原输入保存在 original/input.ly、input.musicxml 或 input.mid。gzip CAS 对未压缩原始字节计算哈希，先同步文件与新建目录再提交引用；读取时校验内容哈希。P02 产物位于稳定的 artifacts 根目录，不另建引擎缓存。
-- 旧 `db.sqlite` 且无新库标识时返回 `legacy-data-present`。测试验证旧目录文件与字节不变；未知标识或 schema 返回 `runtime-incompatible`。库内路径拒绝越界和符号链接。
+- 未知的 `library.sqlite` 标识或 schema 返回 `runtime-incompatible`；库内路径拒绝越界和符号链接。
 - discard／restore 先记录 intent，再以同目录临时文件原子替换，最后完成事务。重启按旧／目标哈希和 head 判定取消、完成或冲突；冲突通过 DocumentEditState::RecoveryConflict 暴露。`resolve_recovery_conflict` 只在期望哈希匹配后清除冲突标记，不覆盖文件、不推进 head。
 - 重启保留源码、CAS 和历史，将 active 编辑及 queued／running 作业标为 interrupted，并清除旧提交凭据。中断编辑需原 editId 显式 resume；未建立 head 的文档不自动删除或重置。
 

@@ -6,7 +6,7 @@ Local document library: immutable source snapshots, public `score.ly` files, edi
 
 `Library::open(home)` takes an explicit path, canonicalizes it and holds `library.lock` until dropped. Only the owning process opens the database for writing; a second opener receives `library-busy`. P04 owns runtime discovery and transports around this library.
 
-Schema 1 uses `library.sqlite`, SQLite application ID `0x4f535349`, WAL, foreign keys and FULL synchronization. A legacy `db.sqlite` without the new marker returns `legacy-data-present` before creating any file. Unknown markers or schema versions return `runtime-incompatible`. Nothing migrates or cleans existing user data.
+Schema 1 uses `library.sqlite`, SQLite application ID `0x4f535349`, WAL, foreign keys and FULL synchronization. Unknown markers or schema versions return `runtime-incompatible`.
 
 Public source is `documents/<documentId>/score.ly`. `original/input.ly`, `original/input.musicxml` or `original/input.mid` preserves the supplied input. Source bytes, including BOM and CRLF, are stored as gzip CAS objects in `contents/<SHA-256>.gz`; the hash addresses uncompressed bytes. Engine assets stay in the P02 namespace beneath `artifacts/`. Interrupted writes can leave unreferenced content or import directories; this module does not garbage-collect them.
 
