@@ -6,8 +6,9 @@ import { candidateRoots } from '../../../scripts/engine.mjs';
 
 const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const root = path.resolve(desktop, '../..');
+const windows = process.platform === 'win32';
 const child = spawn(
-  path.join(desktop, 'node_modules/.bin/tauri'),
+  path.join(desktop, 'node_modules/.bin', windows ? 'tauri.cmd' : 'tauri'),
   [
     'dev',
     '--',
@@ -24,7 +25,7 @@ const child = spawn(
     'http://127.0.0.1:5173',
     ...process.argv.slice(2),
   ],
-  { cwd: desktop, stdio: 'inherit' },
+  { cwd: desktop, stdio: 'inherit', shell: windows },
 );
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal));
 child.on('error', (error) => {

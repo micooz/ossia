@@ -610,7 +610,11 @@ export async function packageTarget(target, options = {}) {
   ]);
   const material = materials(stage, target, entry, sourceArchive);
   const config = overlay(stage, target, entry);
-  const tauri = path.join(ROOT, 'packages/desktop/node_modules/.bin/tauri');
+  const tauri = path.join(
+    ROOT,
+    'packages/desktop/node_modules/.bin',
+    process.platform === 'win32' ? 'tauri.cmd' : 'tauri',
+  );
   const buildBundles = spec.platform === 'linux' ? ['deb'] : spec.bundles;
   run(
     tauri,
