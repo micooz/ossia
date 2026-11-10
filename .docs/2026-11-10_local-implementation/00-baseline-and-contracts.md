@@ -6,17 +6,17 @@
 
 ## 1. 阶段目标与范围
 
-为 Rust 迁移固定可重建的对照输入，确认跨阶段接口，并尽早验证 Linux ARM64 引擎与宿主侧边页面接入。产出可运行的基线工具和证据，不更改现有产品路径。
+固定可重建的对照输入，确认跨阶段接口，并验证 Linux ARM64 引擎与宿主侧边页面接入。产出可运行的基线工具和证据。
 
-P00 启动基准没有根 Cargo workspace（P01 已建立未集成的 Rust workspace）。旧 Next.js 后端随后按用户指令移除，纯 TS 对照保留于开发参考目录；Tauri 暂仍只暴露 `get_endpoint`；`vendor/ENGINE.lock` 只锁定 darwin-arm64。不能把历史文档中的已删除 verify 脚本当作现存测试。
+根 Cargo workspace 包含 `ossia-types`、`ossia-score`、`ossia-engine`、`ossia-library`、`ossia-runtime`、`ossia-integrations` 和桌面 crate。`vendor/ENGINE.lock` 固定五个发布目标，Linux ARM64 仍为 unbuilt。
 
-## 2. 先读的现有实现
+## 2. 现有实现
 
-- `packages/ly/src/`：lexer、L1、layout、pitch、SMF。
-- `scripts/local/reference/`：locate、layout-join、import-gate 的纯 TS 对照；旧 render、engine、store、score 在 Git 基准 `1f9974c` 的 `packages/backend/src/server/` 中查阅。
-- `scripts/engine.mjs`、`vendor/ENGINE.lock`：当前安装和时间戳规则。
+- `crates/ossia-score/`：lexer、索引、SVG 几何、音高和 MIDI 分析。
+- `crates/ossia-engine/`：原生工具链、转换、编译和产物缓存。
+- `scripts/engine.mjs`、`vendor/ENGINE.lock`：工具链安装和时间戳规则。
 - `packages/ui/src/components/ScoreView.tsx`：页面坐标及选区覆盖层。
-- 旧 ADR-0002 只作解析不变量参考；整份源码交给模型、JSON 行替换、五道门和源码不下发不再是目标架构要求。
+- `tests/fixtures/local/`：合成输入、TS 观测、正确期望和机器证据。
 
 ## 3. 实施任务
 
@@ -31,9 +31,9 @@ P00 启动基准没有根 Cargo workspace（P01 已建立未集成的 Rust works
 - 有效 MusicXML、有效 MIDI、局部转换损失和阻断性 `Negative skip` 样本。
 - 截断 MIDI、变长 meta event、running status、note-on 速度为零等二进制解析样本。
 
-新增开发用基线导出命令，调用当前 TS 库生成规范化 JSON：token 原文与位置、声部／小节范围、谱表顺序、几何、音高和 MIDI note-on。TS 的 UTF-16 位置转换成索引约定的 UTF-8 字节范围后再比较。
+`tests/fixtures/local/observed.json` 保存参考 token、声部／小节范围、谱表顺序、几何、音高和 MIDI note-on；其中的 UTF-16 位置已转换为索引使用的 UTF-8 字节范围。
 
-基线不是“旧代码永远正确”的证明。尤其核对压缩休止的最大小节号、尾部 score block 是否误入声部范围、未知 staff 是否误落到另一声部。发现旧实现错误时，用 LilyPond 输出或手工可核验样本确定期望，并在样本说明中记录差异。
+参考输出不是正确性证明。压缩休止的最大小节号、尾部 score block、未知 staff 等差异由独立期望和 LilyPond 输出核对。
 
 ### 3.2 原生引擎探针
 
@@ -58,23 +58,21 @@ Linux ARM64 探针失败时记录具体编译／运行错误和下一步；不�
 
 将探针发现反映到总索引：位置单位、标准库依赖判定、宿主能力。为 SourceSnapshot、RenderManifest、版本节点和编辑状态写出最小 JSON 示例。例子使用合成 ID 和临时路径。
 
-新增 `.docs` 中的基线报告，保存命令、样本和结果指针；机器输出进入测试目录或报告附件，避免只有聊天里的成功断言。
+基线报告保存命令、样本和结果指针；机器输出进入测试目录或报告附件，避免只有聊天里的成功断言。
 
 ## 4. 验收与交接
 
-- [x] 一个命令能重建全部 TS 对照结果，换 cwd 后结果不漂移。
+- [x] Rust 测试直接消费 fixture，换 cwd 后结果不漂移。
 - [x] 不包含用户乐谱、数据库、凭证或随机临时路径。
 - [x] Unicode／CRLF 位置探针有输入、原始输出和转换结论。
 - [x] Linux ARM64 探针尚未运行，阶段受阻及具体原因已记录；该平台验收未通过。
 - [x] Codex／DSH 接入证据与未验证环境分别列明。
 - [x] 共享类型示例与总索引一致，所有命令均有实际脚本归属。
 
-本阶段新增命令统一以 `pnpm baseline:local` 为基线导出入口，独立探针置于开发脚本中。脚本尚未实现前不可记录命令通过。
-
 ## 5. 实施交接
 
-- 代码基准与实际变更：基于 `3f486c5`，新增 `scripts/local/`、25 个合成输入、22 份原生渲染参考、TS 观测、已知差异、共享 JSON 示例和报告；增加根开发命令。未修改产品路径。
-- 检查命令与结果：`pnpm probe:engine`、`pnpm baseline:local --check`、`pnpm test:local`（8 项）、`pnpm typecheck` 通过；`pnpm check` 为 0 errors、5 个未修改后端代码中的既有 warning。
+- 交付内容：25 个合成输入、22 份原生渲染参考、TS 观测、已知差异、共享 JSON 示例和基线报告。
+- 回归：`cargo test -p ossia-score -p ossia-types` 和 `cargo test --workspace` 直接读取 `tests/fixtures/local/`，不重建 TS 观测。
 - 工具链／宿主环境证据：[本机基线报告](00-baseline-report.md)，机器输出在 `tests/fixtures/local/evidence/`。macOS ARM64 原生 2.26.0，以及 Codex 26.1103.60933／DSH Desktop 0.2.2-rc.1 已实测。
 - 阻塞及未验证项：没有启动原生 Linux ARM64 构建环境，缺同版本构建配方、依赖和转换／编译证据。其他原生目标、插件 API 实际调用、DSH Web、下载策略与安装包未验证；详见报告。
-- 下一阶段：P01 消费合成 fixture、位置转换结论和正确期望。前序门槛未通过前只能作为未集成开发，不能标记已验收。
+- P01 消费合成 fixture、位置转换结论和正确期望。

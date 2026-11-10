@@ -1,19 +1,18 @@
 # P06 技术实现方案：Skill／MCP／宿主注入
 
 - 日期：2026-11-10
-- 阶段状态：本机实现完成、未集成（不越过 P00 Linux ARM64 门槛）
-- 基线：`bdd48a2`
+- 阶段状态：本机实现完成并纳入 P07 macOS arm64 测试包；真实宿主安装态闭环未完成，不越过 P00 Linux ARM64 门槛。
 
 ## 1. 范围
 
-本轮实现 `ossia-integrations`，让用户从 CLI 或 Tauri 管理窗口接入 Codex／DSH。集成产物只调用当前本体可执行文件，不复制引擎、不安装模型 SDK、不接管宿主会话。
+实现 `ossia-integrations`，让用户从 CLI 或 Tauri 管理窗口接入 Codex／DSH。集成产物只调用当前本体可执行文件，不复制引擎、不安装模型 SDK、不接管宿主会话。
 
 支持两种互斥模式：
 
 - `skill-mcp`：安装公共 Skill，并通过宿主受支持的配置入口注册 stdio MCP。
 - `plugin`：安装带 Skill／MCP 的薄本地插件；DSH 同时声明 Host／Client 入口。
 
-本轮使用临时 `CODEX_HOME`、`DSH_HOME` 和测试 profile 验证，不写入用户默认宿主配置。发布、真实默认 profile 和安装包留给 P07。
+验证使用临时 `CODEX_HOME`、`DSH_HOME` 和测试 profile，不写入用户默认宿主配置；真实默认 profile 和安装态宿主闭环仍未验证。
 
 ## 2. 工程布局
 
@@ -125,6 +124,6 @@ Skill 固定描述真实工作流：`status/guide` → `list/import` → `open` 
 
 ## 9. 明确边界
 
-- 不发布独立插件、不打包安装器、不修改默认用户宿主 profile。
-- 不兼容旧 `OSSIA_DATA_DIR`，不接管模型会话或凭证。
-- Linux ARM64 及其他平台的原生宿主行为仍待 P07／目标机验收。
+- P06 自身不发布独立插件、不打包安装器、不修改默认用户宿主 profile。
+- 不使用 `OSSIA_DATA_DIR`，不接管模型会话或凭证。
+- P07 macOS arm64 测试包已产出，但 Linux ARM64 及其他平台的原生宿主行为仍待目标机验收。

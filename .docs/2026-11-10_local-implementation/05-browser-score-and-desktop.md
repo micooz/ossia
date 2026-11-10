@@ -1,6 +1,6 @@
 # P05：侧边谱面与 Tauri 管理窗口
 
-- 状态：本机实现完成、未集成；受 P00 Linux ARM64 前序门槛阻塞，不标“已验收”。基于 `32c953c` 实施完整 P05，技术方案见 [05-technical-plan.md](05-technical-plan.md)。
+- 状态：浏览器谱面和 Tauri 管理窗口已接入本地运行时与 macOS arm64 测试包；受 P00 Linux ARM64 前序门槛阻塞，未验收。技术方案见 [05-technical-plan.md](05-technical-plan.md)。
 - 前置：[P04](04-runtime-and-agent-interfaces.md)；产品交互约束见[架构方案](../2026-11-10_local-architecture-plan.md)。
 - 后续：[P06 宿主集成](06-host-integrations.md)。
 
@@ -10,13 +10,13 @@
 
 Vite 使用两个 HTML 入口：`index.html` 为谱面，`admin.html` 为管理窗口，产出同一 dist。Tauri 的窗口地址和 devUrl 指向 admin 入口；Rust HTTP 仅将谱面入口作为默认页面。管理逻辑和 Tauri API 不能进入谱面入口的启动依赖。
 
-## 2. 迁移现有页面
+## 2. 页面结构
 
-- `App.tsx/state.ts/api.ts/endpoint.ts` 改为 P04 的本机同源接口、视图上下文与事件订阅，移除 API 部署发现、VITE_API_TOKEN 和旧模型作业流程。
+- `App.tsx/state.ts/api.ts/endpoint.ts` 使用本机同源接口、视图上下文与事件订阅，不包含 API 部署发现、VITE_API_TOKEN 或模型作业流程。
 - 保留 ImportPanel、ScoreView、CompareView、HistoryPanel、ExportBar 中适用的交互，调整为新 DTO。移除 EditPanel 中指令提交和 GateReport 中五道门接受流程。
 - 状态至少区分：连接中、无文档、导入确认、可浏览、编译中、编译失败但有旧谱面、dirty、编辑占用、待恢复、版本已提交和连接失效。
 - 后端状态是事实来源；React reducer 只表达页面状态。不能因页面切换或重连将 dirty／编辑锁重置。
-- 旧 Next.js 后端已移除；P00 纯分析参考位于 `scripts/local/reference/`。页面只接入 P04 Rust 服务，不设置旧后端回退。
+- 页面只接入 Rust 运行时。
 
 ## 3. 页面具体行为
 
@@ -51,7 +51,7 @@ admin 入口仅展示：运行／停止状态、所选数据目录、运行时�
 
 - GUI 用 Tauri IPC 连接相同 RuntimeInfo 和配置操作；不持有自己的数据库写句柄。
 - 默认不打开谱面窗口，不注册开机启动。关闭管理窗口不应误杀正在运行的 Agent 任务；显式退出服务按 P04 关闭。
-- P06 未完成前，宿主注入入口明确未接通，不显示假成功或写未经实现的配置。
+- 宿主注入入口通过 P06 集成命令工作；未安装、待启用或待重启时显示实际状态，不显示假成功。
 - 更新 Tauri capability／CSP 时只授予管理窗口实际需要的能力，不给网页谱面注入 native bridge。
 - 开发流程使用项目 `.ossia/` 和开发端口；MVP 只识别当前 `library.sqlite`，其他文件不影响启动。
 
@@ -66,22 +66,22 @@ admin 入口仅展示：运行／停止状态、所选数据目录、运行时�
 
 运行 UI typecheck／构建、核心回归和浏览器交互测试。截图或真实页面验证至少覆盖窄侧栏和宽面板两种布局；不能只用组件测试代替实际谱面坐标验证。
 
-## 6. 实施交接（实施后填写）
+## 6. 实施交接
 
 ### 6.1 入口与实际变更
 
 - `index.html` 是谱面入口，`admin.html` 是独立管理入口；两者由同一 Vite 多页面构建产出。谱面按同源 `/api/v1` 连接 Rust，开发代理固定到 `3212`，启动路径不加载 Tauri API。只有管理入口加载 native bridge。
 - 谱面完成 fragment ticket 单次交换、立即移除 ticket、`sessionStorage` 标签页凭据、带 `Authorization` 的 fetch SSE、先快照后订阅、重连和实例／游标／鉴权失效处理。请求按 view、document 和 generation 隔离，旧响应不会覆盖当前视图。
 - 谱面改用鉴权 SVG Blob 和同 viewBox 的交互覆盖层；点击经 `getScreenCTM()` 逆变换到 SVG user units。服务端几何提供可靠小节的 locator、systemIndex 和谱表矩形，页面不复制定位算法。
-- 导入、多选、键盘选择、旧谱面、历史节点、双版本对比、恢复、丢弃和显式版本导出已接入 P04 协议；指令提交、候选接受和五道门界面已移除。普通编译日志默认折叠，警告与错误保持可见。
-- Rust 新增鉴权几何查询、不可变版本渲染、公开编辑摘要和 hash-verified 导出位置动作。历史渲染使用固定版本快照与既有调度／缓存，不改公共源码、head 或当前预览；reveal 只接受成功导出任务的结果路径。
-- Tauri 只展示服务状态、数据目录、运行时／引擎版本、doctor 与启停，并显示 P06 尚未接入。CLI 参数统一解析一次；GUI、serve 和 MCP 遵守 `--home`、`OSSIA_HOME`、默认值顺序，管理 GUI 不打开数据库。开发脚本显式传入项目 home、`3212`、工具链和静态资源。
+- 导入、多选、键盘选择、旧谱面、历史节点、双版本对比、恢复、丢弃和显式版本导出已接入 P04 协议；界面不提供指令提交、候选接受或五道门流程。普通编译日志默认折叠，警告与错误保持可见。
+- Rust 提供鉴权几何查询、不可变版本渲染、公开编辑摘要和 hash-verified 导出位置动作。历史渲染使用固定版本快照与既有调度／缓存，不改公共源码、head 或当前预览；reveal 只接受成功导出任务的结果路径。
+- Tauri 展示服务状态、数据目录、运行时／引擎版本、doctor、启停，以及 P06 的宿主检测与集成操作入口。CLI 参数统一解析一次；GUI、serve 和 MCP 遵守 `--home`、`OSSIA_HOME`、默认值顺序，管理 GUI 不打开数据库。开发脚本显式传入项目 home、`3212`、工具链和静态资源。
 - 首批导入开放 `.ly`、`.xml`、`.musicxml`、`.mid`、`.midi`；`.mxl` 当前转换链未验证，接口和页面均明确拒绝，文档不把它列为已开放能力。
 
 ### 6.2 已执行检查
 
 - `cargo fmt --all -- --check`、`cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings` 与 `cargo build -p ossia-desktop` 通过；`pnpm build:desktop` 另行构建并打包出 `target/release/bundle/macos/Ossia.app`（20.04 MiB）。
-- `pnpm check`、`pnpm check:types`、`pnpm check:contracts`、`pnpm typecheck`、`pnpm baseline:local --check`、`pnpm test:local`（8 项）、`pnpm test:engine`（3 项）和 `pnpm build:web` 通过。
+- 验证：`cargo test --workspace`、`pnpm check`、`pnpm check:types`、`pnpm check:contracts`、`pnpm typecheck`、`pnpm test:engine`、`pnpm test:ui`、`pnpm test:ui:native` 和 `pnpm build:web`。
 - `pnpm test:ui` 的 7 个 Playwright 浏览器场景通过，覆盖 ticket／刷新／重连、双视图隔离、多页与缩放、上下谱表、多选与键盘、stale-selection、失败编译保留旧谱面、过期响应及 dirty／busy 冲突。
 - `pnpm test:ui:native` 的真实引擎场景通过。另行重跑默认忽略的原生套件，`native_crash_stale_endpoint_edit_recovery_port_conflict` 与 `real_mcp_cli_http_native_loop_and_runtime_lifecycle` 共 2 项通过。
 - Impeccable detector 对 `packages/ui/src` 返回空结果。390px 与 1440px 截图检查了长路径、禁用态、焦点外观、键盘入口和谱面坐标；没有用组件测试代替真实页面。
@@ -91,6 +91,4 @@ admin 入口仅展示：运行／停止状态、所选数据目录、运行时�
 - 本机 macOS ARM64 的运行时证据在 `tests/fixtures/local/evidence/p05-native.json`：三类合成输入均完成 3 个版本与 `.ly`／PDF／MIDI 导出；真实 LilyPond 闭环确认自动预览、固定快照编辑检查、版本对比、恢复和导出。
 - 双页合成谱面的浏览器证据在 `.impeccable/review/p05-native.json`，覆盖 2 页、每页 4 个可靠区域、`390`／`1440` 宽和 `100%`／`150%` 缩放，记录 `3` 个版本与三种导出。实际截图在 `.impeccable/review/desktop.png` 和 `.impeccable/review/mobile.png`。
 - macOS 本地 `.app` 已实际打开 `admin.html`；doctor 显示运行时与 LilyPond 可用。关闭窗口后，同一 headless 运行实例继续存活并保持服务，未启动第二个写库实例。
-- 本轮只实测 macOS ARM64。Linux ARM64 仍受 P00 原生构建与运行门槛阻塞；Windows、Linux x86_64、macOS x86_64、安装包、Codex／DSH 实际宿主侧栏和打包资源签名均未完成原生验收。自动测试与 Tauri 窗口共存证据不能替代这些平台验收。
-
-下一阶段：P06 接入本体管理窗口和已可打开的谱面 URL，不另建插件专用谱面 UI；继续保留宿主注入与发布边界。
+- macOS ARM64 已验证。Linux ARM64 仍受 P00 原生构建与运行门槛阻塞；Windows、Linux x86_64、macOS x86_64、跨平台安装包、Codex／DSH 实际宿主侧栏和打包资源签名均未完成原生验收。macOS arm64 测试包的启动冒烟不能替代其他平台验收。

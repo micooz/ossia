@@ -1,6 +1,6 @@
 # P03：文档、编辑与版本
 
-- 状态：受阻（前序门槛）；本机实现完成、未集成，P00 Linux ARM64 原生验收仍未通过。
+- 状态：受阻（前序门槛）；库模块已接入本地运行时，P00 Linux ARM64 原生验收仍未通过。
 - 技术方案：[03-technical-plan.md](03-technical-plan.md)。
 - 前置：[P02](02-native-engine-and-artifacts.md)；类型和目录选择见[总索引](README.md)。
 - 后续：[P04 运行时与 Agent 接口](04-runtime-and-agent-interfaces.md)。
@@ -9,7 +9,7 @@
 
 交付 `ossia-library`，管理新库、公共源码、编辑任务和不可变版本。通过核心接口即可完成导入、编辑、校验后提交、历史查询和回退。此阶段不修改用户数据。
 
-旧 `store.ts` 已随 Next.js 后端移除，仅作职责参考，可用 `git show 1f9974c:packages/backend/src/server/store.ts` 查阅。新版本节点用 UUID 与 parentVersionId 区分，不能沿用重复内容哈希即同一历史节点的歧义。
+版本节点用 UUID 与 parentVersionId 区分，不以重复内容哈希合并历史节点。
 
 ## 2. 数据模型与存储
 
@@ -80,10 +80,10 @@
 
 ## 5. 实施交接
 
-### 基准与交付
+### 模块与交付
 
-- 基于 `a58e01c`。新增 `ossia-library`，加入 workspace，依赖 types／score／engine；不接 HTTP、MCP、GUI 或用户真实库。
-- 工程与调用示例见 [crate README](../../crates/ossia-library/README.md)。共享 DTO 增加 DocumentState、Version、EditSession、Job、ImportOutcome 和 CheckOutcome；新增 `storage-error`、`library-busy`，P04 的错误映射已同步。
+- `ossia-library` 位于 workspace，依赖 types／score／engine；不接 HTTP、MCP、GUI 或用户真实库。
+- 工程与调用示例见 [crate README](../../crates/ossia-library/README.md)。共享 DTO 包含 DocumentState、Version、EditSession、Job、ImportOutcome 和 CheckOutcome；错误码包含 `storage-error`、`library-busy`，P04 已映射。
 - bundled SQLite 使用 `rusqlite 0.41.1`／`libsqlite3-sys 0.39.1`，gzip 使用 flate2；保留并更新根锁文件。SQLite 依赖要求最低 Rust 1.89，因此同步 workspace 声明；本机实际使用 Rust 1.98.1，未单独运行 1.89 工具链。最低版本提升引出的四处 Clippy 建议在 score 中作等价改写，原有分析回归通过。
 
 ### Schema、文件与恢复
@@ -110,10 +110,10 @@
 - `cargo test --workspace`：66 项测试、3 项文档测试通过。默认忽略的原生集成与子进程入口单独说明，不计作本次默认测试通过项。
 - `OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p03-native.json" cargo test -p ossia-library --test native_library -- --ignored`：通过。临时中文／空格库中三类输入分别完成导入→编辑→SVG/PDF/MIDI 检查→commit→restore；另覆盖真实转换损失确认、Negative skip 拒绝、错误 ly 修复为首版本和重启后的 5 个文档。证据见 `tests/fixtures/local/evidence/p03-native.json`。
 - 故障注入覆盖 CAS 落盘后、版本事务提交前、intent 落盘后、文件替换后及最终事务前后；校验实际文件字节、可恢复的 head/seq/parent 和 CAS，不只检查行数。覆盖编译期间新保存、排队后新保存及提交最后检查后的保存。
-- `cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`pnpm baseline:local --check`、`pnpm test:local`（8 项）、`pnpm typecheck`、`pnpm check`（0 errors／warnings）、`pnpm build:web` 通过。
+- 验证：`cargo test -p ossia-library`、`cargo test --workspace`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`pnpm typecheck`、`pnpm check`。
 
 ### 阻塞与边界
 
-P03 本机实现完成、未集成，仍受 P00 Linux ARM64 门槛阻塞。仅验证 macOS ARM64；其他平台文件锁／SQLite／原子替换、真实断电、签名资源和安装包未验证。进程退出故障测试不能替代真实断电测试。应用锁不能排斥绕过协议的外部文件写入者。
+库模块已接入本地运行时和 macOS arm64 测试包，仍受 P00 Linux ARM64 门槛阻塞。macOS ARM64 已验证；其他平台文件锁／SQLite／原子替换、真实断电、签名资源和跨平台安装包未验证。进程退出故障测试不能替代真实断电测试。应用锁不能排斥绕过协议的外部文件写入者。
 
-所有库验证使用临时目录，未初始化项目 `.ossia` 或默认用户库，未执行迁移、清理、宿主注入或发布。P04 下一步复用本 crate 的事务与队列检查入口，增加运行时调度和传输，不在调用层重写版本逻辑。
+库验证使用临时目录，不写默认用户库。运行时调度和传输复用本 crate 的编辑、版本和队列检查事务，不在调用层重写版本逻辑。

@@ -32,17 +32,11 @@ Windows ARM64 不构建、不发布；不将模拟执行标成原生目标。Lin
 - CI 先构建和测试，再产生校验和与制品。对签名／公证所需外部材料据实处理：没有材料时可交付测试制品，但不能标记为已完成正式签名分发。
 - 工具链验证、应用编译、实际安装与宿主交互分别记录。不能以其他 CPU 的交叉编译成功替代目标机验收。
 
-## 3. 退出旧架构
+## 3. 当前代码边界
 
-旧 Next.js 后端、模型调用及专用依赖已在 P01 后按用户指令提前移除；P00 的纯 TypeScript 对照脚本和 `packages/ly` 已在 P07 退出，合成样本、历史观测和证据保留在 `tests/fixtures/local/`。以下剩余清理按本阶段记录：
+服务端由本地 Rust 运行时提供，前端是 Vite + React SPA，桌面入口是 Tauri 管理窗口。仓库不包含 Next.js 后端、服务端模型调用或 `OSSIA_MODEL_API_KEY` 路径。
 
-1. 保存已确定的合成 fixture 和独立期望结果，确保移除 TS 后仍有可复查的测试证据。
-2. 复查已移除的 `packages/backend` 及 Next.js 专用依赖／配置／路由，排除服务端模型网关或旧部署回退。用户本机环境文件不因代码清理自动删除。
-3. 删除已由 Rust 取代的 `packages/ly`。P00 旧 TS 对照工具退出日常测试；保留规范化期望和真实引擎差分测试，不能改成用 Rust 自动覆盖期望来制造通过。
-4. 更新 pnpm workspace、锁文件、检查规则和根命令。`dev:web` 启动 Rust 服务和 Vite，`dev:desktop` 使用管理窗口；build 命令不再要求 Next.js。
-5. 文档明确本地路径为现行架构。保留旧 ADR 的历史记录，在顶部指向本次已实施方案并标明被替代的决策；不将旧 sidecar／服务端命令写成当前操作指南。
-
-退出后检查源码、脚本和有效文档引用，排除 OSSIA_MODEL_API_KEY、模型 HTTP 调用、Next 路由与后台静默回退。历史决策文档中的引用无需为搜索零命中而抹除。
+`tests/fixtures/local/` 保存合成输入、TS 观测、独立期望和机器证据；Rust 测试直接消费这些文件，不由实现覆盖参考结果。根命令启动当前 Rust 服务、Vite 页面和管理窗口，不依赖 Next.js。
 
 ## 4. 数据目录
 
@@ -66,22 +60,18 @@ Windows ARM64 不构建、不发布；不将模拟执行标成原生目标。Lin
 
 无目标环境、签名材料或宿主能力时列明对应缺口，保留“未验收”状态；不得因此悄悄缩减已确定的平台范围或宣称全量完成。
 
-## 6. 实施交接（实施后填写）
+## 6. 实施交接
 
 ### 6.1 本机交付
 
-- 基准 `32683b7`。新增 `scripts/package.mjs` 与 `scripts/package.test.mjs`，按 `ENGINE.lock` 选择引擎树，拒绝 unbuilt 目标；生成 Tauri 安装资源，macOS arm64 产出 app、app zip、DMG、`SHA256SUMS`、`release.json` 和 `materials/`。
+- `scripts/package.mjs` 与 `scripts/package.test.mjs` 按 `ENGINE.lock` 选择引擎树，拒绝 unbuilt 目标；生成 Tauri 安装资源，macOS arm64 产出 app、app zip、DMG、`SHA256SUMS`、`release.json` 和 `materials/`。
 - macOS 制品位于 `artifacts/macos-arm64/`，当前版本 `0.1.0`。安装资源包含 `engine/`、`ui/`、`integrations/`、`licenses/`；`licenses/` 含 Ossia GPL 全文、完整引擎许可树、Rust／npm 运行时许可材料、`THIRD-PARTY-NOTICES.md` 和 `SOURCE-MANIFEST.json`。源码包为 `materials/ossia-0.1.0-source.tar.gz`（`git archive HEAD`）。
 - 制品是 ad-hoc linker 签名、未公证的测试制品；`release.json` 明确 `notarized=false`，没有创建公开 Release，也没有上传插件目录。
 - `doctor`、`serve` 和 DMG 临时安装副本均从安装资源定位引擎与页面，不依赖仓库 cwd 或 `--engine-root`／`--static-dir`。app 内 `.go` mtime 与执行位在打包副本中按 inventory 修复，未改变资源字节哈希。
 
-### 6.2 旧架构退出
-
-- 删除 `packages/ly` 与 `scripts/local`，移除 `baseline:*`、`probe:*`、`test:local`、`typecheck:local`；保留 `tests/fixtures/local/` 的合成输入、observed、manifest 和证据，Rust 测试直接消费。P00 报告与两份旧架构文档已加历史说明。
-
-### 6.3 检查与未验证边界
+### 6.2 检查与未验证边界
 
 - `cargo test --workspace`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 通过；原生 runtime 2 项、engine 1 项、library 1 项、score 1 项通过。
 - `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm check:types`、`pnpm check:contracts`、`pnpm typecheck`、`pnpm build:web`、`pnpm test:package`、`pnpm test:ui`（7 项）和 `pnpm test:ui:native`（1 项）通过。Playwright 首次在沙箱内因系统 Chrome 启动被拒绝而失败，退出沙箱重跑后通过，不是页面断言失败。
-- macOS arm64 已完成 app/DMG 实际启动、资源 doctor、HTTP 首页、DMG 挂载副本与校验和检查。CI 配置 `.github/workflows/release.yml` 本轮未运行。
+- macOS arm64 已完成 app/DMG 实际启动、资源 doctor、HTTP 首页、DMG 挂载副本与校验和检查。CI 配置 `.github/workflows/release.yml` 尚未运行。
 - macOS x86_64、Windows x86_64、Linux x86_64、Linux arm64 没有目标机安装／运行证据；Linux ARM64 引擎仍未构建和锁定，CI 中保留为显式 blocked。真实 Codex／DSH 安装态侧栏、Developer ID 签名、公证和公开发布仍未完成，因此本阶段只能标记“受阻”，不能标记已验收。

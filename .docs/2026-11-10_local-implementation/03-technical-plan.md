@@ -1,8 +1,7 @@
 # P03 技术实现方案：文档、编辑与版本
 
-- 基准：`a58e01c`。
 - 交付：`ossia-library`，完成导入 → 编辑公共源码 → check → commit → history → restore。
-- 实施结果：本机实现完成、未集成；P00 Linux ARM64 门槛保留。检查与边界见 [P03 实施交接](03-library-editing-and-history.md#5-实施交接)。
+- 实施结果：本机实现完成并随 P07 macOS arm64 测试包接通；P00 Linux ARM64 门槛保留。检查与边界见 [P03 实施交接](03-library-editing-and-history.md#5-实施交接)。
 
 ## 存储与模块
 

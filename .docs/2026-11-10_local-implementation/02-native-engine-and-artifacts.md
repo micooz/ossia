@@ -1,6 +1,6 @@
 # P02：原生引擎与渲染产物
 
-- 状态：受阻（前序门槛）；本机实现完成、未集成，P00 Linux ARM64 原生验收仍未通过。
+- 状态：受阻（前序门槛）；引擎模块已接入本地运行时，P00 Linux ARM64 原生验收仍未通过。
 - 技术方案：[02-technical-plan.md](02-technical-plan.md)。
 - 前置：[P01](01-rust-score-analysis.md)，并核对 P00 工具链探针；共享约定见[总索引](README.md)。
 - 后续：[P03 文档、编辑与版本](03-library-editing-and-history.md)。
@@ -8,8 +8,6 @@
 ## 1. 阶段目标
 
 交付 `ossia-engine`：在没有 Next.js、Node.js 服务或已启动 GUI 的情况下，完成转换、固定快照编译、诊断和产物管理。建立五目标工具链构建配方；安装包集成和最终平台验收由 P07 完成。
-
-现有参考是 `scripts/engine.mjs` 与 `scripts/local/reference/import-gate.mts`；已删除的 `engine.ts`、`render.ts`、`score.ts` 可用 `git show 1f9974c:packages/backend/src/server/<文件名>` 查阅。迁移其有效约束，不复制临时目录失败泄漏、只按源码哈希缓存和任意 source block 文本拼接等问题。
 
 ## 2. 工具链清单与资源定位
 
@@ -68,16 +66,16 @@
 - [x] 构建／选项／格式隔离、跨实例命中、并发同键互斥、损坏／缺失重建与清单路径限制通过。
 - [x] 原生与替身结果分开；五目标配方、Linux ARM64 源码／打包脚本／20 项依赖归档校验和齐备，ARM64 构建未执行。
 
-新增 `cargo test -p ossia-engine`；真实工具链测试使用显式测试环境变量指向已验证资源，普通测试缺少引擎时不得伪报通过。取消树清理需要真实进程夹具，不能只测试模拟的状态变化。
+验证使用 `cargo test -p ossia-engine`；真实工具链测试使用显式测试环境变量指向已验证资源，普通测试缺少引擎时不得伪报通过。取消树清理需要真实进程夹具，不能只测试模拟的状态变化。
 
 ## 5. 实施交接
 
-### 基准与交付
+### 模块与交付
 
-- 基于 `14da38f`。新增 `ossia-engine`，加入 workspace；共享导入／渲染／诊断 DTO 位于 `ossia-types`，不接数据库、HTTP 或 GUI。
+- `ossia-engine` 位于 workspace；共享导入／渲染／诊断 DTO 位于 `ossia-types`，不接数据库、HTTP 或 GUI。
 - 入口为 `Engine::verify`／`from_resources`、`convert`、`compile` 和可取消、带总截止时间的 `RunContext`；P03 使用方式见 [crate README](../../crates/ossia-engine/README.md)。
 - `vendor/ENGINE.lock` 现为 JSON 五目标清单。四个官方归档已实际下载、计算 SHA-256、解包并生成完整资源清单；`engineBuildId` 包含目标、项目配方版本和归档标识。实际工具入口、依赖和配方见 [vendor README](../../vendor/README.md)。
-- Linux ARM64 仍为 `archive: null`、unbuilt 标识。`vendor/ENGINE.dependencies.json` 固定上游源码打包脚本和 20 项 Linux 依赖／字体归档的 SHA-256；`scripts/engine-linux-arm64.py --fetch-only` 已通过，不曾启动 Linux、源码编译或生成 ARM64 二进制。真实构建后仍需记录构建工具／基础环境、依赖审计及原生运行结果。
+- Linux ARM64 仍为 `archive: null`、unbuilt 标识。`vendor/ENGINE.dependencies.json` 固定上游源码打包脚本和 20 项 Linux 依赖／字体归档的 SHA-256；`scripts/engine-linux-arm64.py --fetch-only` 校验通过，尚未生成 ARM64 二进制。该目标需要记录构建工具／基础环境、依赖审计及原生运行结果。
 - 开发安装采用校验归档→暂存目录准备→资源清单／验证→替换，失败保留旧开发工具链。mtime 修复只发生在暂存目录；Rust 运行时不写工具链、不调用开发 Node 脚本、不静默使用系统版本。
 
 ### 公共行为与边界
@@ -99,6 +97,6 @@
 
 ### 阻塞与下一阶段
 
-P02 本机实现完成、未集成，仍受 P00 Linux ARM64 原生门槛阻塞。其他 macOS 架构、Windows、Linux 的原生执行、Windows 进程树回收、签名资源和安装包均未验收；静态检查与解包完整性不能替代这些结果。本轮未进入 P03、发布、注入宿主或处理任何真实用户数据。
+引擎模块已接入本地运行时和 macOS arm64 测试包，仍受 P00 Linux ARM64 原生门槛阻塞。其他 macOS 架构、Windows、Linux 的原生执行、Windows 进程树回收、签名资源和跨平台安装包仍未验收。静态检查与解包完整性不能替代原生证据。
 
 P03 消费固定快照的 `RenderManifest`，在自身事务中额外核对编辑所有权、head 和当前文件哈希。失败编译不建立成功版本；独立的 PDF/MIDI 错误不得覆盖成功 SVG。重启后再次 verify 工具链、使用相同产物根目录即可恢复缓存；编辑凭据、数据库、原输入保存与工作区文件归 P03 管理。

@@ -1,6 +1,6 @@
 # P04：本地运行时、HTTP、CLI 与 MCP
 
-- 状态：本机实现完成、未集成；受 P00 Linux ARM64 前序门槛阻塞，不标记整体已验收。
+- 状态：运行时模块已接入本地运行时与 macOS arm64 测试包；受 P00 Linux ARM64 前序门槛阻塞，未整体验收。
 - 前置：[P03](03-library-editing-and-history.md)；模块、DTO 与错误码见[总索引](README.md)。
 - 后续：[P05 页面与管理窗口](05-browser-score-and-desktop.md)。
 
@@ -8,7 +8,7 @@
 
 实现 `ossia-runtime`，让浏览器、CLI 和 Agent 通过同一个本地实例操作库。发布入口支持 headless serve／mcp 模式，未初始化 Tauri 也能完成完整工具闭环。GUI 的改造留到 P05。
 
-本阶段提供命令、协议和集成测试，不注入真实宿主配置，使用临时库。旧 Next.js 服务已按用户指令提前移除，本阶段须建立实际 Rust 服务入口并接入开发命令，不设置旧服务回退。
+本阶段提供命令、协议和集成测试，不注入真实宿主配置，使用临时库。Rust 服务入口直接接入开发命令。
 
 ## 2. 启动、发现与调度
 
@@ -80,9 +80,9 @@ MCP 工具保留架构方案中的 `ossia_guide/status/list/import/open/context/
 
 ## 6. 实施交接
 
-### 基准与接口
+### 接口与交付
 
-- 基于 `198bc18`，新增 ossia-runtime；复用 P03 持库锁、固定快照检查、版本事务与恢复。技术方案见 [04-technical-plan.md](04-technical-plan.md)，调用说明见 [crate README](../../crates/ossia-runtime/README.md)。
+- `ossia-runtime` 复用 P03 的持库锁、固定快照检查、版本事务与恢复。技术方案见 [04-technical-plan.md](04-technical-plan.md)，调用说明见 [crate README](../../crates/ossia-runtime/README.md)。
 - 桌面入口在 Tauri 初始化前分派；`--no-default-features` 构建无需 GUI。GUI 页面改造仍属于 P05。资源默认从可执行文件所属 resources/engine 和 resources/ui 解析；macOS 应用包使用 Contents/Resources，开发用显式路径。
 - Library 新增受文档／版本归属约束的产物查询、作业列表和版本导出；renderKey 由 documentId、sourceHash、engineBuildId、optionsHash 派生。源码导出直接取版本字节，PDF／MIDI 对版本快照编译；输出 create-new，不覆盖已有目标。
 - 共享 DTO、HTTP 错误和 TS 类型已建立；协议与 schema 均保持 1。新增 unauthorized、forbidden、runtime-unavailable。工具输入 schema 固定在 `tests/fixtures/local/mcp-tools.json`；合成协议样本同步为可反序列化的当前 DTO。
@@ -100,14 +100,14 @@ MCP 工具保留架构方案中的 `ossia_guide/status/list/import/open/context/
 ### 命令与验证
 
 - `pnpm build:headless`；`pnpm dev:runtime` 显式使用项目目录、3212、已准备工具链及 UI dist，不启动 Vite、不自动安装资源。未运行该开发命令初始化真实项目库。
-- CLI 示例：`ossia-desktop --home /absolute/library --engine-root /absolute/engine --port 3211 serve`；同一 home 下运行 `mcp`、`open '{}'`、`status`、`stop`。业务命令接受与 MCP 相同的 JSON 参数；doctor 可离线检查资源与发现信息，integrate 明确返回 P06 未实现。
+- CLI 示例：`ossia-desktop --home /absolute/library --engine-root /absolute/engine --port 3211 serve`；同一 home 下运行 `mcp`、`open '{}'`、`status`、`stop`。业务命令接受与 MCP 相同的 JSON 参数；doctor 可离线检查资源与发现信息，integrate 已在 P06 接通 detect／plan／apply／status／repair／remove。
 - MCP 经真实 rmcp 客户端验证 initialize／tools/list／tools/call；14 个工具包含 13 个工作流工具和 doctor。stdout 仅承载 MCP 协议；MCP 断开不终止服务。
 - `cargo test --workspace`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`；运行时离线测试覆盖 11 项鉴权／任务／监听／HTTP／事件回归，类型契约 3 项。默认忽略的原生套件单独运行，不计入离线通过项。
 - 原生命令：`OSSIA_TEST_EXECUTABLE="$PWD/target/debug/ossia-desktop" OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p04-native.json" cargo test -p ossia-runtime --test native_runtime -- --ignored`。证据分别记录于 `tests/fixtures/local/evidence/p04-native.json` 和 `p04-lifecycle.json`。两个原生测试覆盖三类输入自动预览→显式检查→提交→历史→恢复→三格式导出，以及并发启动、MCP 断开、SIGKILL、陈旧发现、编辑恢复、旧令牌失效和端口冲突。
-- `pnpm check:types`、`pnpm check:contracts`、`pnpm baseline:local --check`、`pnpm test:local`（8 项）、`pnpm typecheck`、`pnpm check`、`pnpm build:web`。新增 CI 配置使用 Rust 1.89 检查生成差异与运行时回归；尚未触发远端 CI。本机 Rust 1.98.1，未单独运行 1.89；锁文件将 notify-types 固定到兼容最低版本的 2.0.0，interprocess 固定 2.4.4。
+- 验证：`cargo test --workspace`、`pnpm check:types`、`pnpm check:contracts`、`pnpm test:runtime`、`pnpm typecheck`、`pnpm check`。CI 配置使用 Rust 1.89 检查生成差异与运行时回归，但尚未触发远端 CI；本机 Rust 1.98.1，未单独运行 1.89。锁文件将 notify-types 固定到兼容最低版本的 2.0.0，interprocess 固定 2.4.4。
 
 ### 阻塞与下一阶段
 
-仅实测 macOS ARM64。Windows 常规交叉检查在 bundled SQLite 编译处因缺少目标 C 头文件受阻；`LIBSQLITE3_SYS_USE_PKG_CONFIG=1 SQLITE3_LIB_DIR=/tmp cargo check -p ossia-runtime --target x86_64-pc-windows-msvc` 仅补充 Rust 类型检查，不链接、不验证 SQLite 或 Windows 运行。Linux、其他架构、真实 Windows pipe ACL／GUI 发行 stdio、签名资源与安装包均未原生验收；P00 Linux ARM64 门槛保留。
+仅实测 macOS ARM64。Windows 常规交叉检查在 bundled SQLite 编译处因缺少目标 C 头文件受阻；`LIBSQLITE3_SYS_USE_PKG_CONFIG=1 SQLITE3_LIB_DIR=/tmp cargo check -p ossia-runtime --target x86_64-pc-windows-msvc` 仅补充 Rust 类型检查，不链接、不验证 SQLite 或 Windows 运行。Linux、其他架构、真实 Windows pipe ACL／GUI 发行 stdio、签名资源与跨平台安装包均未原生验收；P07 已产出 macOS arm64 测试包，P00 Linux ARM64 门槛保留。
 
-所有验证使用合成输入及临时库。未改真实用户库、未注入宿主、未发布。P05 接入已建立的 ticket／视图／SSE／任务／渲染与版本接口，并实现 sessionStorage、fragment 清除、浏览器谱面和独立管理窗口；不能把现有旧 SPA 当作新协议已接通。
+所有验证使用合成输入及临时库。谱面页面和独立管理窗口通过 ticket／视图／SSE／任务／渲染与版本接口接入运行时。
