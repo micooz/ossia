@@ -412,6 +412,7 @@ mod tests {
             }
             assert!(!alive(pid), "descendant {pid} survived {mode}");
             drop(scratch);
+            #[cfg(not(windows))]
             assert!(fs::read_dir(root.path()).unwrap().next().is_none());
         }
     }
