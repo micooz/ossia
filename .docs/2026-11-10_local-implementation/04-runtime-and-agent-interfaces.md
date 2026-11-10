@@ -82,7 +82,7 @@ MCP 工具保留架构方案中的 `ossia_guide/status/list/import/open/context/
 
 ### 接口与交付
 
-- `ossia-runtime` 复用 P03 的持库锁、固定快照检查、版本事务与恢复。技术方案见 [04-technical-plan.md](04-technical-plan.md)，调用说明见 [crate README](../../crates/ossia-runtime/README.md)。
+- `ossia-runtime` 复用 P03 的持库锁、固定快照检查、版本事务与恢复。技术方案见 [04-technical-plan.md](04-technical-plan.md)，调用说明见 [crate README](../../packages/ossia-runtime/README.md)。
 - 桌面入口在 Tauri 初始化前分派；`--no-default-features` 构建无需 GUI。GUI 页面改造仍属于 P05。资源默认从可执行文件所属 resources/engine 和 resources/ui 解析；macOS 应用包使用 Contents/Resources，开发用显式路径。
 - Library 新增受文档／版本归属约束的产物查询、作业列表和版本导出；renderKey 由 documentId、sourceHash、engineBuildId、optionsHash 派生。源码导出直接取版本字节，PDF／MIDI 对版本快照编译；输出 create-new，不覆盖已有目标。
 - 共享 DTO、HTTP 错误和 TS 类型已建立；协议与 schema 均保持 1。新增 unauthorized、forbidden、runtime-unavailable。工具输入 schema 固定在 `tests/fixtures/local/mcp-tools.json`；合成协议样本同步为可反序列化的当前 DTO。

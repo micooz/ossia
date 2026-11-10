@@ -5,17 +5,17 @@ browser score page; Tauri owns the management window.
 `packages/desktop/src-tauri` is the only shipping entry and dispatches GUI,
 `serve`, `mcp`, `doctor` and `integrate` modes before creating a Tauri window.
 
-- `crates/ossia-types`: shared DTOs, typed identifiers, error codes and
+- `packages/ossia-types`: shared DTOs, typed identifiers, error codes and
   protocol/schema versions.
-- `crates/ossia-score`: pure in-memory analysis. It must not use files, a
+- `packages/ossia-score`: pure in-memory analysis. It must not use files, a
   database, the network or LilyPond processes, and must not depend on Tauri.
-- `crates/ossia-engine`: bundled LilyPond toolchain, conversion/compilation,
+- `packages/ossia-engine`: bundled LilyPond toolchain, conversion/compilation,
   process supervision and render artifacts.
-- `crates/ossia-library`: SQLite, content-addressed snapshots, the public
+- `packages/ossia-library`: SQLite, content-addressed snapshots, the public
   `score.ly`, edit ownership, versions and recovery.
-- `crates/ossia-runtime`: single-instance runtime, IPC, loopback HTTP, jobs,
+- `packages/ossia-runtime`: single-instance runtime, IPC, loopback HTTP, jobs,
   file watching, views/events, CLI and MCP.
-- `crates/ossia-integrations`: host detection and configuration plans; it stays
+- `packages/ossia-integrations`: host detection and configuration plans; it stays
   independent of the runtime's HTTP/IPC implementation.
 - `packages/ui`: score SPA (`index.html`) and separate management entry
   (`admin.html`); it owns display and interaction, not parsing or version state.
@@ -33,8 +33,8 @@ page has no Tauri privileges; only the `management` window does.
 
 # Cross-layer contracts
 
-- Rust owns shared frontend types. Edit definitions in `crates/ossia-types`,
-  register new exports in `crates/ossia-types/src/bin/generate-types.rs`, then
+- Rust owns shared frontend types. Edit definitions in `packages/ossia-types`,
+  register new exports in `packages/ossia-types/src/bin/generate-types.rs`, then
   run `pnpm generate:types`; never edit
   `packages/ui/src/generated/protocol.ts` by hand.
 - MCP tool schemas are generated from `ossia_runtime::mcp::tools()`; run

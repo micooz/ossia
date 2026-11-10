@@ -1,5 +1,6 @@
 packages:
-  - 'packages/*'
+  - 'packages/ui'
+  - 'packages/desktop'
 # Toolchain/engine pins live in the root package.json `engines` and vendor/ENGINE.lock:
 # pnpm 12 does not accept an `engines` key here.
 minimumReleaseAgeExclude:

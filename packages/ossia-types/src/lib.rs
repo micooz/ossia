@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{fmt, str::FromStr};
+use std::{fmt, fmt::Write as _, str::FromStr};
 use uuid::Uuid;
 
 pub const PROTOCOL_VERSION: u32 = 1;
@@ -40,7 +40,11 @@ pub struct ContentHash(String);
 
 impl ContentHash {
     pub fn of(bytes: &[u8]) -> Self {
-        Self(format!("{:x}", Sha256::digest(bytes)))
+        let mut hash = String::with_capacity(64);
+        for byte in Sha256::digest(bytes) {
+            write!(&mut hash, "{byte:02x}").expect("writing to a string cannot fail");
+        }
+        Self(hash)
     }
     pub fn as_str(&self) -> &str {
         &self.0

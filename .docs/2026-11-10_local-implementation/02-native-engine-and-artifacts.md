@@ -73,7 +73,7 @@
 ### 模块与交付
 
 - `ossia-engine` 位于 workspace；共享导入／渲染／诊断 DTO 位于 `ossia-types`，不接数据库、HTTP 或 GUI。
-- 入口为 `Engine::verify`／`from_resources`、`convert`、`compile` 和可取消、带总截止时间的 `RunContext`；P03 使用方式见 [crate README](../../crates/ossia-engine/README.md)。
+- 入口为 `Engine::verify`／`from_resources`、`convert`、`compile` 和可取消、带总截止时间的 `RunContext`；P03 使用方式见 [crate README](../../packages/ossia-engine/README.md)。
 - `vendor/ENGINE.lock` 现为 JSON 五目标清单。四个官方归档已实际下载、计算 SHA-256、解包并生成完整资源清单；`engineBuildId` 包含目标、项目配方版本和归档标识。实际工具入口、依赖和配方见 [vendor README](../../vendor/README.md)。
 - Linux ARM64 仍为 `archive: null`、unbuilt 标识。`vendor/ENGINE.dependencies.json` 固定上游源码打包脚本和 20 项 Linux 依赖／字体归档的 SHA-256；`scripts/engine-linux-arm64.py --fetch-only` 校验通过，尚未生成 ARM64 二进制。该目标需要记录构建工具／基础环境、依赖审计及原生运行结果。
 - 开发安装采用校验归档→暂存目录准备→资源清单／验证→替换，失败保留旧开发工具链。mtime 修复只发生在暂存目录；Rust 运行时不写工具链、不调用开发 Node 脚本、不静默使用系统版本。

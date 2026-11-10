@@ -84,7 +84,7 @@ MCP 配置调用本体的 `mcp --home <absolute-home>` 模式。命令路径和�
 
 ### 6.1 入口与实现
 
-- `crates/ossia-integrations` 按 `types ← integrations ← runtime` 接入；CLI 使用 `ossia integrate detect|plan|apply|status|repair|remove`，Tauri 管理窗口使用对应 `management_integration_*` 命令。
+- `packages/ossia-integrations` 按 `types ← integrations ← runtime` 接入；CLI 使用 `ossia integrate detect|plan|apply|status|repair|remove`，Tauri 管理窗口使用对应 `management_integration_*` 命令。
 - `plan` 返回稳定 `planHash` 与逐项写入／宿主动作；`apply` 核对哈希、冲突和现状后执行。受管文件和宿主条目记录在 `<home>/integrations/managed.json`，所有文件写入使用同目录临时文件与原子重命名。
 - 状态同时核对记录、文件 SHA-256、Codex `mcp list/plugin list/marketplace list --json`、DSH profile bundles／依赖路径及 Browser capability；Codex 插件安装后显示 `pending-host`，要求重启／启用后才视为可用。
 - Codex `skill-mcp` 使用 `$HOME/.agents/skills/ossia` 与 `codex mcp add`；`plugin` 生成 `<home>/integrations/codex/marketplace` 并只经 CLI 安装。DSH `skill-mcp` 安装用户 Skill 与配置层 bundle；`plugin` 同时声明 Host／Client、locale、icon、Skill loader，并复用 DSH `dsh-mcp-client`。Client 不注入第二套谱面 UI。

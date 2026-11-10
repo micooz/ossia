@@ -16,7 +16,7 @@
 
 ## 2. 工程布局
 
-- `crates/ossia-integrations`：宿主发现、计划、应用、状态、修复、移除和受管记录。
+- `packages/ossia-integrations`：宿主发现、计划、应用、状态、修复、移除和受管记录。
 - `integrations/skill/ossia/SKILL.md`：公共 Skill 源。
 - `integrations/codex/`、`integrations/dsh/`：插件模板、图标和本地化资源。
 - `<library home>/integrations/`：生成的 marketplace／bundle、受管文件和 `managed.json`。

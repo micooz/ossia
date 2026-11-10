@@ -44,12 +44,12 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 
 | 目标位置 | 责任 |
 |---|---|
-| `crates/ossia-types` | 序列化 DTO、标识符、错误码和协议版本；前端类型由此生成 |
-| `crates/ossia-score` | 分词、索引、音高、MIDI、SVG 几何及小节定位 |
-| `crates/ossia-engine` | 原生工具链、进程管理、快照编译与产物 |
-| `crates/ossia-library` | SQLite、内容存储、公共文件、编辑状态和版本事务 |
-| `crates/ossia-runtime` | 单实例、IPC、HTTP、任务调度、文件监听、视图与事件 |
-| `crates/ossia-integrations` | 宿主检测、配置计划、注入记录、修复与移除 |
+| `packages/ossia-types` | 序列化 DTO、标识符、错误码和协议版本；前端类型由此生成 |
+| `packages/ossia-score` | 分词、索引、音高、MIDI、SVG 几何及小节定位 |
+| `packages/ossia-engine` | 原生工具链、进程管理、快照编译与产物 |
+| `packages/ossia-library` | SQLite、内容存储、公共文件、编辑状态和版本事务 |
+| `packages/ossia-runtime` | 单实例、IPC、HTTP、任务调度、文件监听、视图与事件 |
+| `packages/ossia-integrations` | 宿主检测、配置计划、注入记录、修复与移除 |
 | `packages/desktop/src-tauri` | 唯一发布入口；GUI／serve／mcp／CLI 模式，在创建 Tauri 前分派 |
 | `packages/ui` | 浏览器谱面 SPA；管理窗口使用独立入口，不加载谱面工作流 |
 | `integrations/` | Skill、Codex 本地插件、DSH 预构建插件的源资源 |
@@ -100,7 +100,7 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 
 ## 5. 当前开发入口
 
-运行时、UI 和集成资源分别位于 `crates/`、`packages/`、`integrations/`。`tests/fixtures/local/` 保存合成输入、规范化期望、TS 观测与机器证据。
+Rust 包、前端包和集成资源分别位于 `packages/ossia-*`、`packages/ui|desktop`、`integrations/`。`tests/fixtures/local/` 保存合成输入、规范化期望、TS 观测与机器证据。
 
 - `pnpm dev:runtime`：显式项目 home、3212、已准备工具链和静态 dist；只使用当前 `library.sqlite`。
 - `pnpm build:headless`：无 GUI 依赖的桌面可执行文件，支持 serve／mcp／doctor／stop 和 JSON CLI。

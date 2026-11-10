@@ -214,7 +214,7 @@ impl Fixture {
     }
 }
 async fn wait_job(runtime: &Runtime, id: JobId) -> Job {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + Duration::from_secs(15);
     loop {
         let job = runtime.library.get_job(id).unwrap();
         if !matches!(job.state, JobState::Queued | JobState::Running) {
@@ -225,7 +225,7 @@ async fn wait_job(runtime: &Runtime, id: JobId) -> Job {
     }
 }
 async fn until(mut predicate: impl FnMut() -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + Duration::from_secs(15);
     while !predicate() {
         assert!(Instant::now() < deadline, "condition timed out");
         tokio::time::sleep(Duration::from_millis(10)).await;

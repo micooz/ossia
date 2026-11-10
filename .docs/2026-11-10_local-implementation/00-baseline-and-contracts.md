@@ -12,8 +12,8 @@
 
 ## 2. 现有实现
 
-- `crates/ossia-score/`：lexer、索引、SVG 几何、音高和 MIDI 分析。
-- `crates/ossia-engine/`：原生工具链、转换、编译和产物缓存。
+- `packages/ossia-score/`：lexer、索引、SVG 几何、音高和 MIDI 分析。
+- `packages/ossia-engine/`：原生工具链、转换、编译和产物缓存。
 - `scripts/engine.mjs`、`vendor/ENGINE.lock`：工具链安装和时间戳规则。
 - `packages/ui/src/components/ScoreView.tsx`：页面坐标及选区覆盖层。
 - `tests/fixtures/local/`：合成输入、TS 观测、正确期望和机器证据。

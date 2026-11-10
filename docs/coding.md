@@ -31,7 +31,7 @@
 
 - For a bug or issue, first reproduce it with a failing test, then verify the
   fix.
-- Mirror the source structure: `crates/<crate>/tests/` for crate integration
+- Mirror the source structure: `packages/ossia-<crate>/tests/` for crate integration
   tests, `packages/ui/tests/` for `packages/ui/src/`. Each unit test file tests
   only its corresponding source file.
 - Verify styles through component behavior and the toolchain. Do not test

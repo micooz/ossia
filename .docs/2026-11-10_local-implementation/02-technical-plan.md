@@ -10,7 +10,7 @@
 
 ## 工具链与模块
 
-- 新增 `crates/ossia-engine`，加入根 workspace，依赖现有 types／score；不依赖 GUI、数据库或 Node.js 服务。
+- 新增 `packages/ossia-engine`，加入根 workspace，依赖现有 types／score；不依赖 GUI、数据库或 Node.js 服务。
 - `vendor/ENGINE.lock` 改为版本化 JSON，由 Rust 和开发脚本共同读取；按五目标记录来源、版本、归档格式、SHA-256、入口、运行依赖和构建标识。
 - 官方四目标使用固定的 2.26.0 归档；Linux ARM64 固定源码、上游打包脚本、依赖来源与校验和，提供原生构建配方。未生成的包记录为未构建，不填造产物哈希。
 - 开发脚本下载、校验和准备资源，生成文件完整性清单；保留目录、权限和必要时间戳，包含转换器、Python、字体和非系统运行依赖。
