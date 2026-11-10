@@ -8,12 +8,12 @@
 
 为 Rust 迁移固定可重建的对照输入，确认跨阶段接口，并尽早验证 Linux ARM64 引擎与宿主侧边页面接入。产出可运行的基线工具和证据，不更改现有产品路径，不清理旧数据。
 
-当前仓库没有根 Cargo workspace。后端为 Next.js，分析库为 TypeScript，Tauri 只暴露 `get_endpoint`；`vendor/ENGINE.lock` 只锁定 darwin-arm64。不能把历史文档中的已删除 verify 脚本当作现存测试。
+P00 启动基准没有根 Cargo workspace（P01 已建立未集成的 Rust workspace）。旧 Next.js 后端随后按用户指令移除，纯 TS 对照保留于开发参考目录；Tauri 暂仍只暴露 `get_endpoint`；`vendor/ENGINE.lock` 只锁定 darwin-arm64。不能把历史文档中的已删除 verify 脚本当作现存测试。
 
 ## 2. 先读的现有实现
 
 - `packages/ly/src/`：lexer、L1、layout、pitch、SMF。
-- `packages/backend/src/server/`：locate、layout-join、render、engine、import-gate、store、score。
+- `scripts/local/reference/`：locate、layout-join、import-gate 的纯 TS 对照；旧 render、engine、store、score 在 Git 基准 `1f9974c` 的 `packages/backend/src/server/` 中查阅。
 - `scripts/engine.mjs`、`vendor/ENGINE.lock`：当前安装和时间戳规则。
 - `packages/ui/src/components/ScoreView.tsx`：页面坐标及选区覆盖层。
 - 旧 ADR-0002 只作解析不变量参考；整份源码交给模型、JSON 行替换、五道门和源码不下发不再是目标架构要求。

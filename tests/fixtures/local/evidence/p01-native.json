@@ -1,0 +1,166 @@
+{
+  "cases": [
+    {
+      "id": "absolute",
+      "measureColumns": [
+        {
+          "columnIndex": 0,
+          "measureEnd": 1,
+          "measureStart": 1,
+          "page": 1,
+          "systemIndex": 0,
+          "x0": 17.1217,
+          "x1": 37.81
+        },
+        {
+          "columnIndex": 1,
+          "measureEnd": 2,
+          "measureStart": 2,
+          "page": 1,
+          "systemIndex": 0,
+          "x0": 37.81,
+          "x1": 50.33
+        }
+      ],
+      "midiHash": "179ff6aee2babbf1c088f9ed3e9f3c5caab177c792ba1cb99d120be81b186a94",
+      "nativePitches": [
+        60,
+        64,
+        67,
+        58,
+        60
+      ],
+      "predictedPitches": [
+        60,
+        64,
+        67,
+        58,
+        60
+      ],
+      "sourceHash": "2b96d60685557e731b31cae3b17a712769eb0adeb1f14ecd0e56ac5abb285113",
+      "sourceUnchanged": true
+    },
+    {
+      "id": "nested-modes",
+      "measureColumns": [
+        {
+          "columnIndex": 0,
+          "measureEnd": 1,
+          "measureStart": 1,
+          "page": 1,
+          "systemIndex": 0,
+          "x0": 17.1217,
+          "x1": 41.8
+        },
+        {
+          "columnIndex": 1,
+          "measureEnd": 2,
+          "measureStart": 2,
+          "page": 1,
+          "systemIndex": 0,
+          "x0": 41.8,
+          "x1": 55.48
+        }
+      ],
+      "midiHash": "d50b21bd26deed3d799c0d540e6bac0eeaafb11e7d53c1a731e5404602363b56",
+      "nativePitches": [
+        72,
+        48,
+        64,
+        67,
+        72,
+        60,
+        62,
+        72
+      ],
+      "predictedPitches": [
+        72,
+        48,
+        64,
+        67,
+        72,
+        60,
+        62,
+        72
+      ],
+      "sourceHash": "c8487bb117c1589dd9042c5abc91633cb28273934140681b8c4b7b6d4c9539da",
+      "sourceUnchanged": true
+    },
+    {
+      "id": "markup-chords",
+      "measureColumns": [
+        {
+          "columnIndex": 0,
+          "measureEnd": 1,
+          "measureStart": 1,
+          "page": 1,
+          "systemIndex": 0,
+          "x0": 17.1217,
+          "x1": 37.8
+        },
+        {
+          "columnIndex": 1,
+          "measureEnd": 2,
+          "measureStart": 2,
+          "page": 1,
+          "systemIndex": 0,
+          "x0": 37.8,
+          "x1": 47.37
+        }
+      ],
+      "midiHash": "11ff96d2780115844b58aef1e6c4a83deb1930054a3b7fa6efb4a2277f5c0ea0",
+      "nativePitches": [
+        60,
+        64,
+        67,
+        65,
+        67,
+        60
+      ],
+      "predictedPitches": [
+        60,
+        64,
+        67,
+        65,
+        67,
+        60
+      ],
+      "sourceHash": "f6ac1c655d9647d7ef0e9c65e38f2eca1a2130b69150ab460cc5f87c55eee58a",
+      "sourceUnchanged": true
+    },
+    {
+      "id": "compressed-render",
+      "measureColumns": [
+        {
+          "columnIndex": 0,
+          "measureEnd": 1,
+          "measureStart": 1,
+          "page": 1,
+          "systemIndex": 0,
+          "x0": 17.1217,
+          "x1": 31.72
+        },
+        {
+          "columnIndex": 1,
+          "measureEnd": 5,
+          "measureStart": 2,
+          "page": 1,
+          "systemIndex": 0,
+          "x0": 31.72,
+          "x1": 42.71
+        }
+      ],
+      "midiHash": "8f7b6ae0e27684bf8daed64ad1db4a9a70dab99adacb01c6b62b181ab16cc29d",
+      "nativePitches": [
+        60
+      ],
+      "predictedPitches": [
+        60
+      ],
+      "sourceHash": "0c704d3d43e04aa55d65c7024d929e412bce47a65ec5dd3160b177af880e28c9",
+      "sourceUnchanged": true
+    }
+  ],
+  "engineVersion": "GNU LilyPond 2.26.0 (running Guile 3.0)",
+  "target": "macos-aarch64"
+}

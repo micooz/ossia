@@ -8,7 +8,7 @@
 
 交付 `ossia-library`，管理新库、公共源码、编辑任务和不可变版本。通过核心接口即可完成导入、编辑、校验后提交、历史查询和回退。此阶段不改变真实用户库，不实现旧数据迁移或自动清理。
 
-旧 `store.ts` 仅作职责参考。新版本节点用 UUID 与 parentVersionId 区分，不能沿用重复内容哈希即同一历史节点的歧义。
+旧 `store.ts` 已随 Next.js 后端移除，仅作职责参考，可用 `git show 1f9974c:packages/backend/src/server/store.ts` 查阅。新版本节点用 UUID 与 parentVersionId 区分，不能沿用重复内容哈希即同一历史节点的歧义。
 
 ## 2. 数据模型与存储
 

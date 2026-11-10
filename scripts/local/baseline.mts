@@ -4,13 +4,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { checkImport } from '../../packages/backend/src/server/import-gate.ts';
-import {
-  locatePoint,
-  locatorTable,
-  resolveLocator,
-  voicesForMeasure,
-} from '../../packages/backend/src/server/locate.ts';
 import {
   buildIndex,
   buildLayout,
@@ -24,6 +17,13 @@ import {
 } from '../../packages/ly/src/mod.ts';
 import { fixtures, hash, json, readSource, span, write } from './common.mts';
 import type { Fixture } from './fixtures.mts';
+import { checkImport } from './reference/import-gate.mts';
+import {
+  locatePoint,
+  locatorTable,
+  resolveLocator,
+  voicesForMeasure,
+} from './reference/locate.mts';
 
 export function analyzeSource(source: string) {
   const observed = tokenize(source);

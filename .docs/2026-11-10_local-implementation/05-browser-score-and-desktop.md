@@ -16,7 +16,7 @@ Vite 使用两个 HTML 入口：`index.html` 为谱面，`admin.html` 为管理�
 - 保留 ImportPanel、ScoreView、CompareView、HistoryPanel、ExportBar 中适用的交互，调整为新 DTO。移除 EditPanel 中指令提交和 GateReport 中五道门接受流程。
 - 状态至少区分：连接中、无文档、导入确认、可浏览、编译中、编译失败但有旧谱面、dirty、编辑占用、待恢复、版本已提交和连接失效。
 - 后端状态是事实来源；React reducer 只表达页面状态。不能因页面切换或重连将 dirty／编辑锁重置。
-- 旧后端仍可保留供回归对照，但新页面不设置回退到 Next.js 的逻辑。
+- 旧 Next.js 后端已移除；P00 纯分析参考位于 `scripts/local/reference/`。页面只接入 P04 Rust 服务，不设置旧后端回退。
 
 ## 3. 页面具体行为
 

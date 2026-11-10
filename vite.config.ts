@@ -1,6 +1,4 @@
-// Vite+ owns lint/check/fmt for the whole workspace (it is a dev-only tool: the SPA still builds
-// with plain Vite and the API with Next). One config at the root, like scripts/engine.mjs, so a
-// sub-package cannot drift from it.
+// Vite+ owns workspace formatting, lint and development checks.
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({

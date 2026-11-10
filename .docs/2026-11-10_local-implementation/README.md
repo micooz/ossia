@@ -1,7 +1,7 @@
 # Ossia 本地架构分阶段实施索引
 
 - 日期：2026-11-10
-- 状态：P00 本机基线与探针已交付，Linux ARM64 验收受阻；P01–P07 待实施。未执行宿主注入、数据清理或产品架构切换。
+- 状态：P00 本机基线与探针已交付，Linux ARM64 验收受阻；P01 代码与本机验证完成（未集成，阶段受前序门槛阻塞）；P02–P07 待实施。按用户指令已提前移除旧 Next.js 后端；未执行宿主注入、用户数据清理或新产品路径接入。
 - 产品决策：[本地架构调整方案](../2026-11-10_local-architecture-plan.md)。
 
 ## 1. 执行顺序与阅读方式
@@ -21,12 +21,12 @@
 
 按 P00 → P07 顺序验收。前序未通过时，可用测试替身开发后续模块，但必须标记为未集成，不能将阶段标记为完成。缺少平台环境时写明缺失目标，不用“编译通过”替代真实运行验证。
 
-P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、TS 观测、正确期望与已知差异在 `tests/fixtures/local/`。Linux ARM64 的原生构建和运行证据仍是 P00 的未通过门槛。
+P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、TS 观测、正确期望与已知差异在 `tests/fixtures/local/`。Linux ARM64 的原生构建和运行证据仍是 P00 的未通过门槛。P01 的 Rust 接口、本机验证与降级清单见[实施交接](01-rust-score-analysis.md#5-实施交接)。
 
 ## 2. 不再重新选择的约束
 
 - 用户 Agent 发起任务；谱面交互位于 Agent 侧边浏览器，Tauri 自身窗口只做管理。
-- Rust 统一核心，Vite + React SPA；最终移除 Next.js 和应用内模型调用。Node.js 仅用于开发构建或宿主自身运行。
+- Rust 统一核心，Vite + React SPA；旧 Next.js 和应用内模型调用已移除。Node.js 仅用于开发构建或宿主自身运行。
 - 原生 LilyPond 2.26.0 和同版本转换器随本体交付，不引入 WASM、云端服务或用户自装工具链前提。
 - 输入为单文件 `.ly`、MusicXML、MIDI；输出为 `.ly`、PDF、MIDI。用户多文件依赖、MusicXML 导出和音符级选择不在本次范围。
 - 默认 `~/.ossia/`；项目内使用 `<项目根>/.ossia/`。Agent 直接修改该库中的公共 `documents/<documentId>/score.ly`。
@@ -86,7 +86,7 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 
 最小 JSON 示例见 `tests/fixtures/local/contract-examples.json`。它们表达共享契约，不代表生产接口已实现。单文件判定必须区分引擎标准库与用户依赖：本机外部 include 能成功编译不构成支持证据。Codex／DSH 的本机 loopback、视图隔离和事件流已实测；插件打开 API、Web sandbox 与下载限制的文档声明及未验证项见 P00 报告，不能据此跳过 P06 验收。
 
-稳定错误集合至少包含 `invalid-request`、`invalid-encoding`、`not-found`、`conflict`、`edit-busy`、`dirty-workspace`、`stale-selection`、`compile-failed`、`unsupported-source`、`import-confirm-required`、`import-refused`、`cancelled`、`runtime-incompatible`、`legacy-data-present`。各阶段新增错误必须同步类型、文档和调用端处理。
+稳定错误集合至少包含 `invalid-request`、`invalid-input`、`invalid-encoding`、`not-found`、`conflict`、`edit-busy`、`dirty-workspace`、`stale-selection`、`compile-failed`、`unsupported-source`、`import-confirm-required`、`import-refused`、`cancelled`、`runtime-incompatible`、`legacy-data-present`。`invalid-input` 表示损坏的分析输入，`unsupported-source` 表示未支持的有效格式或结构；合法 `.ly` 的索引降级不等于编译失败。各阶段新增错误必须同步类型、文档和调用端处理。
 
 ## 4. 每阶段的交付纪律
 
@@ -97,3 +97,13 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 5. 不将个人乐谱、密钥、旧用户数据库或本机临时产物提交为 fixture。不开新的产品方向，不补云端、WASM 或 Agent 会话适配。
 
 文档检查、编译、单元测试和真实工具链验收分别记录。特别是 Linux ARM64、自包含工具链、宿主侧边浏览器和真实安装包，不得由测试替身代替验收。
+
+## 5. 当前开发入口
+
+旧 `packages/backend` 已移除。P00 所需的纯 TS 对照模块位于 `scripts/local/reference/`，基线输出保持不变；被删除的引擎、存储与 HTTP 实现可从 Git 基准 `1f9974c` 查阅。`packages/ly` 暂留作迁移对照。
+
+- `pnpm dev:web`／`pnpm build:web`：仅启动／构建 Vite SPA。
+- `pnpm dev:desktop`／`pnpm build:desktop`：启动／构建既有 Tauri 壳与 SPA。
+- `pnpm baseline:local --check`、`pnpm test:local`、`pnpm typecheck`、`pnpm check`：本地对照与检查。
+
+P04 本地服务和 P05 页面接入尚未实施，因此当前 SPA 的导入、谱面、编辑和导出交互没有可用运行时；构建成功不代表产品闭环完成。以上脚本在后续阶段接入 Rust，不回退到旧服务。宿主注入、安装包及旧数据处理仍按后续阶段验收。

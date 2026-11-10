@@ -39,10 +39,7 @@ resolveEndpoint()
         <div className="panel">
           <h3>无法启动</h3>
           <p className="error">{describe(e)}</p>
-          <p className="hint">
-            桌面端需要由 Tauri 壳注入服务地址；在浏览器里请直接运行{' '}
-            <code>pnpm --filter @ossia/backend start</code> 并设置 VITE_API_BASE。
-          </p>
+          <p className="hint">请检查本地服务是否已启动，以及连接地址是否正确。</p>
         </div>
       </main>,
     ),

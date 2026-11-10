@@ -64,6 +64,36 @@
       "expected": { "capability": "anchor-only", "reason": "no reliable measure grid" },
       "observed": { "gridColumns": 0 },
       "basis": "This short midi2ly source compiles but the old geometry yields no columns. Do not fabricate measure locations."
+    },
+    {
+      "id": "single-staff-opening-measure",
+      "fixture": "compressed-rest",
+      "expected": {
+        "renderedMeasures": 5,
+        "sourceSpans": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            5
+          ]
+        ]
+      },
+      "observed": {
+        "gridColumns": 4
+      },
+      "basis": "Native SVG has five engraved measures, no opening bar rectangle, and four rests sharing one source anchor. P01 recovers the first boundary from staff geometry and anchor evidence; compressed-render separately verifies actual multi-measure-rest compression."
+    },
+    {
+      "id": "full-height-stem-column",
+      "fixture": "p01/markup-chords.ly",
+      "expected": {
+        "renderedMeasures": 2
+      },
+      "legacyRisk": "Width and coverage admit a stem as a candidate barline.",
+      "basis": "The 2.26.0 native SVG contains a stem covering most of the single staff at x=30.0831. After restoring the opening measure, P01 removes that internal boundary using equal singleton source-measure anchors."
     }
   ]
 }

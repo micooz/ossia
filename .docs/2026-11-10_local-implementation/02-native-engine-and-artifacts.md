@@ -8,7 +8,7 @@
 
 交付 `ossia-engine`：在没有 Next.js、Node.js 服务或已启动 GUI 的情况下，完成转换、固定快照编译、诊断和产物管理。建立五目标工具链构建配方；安装包集成和最终平台验收由 P07 完成。
 
-现有参考是 `engine.ts`、`render.ts`、`score.ts`、`import-gate.ts` 和 `scripts/engine.mjs`。迁移其有效约束，不复制临时目录失败泄漏、只按源码哈希缓存和任意 source block 文本拼接等问题。
+现有参考是 `scripts/engine.mjs` 与 `scripts/local/reference/import-gate.mts`；已删除的 `engine.ts`、`render.ts`、`score.ts` 可用 `git show 1f9974c:packages/backend/src/server/<文件名>` 查阅。迁移其有效约束，不复制临时目录失败泄漏、只按源码哈希缓存和任意 source block 文本拼接等问题。
 
 ## 2. 工具链清单与资源定位
 

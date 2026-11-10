@@ -4,10 +4,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { checkImport } from '../../packages/backend/src/server/import-gate.ts';
 import { readSvg } from '../../packages/ly/src/mod.ts';
 import { fixtures, hash, json, position, readSource, root, scrub, write } from './common.mts';
 import type { Fixture } from './fixtures.mts';
+import { checkImport } from './reference/import-gate.mts';
 
 const engineRoot =
   process.env.OSSIA_LILYPOND_ROOT ?? path.join(root, 'vendor/lilypond/2.26.0-darwin-arm64');

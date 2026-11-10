@@ -1,22 +1,9 @@
-// Ossia desktop shell (Tauri 2).
-//
-// The shell spawns nothing. Every piece of server logic lives in packages/backend (Next.js), and
-// this crate only has to tell the embedded SPA which deployment to talk to:
-//   * The UI is one static SPA (packages/ui) embedded in the app bundle by tauri-codegen. It is
-//     never fetched from a server: remote *data* is fine, a remote *UI* is what gets an iOS build
-//     rejected (App Store 2.5.2), so the same bundle works on every platform.
-//   * The API host is configuration, not discovery. Precedence: `OSSIA_API_BASE` (dev, scripts),
-//     then `<app_data>/config.json` (a user-editable file, the only knob that survives a double-click
-//     from Finder), then loopback dev as the default.
-//
-// The `.ly` sources, the LilyPond engine and the version chain all stay server-side (G6/D9): the
-// shell never touches them, so it needs no hardened-runtime code-execution exceptions.
+// Desktop bootstrap; local runtime and management-window wiring are pending P04/P05.
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-/// The only deployment that exists today is the local server (`pnpm dev:web`), so that is the
-/// default. A packaged build points elsewhere through config.
+/// Bootstrap endpoint pending the local runtime integration.
 const DEFAULT_API_BASE: &str = "http://127.0.0.1:3210";
 
 #[derive(Debug, Serialize)]
@@ -31,8 +18,7 @@ struct Endpoint {
 struct Config {
     /// Which API to talk to. Absent means loopback dev.
     api_base: Option<String>,
-    /// The shared secret the server expects in `x-ossia-token`. Empty means unauthenticated, which
-    /// the server only ever accepts from a loopback Host.
+    /// Optional token forwarded by the bootstrap endpoint.
     api_token: Option<String>,
 }
 
@@ -64,7 +50,9 @@ impl Config {
             // Deliberately does not echo the value: a base URL can carry credentials
             // (`https://user:***@host`), and this string reaches the webview as an error.
             let scheme = base_url.split("://").next().unwrap_or("").to_string();
-            return Err(format!("apiBase must be an http(s) URL, got scheme {scheme:?}"));
+            return Err(format!(
+                "apiBase must be an http(s) URL, got scheme {scheme:?}"
+            ));
         }
         let token = std::env::var("OSSIA_API_TOKEN")
             .ok()
@@ -115,8 +103,14 @@ mod tests {
 
     #[test]
     fn normalize_base_removes_trailing_slashes() {
-        assert_eq!(normalize_base("http://127.0.0.1:3210/"), "http://127.0.0.1:3210");
-        assert_eq!(normalize_base("https://api.ossia.dev"), "https://api.ossia.dev");
+        assert_eq!(
+            normalize_base("http://127.0.0.1:3210/"),
+            "http://127.0.0.1:3210"
+        );
+        assert_eq!(
+            normalize_base("https://api.ossia.dev"),
+            "https://api.ossia.dev"
+        );
     }
 
     #[test]
@@ -130,7 +124,8 @@ mod tests {
     fn a_configured_base_and_token_are_used() {
         // Safety: env is process-global and other tests read it, so this exercises the file path
         // only. Set OSSIA_API_BASE explicitly to see the env branch win.
-        let cfg = parse_config(r#"{"apiBase":"https://api.ossia.dev/","apiToken":"s3cret"}"#).unwrap();
+        let cfg =
+            parse_config(r#"{"apiBase":"https://api.ossia.dev/","apiToken":"s3cret"}"#).unwrap();
         let e = cfg.resolve(Path::new("/tmp")).unwrap();
         assert_eq!(e.base_url, "https://api.ossia.dev");
         assert_eq!(e.token, "s3cret");
@@ -141,8 +136,14 @@ mod tests {
         let cfg = parse_config(r#"{"apiBase":"file:///etc/passwd"}"#).unwrap();
         let err = cfg.resolve(Path::new("/tmp")).unwrap_err();
         assert!(err.contains("must be an http(s) URL"), "{err}");
-        assert!(!err.contains("passwd"), "the rejected value must not be echoed verbatim: {err}");
-        assert!(!err.contains("file:"), "even the scheme label must not leak the path: {err}");
+        assert!(
+            !err.contains("passwd"),
+            "the rejected value must not be echoed verbatim: {err}"
+        );
+        assert!(
+            !err.contains("file:"),
+            "even the scheme label must not leak the path: {err}"
+        );
     }
 
     #[test]
@@ -166,7 +167,10 @@ mod tests {
 
     #[test]
     fn endpoint_serializes_as_the_ui_expects() {
-        let e = Endpoint { base_url: "http://127.0.0.1:3210".into(), token: String::new() };
+        let e = Endpoint {
+            base_url: "http://127.0.0.1:3210".into(),
+            token: String::new(),
+        };
         assert_eq!(
             serde_json::to_string(&e).unwrap(),
             r#"{"baseUrl":"http://127.0.0.1:3210","token":""}"#
