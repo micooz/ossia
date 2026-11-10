@@ -417,6 +417,23 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function processExit(child) {
+  return new Promise((resolve) => {
+    if (child.exitCode !== null || child.signalCode !== null) resolve();
+    else child.once('exit', resolve);
+  });
+}
+
+async function terminate(child) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  child.kill('SIGTERM');
+  await Promise.race([processExit(child), wait(3000)]);
+  if (child.exitCode === null && child.signalCode === null) {
+    child.kill('SIGKILL');
+    await Promise.race([processExit(child), wait(1000)]);
+  }
+}
+
 async function waitFor(check, timeout = 30000) {
   const start = Date.now();
   while (Date.now() - start < timeout) {
@@ -435,8 +452,9 @@ async function verifyApp(app, home) {
     throw new Error(`bundled doctor failed: ${JSON.stringify(doctor.engine)}`);
   const port = await freePort();
   const child = spawn(executable, ['--home', home, '--port', String(port), 'serve'], {
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: 'ignore',
   });
+  let gui;
   try {
     await waitFor(async () => {
       const response = await fetch(`http://127.0.0.1:${port}/`);
@@ -444,21 +462,20 @@ async function verifyApp(app, home) {
     });
     const status = JSON.parse(run(executable, ['--home', home, 'status']));
     if (!status.runtime?.webBaseUrl) throw new Error('packaged runtime status failed');
-    const gui = spawn(executable, ['--home', home, '--port', String(port)], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    gui = spawn(executable, ['--home', home, '--port', String(port)], { stdio: 'ignore' });
     await wait(1500);
     if (gui.exitCode !== null) throw new Error('management app exited during launch');
-    gui.kill('SIGTERM');
+    await terminate(gui);
     await waitFor(async () => {
       const current = JSON.parse(run(executable, ['--home', home, 'status']));
       return Boolean(current.runtime?.instanceId === status.runtime.instanceId);
     });
   } finally {
+    await terminate(gui);
     try {
       run(executable, ['--home', home, 'stop']);
     } catch {}
-    child.kill('SIGTERM');
+    await terminate(child);
   }
 }
 
