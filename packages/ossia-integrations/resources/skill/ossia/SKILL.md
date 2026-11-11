@@ -1,6 +1,6 @@
 ---
 name: ossia
-description: Work with a local Ossia score library through its MCP tools and public LilyPond files.
+description: Manage, edit, and export scores in a local Ossia library using its MCP tools.
 ---
 
 # Ossia

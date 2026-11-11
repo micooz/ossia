@@ -175,7 +175,7 @@ pub(super) fn plugin_files(ctx: &AgentContext) -> Result<Vec<FilePlan>, AppError
     let locale_zh = ctx.resource(Resource::DshLocaleZh)?;
     let browser = browser_enabled(ctx);
     let skill_loader = format!(
-        "export const inject = ['skills']\nexport function apply(ctx) {{\n  ctx.effect(() => ctx.skills.register({{ name: 'ossia', description: 'Work with a local Ossia score library through its MCP tools and public LilyPond files.', content: {} }}), 'ossia-skill')\n}}\n",
+        "export const inject = ['skills']\nexport function apply(ctx) {{\n  ctx.effect(() => ctx.skills.register({{ name: 'ossia', description: 'Manage, edit, and export scores in a local Ossia library using its MCP tools.', content: {} }}), 'ossia-skill')\n}}\n",
         serde_json::to_string(&skill).expect("skill serialization")
     );
     Ok(vec![

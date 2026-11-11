@@ -106,9 +106,10 @@ pub(super) fn plugin_files(ctx: &AgentContext) -> Result<Vec<FilePlan>, AppError
     });
     let interface = json!({
         "displayName": "Ossia",
-        "shortDescription": "Edit local scores with LilyPond",
-        "longDescription": "Use the local Ossia runtime to inspect, edit, render, and version LilyPond scores.",
-        "developerName": "Ossia",
+        "shortDescription": "Manage, edit, and export sheet music through Ossia.",
+        "longDescription": "Manage, edit, and export sheet music through Ossia. Browse your local score library, inspect and edit scores, preview changes, and manage version history.",
+        "developerName": "Ossia Contributors",
+        "websiteURL": "https://github.com/micooz/ossia",
         "category": "Productivity",
         "capabilities": ["Read", "Write"],
         "composerIcon": "./assets/ossia.svg",
