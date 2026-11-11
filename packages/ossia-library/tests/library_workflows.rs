@@ -258,6 +258,52 @@ impl Fixture {
 }
 
 #[test]
+fn import_expectation_failure_does_not_publish_a_document() {
+    let root = tempfile::tempdir().unwrap();
+    let library = Library::open(root.path()).unwrap();
+    let engine = TestEngine::default();
+    let expect = MusicExpectation {
+        note_count: Some(1),
+        tracks: vec![],
+    };
+    let error = library
+        .import_with_expect(
+            &engine,
+            ImportRequest {
+                title: "scale",
+                input: b"c'1",
+                format: InputFormat::Ly,
+                confirmation: None,
+                author: "test",
+            },
+            Some(&expect),
+            &RunContext::default(),
+        )
+        .unwrap_err();
+    assert_eq!(error.code, ErrorCode::InvalidInput);
+    assert_eq!(
+        error.detail.as_ref().unwrap()["verification"]["status"],
+        "unavailable"
+    );
+    assert_eq!(library.document_count().unwrap(), 0);
+
+    library
+        .import(
+            &engine,
+            ImportRequest {
+                title: "scale",
+                input: b"c'1",
+                format: InputFormat::Ly,
+                confirmation: None,
+                author: "test",
+            },
+            &RunContext::default(),
+        )
+        .unwrap();
+    assert_eq!(library.document_count().unwrap(), 1);
+}
+
+#[test]
 fn three_import_formats_preserve_original_bytes_and_utf8_source() {
     let root = tempfile::tempdir().unwrap();
     let library = Library::open(root.path()).unwrap();

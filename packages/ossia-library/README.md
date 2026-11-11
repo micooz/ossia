@@ -66,6 +66,7 @@ fn edit_example(home: &Path, engine: &Engine) -> Result<Version> {
                 replacement: "d'1".into(),
             }],
         },
+        preview: true,
     })?;
     library.check(engine, CheckRequest {
         expect: None,

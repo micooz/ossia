@@ -21,6 +21,7 @@ pub(super) struct ImportWork {
     format: InputFormat,
     author: String,
     confirmation: Option<ContentHash>,
+    expect: Option<MusicExpectation>,
     bytes: Vec<u8>,
 }
 
@@ -196,6 +197,7 @@ impl Runtime {
                 format,
                 author,
                 confirmation: args.confirmation,
+                expect: args.expect,
                 bytes,
             }),
             false,
@@ -420,7 +422,7 @@ impl Runtime {
                     &task.context,
                 )?),
                 Work::Import(args) => {
-                    let outcome = self.library.import(
+                    let outcome = self.library.import_with_expect(
                         self.engine.as_ref(),
                         ImportRequest {
                             title: &args.title,
@@ -429,6 +431,7 @@ impl Runtime {
                             confirmation: args.confirmation.as_ref(),
                             author: &args.author,
                         },
+                        args.expect.as_ref(),
                         &task.context,
                     )?;
                     if let Some(document) = &outcome.document {

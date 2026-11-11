@@ -183,6 +183,7 @@ async fn import_infers_path_metadata_and_can_wait_for_completion() {
                 path: input.to_string_lossy().into_owned(),
                 confirmation: None,
                 author: None,
+                expect: None,
                 wait_ms: Some(5_000),
             },
             SOURCE.to_vec(),
@@ -217,5 +218,83 @@ async fn stale_source_errors_carry_recovery_context() {
     let detail = error.detail.unwrap();
     assert_eq!(detail["currentSourceHash"], json!(f.doc.source_hash));
     assert_eq!(detail["headVersionId"], json!(f.doc.head_version_id));
+    f.finish().await;
+}
+
+#[tokio::test]
+async fn documentation_status_checks_configured_resources() {
+    let f = Fixture::new(false).await;
+    let docs = tempfile::tempdir().unwrap();
+    f.runtime.initialize_documentation(docs.path());
+    let first = f.runtime.documentation_status();
+    assert!(!first.available);
+    assert_ne!(
+        first.error.as_ref().unwrap().message,
+        "offline documentation is not configured"
+    );
+    let second = f.runtime.documentation_status();
+    assert_eq!(first.error.unwrap().code, second.error.unwrap().code);
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn ipc_import_returns_a_bounded_agent_summary() {
+    let f = Fixture::new(true).await;
+    let work = tempfile::tempdir().unwrap();
+    let input = work.path().join("summary.ly");
+    let source = format!(
+        "\\version \"2.26.0\"\n\\score {{ \\new Staff {{ {} }} \\layout {{}} }}\n",
+        "c'4 ".repeat(100)
+    );
+    std::fs::write(&input, &source).unwrap();
+    let job = ipc::dispatch(&f.runtime, "import", json!({"path":input,"waitMs":5_000})).unwrap();
+    assert_eq!(job["state"], "done");
+    let result = &job["result"];
+    assert!(result["report"].get("source").is_none());
+    assert!(result["document"]["lastCheck"].is_null());
+    assert!(result["document"]["lastSuccessfulRender"].is_null());
+    assert!(result["job"]["result"].is_null());
+    assert_eq!(
+        result["music"]["source"]["events"]
+            .as_array()
+            .unwrap()
+            .len(),
+        64
+    );
+    assert_eq!(result["music"]["source"]["eventsTotal"], 100);
+    assert!(result["music"]["source"]["eventsTruncated"]
+        .as_bool()
+        .unwrap());
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn layout_reports_page_structure_from_a_completed_job() {
+    let f = Fixture::new(true).await;
+    let job = f
+        .runtime
+        .import(
+            ImportArgs {
+                title: Some("layout".into()),
+                format: Some(InputFormat::Ly),
+                path: String::new(),
+                confirmation: None,
+                author: Some("test".into()),
+                expect: None,
+                wait_ms: Some(5_000),
+            },
+            SOURCE.to_vec(),
+        )
+        .unwrap();
+    assert_eq!(job.state, JobState::Done);
+    let layout = f.runtime.layout(LayoutArgs { job_id: job.job_id }).unwrap();
+    assert_eq!(layout.page_count, 1);
+    assert_eq!(layout.system_count, 0);
+    assert_eq!(layout.staff_count, 0);
+    assert_eq!(layout.source_hash, ContentHash::of(SOURCE));
+    assert!(!matches!(
+        layout.pages[0].capability,
+        LocationCapability::Measure
+    ));
     f.finish().await;
 }

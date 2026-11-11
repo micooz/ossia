@@ -2,6 +2,81 @@ use crate::*;
 use std::path::PathBuf;
 
 impl Runtime {
+    /// Page/system/staff structure from a completed import or check snapshot.
+    pub fn layout(&self, args: LayoutArgs) -> Result<LayoutOutcome> {
+        let (job, result) = self.library.checked_job(args.job_id)?;
+        let snapshot = self
+            .library
+            .job_snapshot(job.job_id)?
+            .ok_or_else(|| storage("layout source snapshot is missing"))?;
+        let index = ossia_score::build_index(snapshot.source());
+        let sources = result
+            .render
+            .pages
+            .iter()
+            .map(|page| {
+                Ok((
+                    page.page,
+                    String::from_utf8(self.library.read_artifact(&page.artifact)?)
+                        .map_err(storage)?,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let pages = sources
+            .iter()
+            .map(|(page, svg)| ossia_score::SvgPage { page: *page, svg })
+            .collect::<Vec<_>>();
+        let layout = ossia_score::build_layout(&index, &pages)?;
+        let pages = layout
+            .pages
+            .iter()
+            .map(|page| LayoutPage {
+                page: page.page,
+                view_box: page.view_box.map(|b| GeometryBounds {
+                    x0: b.x0,
+                    y0: b.y0,
+                    x1: b.x1,
+                    y1: b.y1,
+                }),
+                staff_space: page.staff_space,
+                systems: page
+                    .systems
+                    .iter()
+                    .map(|system| LayoutSystem {
+                        top: system.top,
+                        bot: system.bot,
+                        bars: system.bar_xs.len(),
+                        staves: system
+                            .staves
+                            .iter()
+                            .map(|staff| LayoutStaff {
+                                top: staff.top,
+                                bot: staff.bot,
+                                x0: staff.x0,
+                                x1: staff.x1,
+                            })
+                            .collect(),
+                    })
+                    .collect(),
+                capability: page.capability,
+                reason: page.reason.clone(),
+            })
+            .collect::<Vec<_>>();
+        Ok(LayoutOutcome {
+            job_id: args.job_id,
+            document_id: snapshot.document_id(),
+            source_hash: snapshot.source_hash().clone(),
+            page_count: pages.len(),
+            system_count: pages.iter().map(|page| page.systems.len()).sum(),
+            staff_count: pages
+                .iter()
+                .flat_map(|page| &page.systems)
+                .map(|system| system.staves.len())
+                .sum(),
+            pages,
+        })
+    }
+
     pub fn geometry(&self, key: &ContentHash) -> Result<RenderGeometry> {
         let (_, manifest) = self.library.render(key)?;
         let snapshot = self.library.render_snapshot(key)?;

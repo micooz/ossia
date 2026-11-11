@@ -97,7 +97,8 @@ async fn offline_docs_cli_and_mcp_complete_the_agent_music_workflow() {
         PathBuf::from(std::env::var_os("OSSIA_TEST_DOCS_ROOT").expect("OSSIA_TEST_DOCS_ROOT"));
     let work = tempfile::tempdir().unwrap();
     let home = work.path().join("library");
-    cli(&bin, &home, &engine, &docs, "status", Value::Null).await;
+    let status = cli(&bin, &home, &engine, &docs, "status", Value::Null).await;
+    assert_eq!(status["documentation"]["available"], true);
     let discovery = ipc::connect(&home.canonicalize().unwrap()).await.unwrap();
     let _stop = Stop(discovery.endpoint.clone());
     let hits: DocsOutcome = serde_json::from_value(
@@ -143,6 +144,14 @@ async fn offline_docs_cli_and_mcp_complete_the_agent_music_workflow() {
         .await,
     )
     .await;
+    let layout: LayoutOutcome = serde_json::from_value(
+        call(&client, "ossia_layout", json!({"jobId":imported.job_id})).await,
+    )
+    .unwrap();
+    assert_eq!(
+        (layout.page_count, layout.system_count, layout.staff_count),
+        (1, 1, 1)
+    );
     let outcome: ImportOutcome = serde_json::from_value(imported.result.unwrap()).unwrap();
     let doc = outcome.document.unwrap();
     let music = outcome.music.unwrap();

@@ -274,6 +274,7 @@ async fn running_import_restore_output_cancellation_finishes_before_publishing()
                 path: String::new(),
                 confirmation: None,
                 author: Some("test".into()),
+                expect: None,
                 wait_ms: None,
             },
             SOURCE.to_vec(),

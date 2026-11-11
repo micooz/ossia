@@ -109,6 +109,14 @@ impl Runtime {
                 return Ok(());
             }
         };
+        if self
+            .state()
+            .suppressed_previews
+            .remove(&id)
+            .is_some_and(|hash| hash == doc.source_hash)
+        {
+            return Ok(());
+        }
         let (pending_match, running) = {
             let state = self.state();
             (

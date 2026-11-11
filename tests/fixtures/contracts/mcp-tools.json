@@ -66,11 +66,35 @@
   },
   {
     "name": "ossia_import",
-    "description": "Queue an absolute-path import. format/title/author are inferred or defaulted; returns a Job. Pass waitMs to wait for completion.",
+    "description": "Queue an absolute-path import. format/title/author are inferred or defaulted. Optional expect rejects the import before creating a document or version. Returns a bounded Job summary; pass waitMs to wait.",
     "inputSchema": {
       "$defs": {
         "ContentHash": {
           "type": "string"
+        },
+        "ExpectedNote": {
+          "additionalProperties": false,
+          "description": "Expected MIDI pitch and exact quarter-note timing.",
+          "properties": {
+            "duration": {
+              "$ref": "#/$defs/QuarterTime"
+            },
+            "pitch": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start": {
+              "$ref": "#/$defs/QuarterTime"
+            }
+          },
+          "required": [
+            "pitch",
+            "start",
+            "duration"
+          ],
+          "type": "object"
         },
         "InputFormat": {
           "enum": [
@@ -79,6 +103,92 @@
             "midi"
           ],
           "type": "string"
+        },
+        "MusicExpectation": {
+          "additionalProperties": false,
+          "description": "Only explicitly supplied conditions are checked.",
+          "properties": {
+            "noteCount": {
+              "format": "uint",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "tracks": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TrackExpectation"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "QuarterTime": {
+          "additionalProperties": false,
+          "description": "Exact nonnegative time measured in quarter notes. Denominator must be nonzero.",
+          "properties": {
+            "denominator": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "numerator": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "numerator",
+            "denominator"
+          ],
+          "type": "object"
+        },
+        "TrackExpectation": {
+          "additionalProperties": false,
+          "description": "An exact ordered sequence in one MIDI track/channel; simultaneous pitches sort ascending.",
+          "properties": {
+            "channel": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "notes": {
+              "items": {
+                "$ref": "#/$defs/ExpectedNote"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "pitches": {
+              "items": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "track": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "track",
+            "channel"
+          ],
+          "type": "object"
         }
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -94,6 +204,16 @@
           "anyOf": [
             {
               "$ref": "#/$defs/ContentHash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MusicExpectation"
             },
             {
               "type": "null"
@@ -269,7 +389,7 @@
   },
   {
     "name": "ossia_write_source",
-    "description": "Atomically replace or batch-edit the active owned source and return the computed hash. The document is derived from editId.",
+    "description": "Atomically replace or batch-edit the active owned source and return the computed hash. The document is derived from editId. Set preview=false when an explicit check follows.",
     "inputSchema": {
       "$defs": {
         "ContentHash": {
@@ -404,6 +524,10 @@
         },
         "expectedSourceHash": {
           "$ref": "#/$defs/ContentHash"
+        },
+        "preview": {
+          "default": true,
+          "type": "boolean"
         },
         "viewId": {
           "format": "uuid",
@@ -598,6 +722,31 @@
     }
   },
   {
+    "name": "ossia_layout",
+    "description": "Inspect page, system and staff structure from a completed import or check job. Returns LayoutOutcome.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "jobId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jobId"
+      ],
+      "title": "LayoutArgs",
+      "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
     "name": "ossia_docs",
     "description": "Search or read the bundled offline LilyPond documentation. Search takes query/limit; read takes chapterId/offset/limit. Returns DocsOutcome.",
     "inputSchema": {
@@ -762,7 +911,7 @@
   },
   {
     "name": "ossia_check",
-    "description": "Queue a check of exact expectedSourceHash; documentId is derived from editId when supplied. Returns a Job; poll with ossia_job.",
+    "description": "Queue a check of exact expectedSourceHash; documentId is derived from editId when supplied. Returns a bounded Job summary; poll or read full evidence with ossia_job.",
     "inputSchema": {
       "$defs": {
         "ContentHash": {

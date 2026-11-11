@@ -254,12 +254,15 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
             if bytes.len() > 32 * 1024 * 1024 {
                 return Err(invalid("import exceeds 32 MiB"));
             }
-            value(runtime.import(args, bytes)?)
+            value(crate::agent::summarize_job(runtime.import(args, bytes)?))
         }
         "write_source" => value(runtime.write_source(decode(params)?)?),
         "read_source" => value(runtime.read_source(decode(params)?)?),
         "edit" => runtime.edit(decode(params)?, true),
-        "check" => value(runtime.check(decode(params)?, false)?),
+        "check" => value(crate::agent::summarize_job(
+            runtime.check(decode(params)?, false)?,
+        )),
+        "layout" => value(runtime.layout(decode(params)?)?),
         "commit" => value(runtime.commit(decode(params)?)?),
         "history" => value(runtime.agent_history(decode(params)?)?),
         "restore" => value(runtime.restore(decode(params)?)?),

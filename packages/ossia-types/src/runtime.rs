@@ -93,6 +93,7 @@ pub struct ImportArgs {
     pub path: String,
     pub confirmation: Option<ContentHash>,
     pub author: Option<String>,
+    pub expect: Option<MusicExpectation>,
     pub wait_ms: Option<u64>,
 }
 
@@ -317,6 +318,57 @@ pub struct RenderGeometry {
     pub render_key: ContentHash,
     pub source_hash: ContentHash,
     pub pages: Vec<GeometryPage>,
+}
+
+/// One rendered staff within a system, in SVG user units.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutStaff {
+    pub top: f64,
+    pub bot: f64,
+    pub x0: f64,
+    pub x1: f64,
+}
+
+/// One rendered system and its staves.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutSystem {
+    pub top: f64,
+    pub bot: f64,
+    pub bars: usize,
+    pub staves: Vec<LayoutStaff>,
+}
+
+/// Rendered page structure independent of measure regions.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutPage {
+    pub page: u32,
+    pub view_box: Option<GeometryBounds>,
+    pub staff_space: f64,
+    pub systems: Vec<LayoutSystem>,
+    pub capability: LocationCapability,
+    pub reason: Option<String>,
+}
+
+/// Page, system and staff structure from one immutable score snapshot.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutOutcome {
+    pub job_id: JobId,
+    pub document_id: DocumentId,
+    pub source_hash: ContentHash,
+    pub page_count: usize,
+    pub system_count: usize,
+    pub staff_count: usize,
+    pub pages: Vec<LayoutPage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LayoutArgs {
+    pub job_id: JobId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]

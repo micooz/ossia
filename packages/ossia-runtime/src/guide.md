@@ -50,9 +50,11 @@ snapshots and commit authorization, and use a check to verify the actual result.
 2. To create a score, establish the requested music and instruments, write a
    self-contained `.ly` file in the host workspace, then call `ossia_import`
    with its absolute path. `format` is inferred from the extension; `title` and
-   `author` default from the filename and `"agent"`. Pass `waitMs` to wait for
-   completion, or poll `ossia_job`. Successful import creates the first version
-   and renders it.
+   `author` default from the filename and `"agent"`. Pass `expect` when the
+   musical intent is known: an import that fails the expectation returns a job
+   error with `verification.differences` and actual pitches, and creates no
+   document or version. Pass `waitMs` to wait for completion, or poll
+   `ossia_job`. A successful import creates the first version and renders it.
 3. Call `ossia_open` with the selected `documentId`. Open its one-time URL in the
    host's browser when available; otherwise give the URL to the user. The result
    already includes the initial compact context; keep `viewId` for this task.
@@ -64,18 +66,24 @@ snapshots and commit authorization, and use a check to verify the actual result.
 6. Use `ossia_read_source` with that source hash. Start with
    `{"kind":"start"}` or `{"kind":"line","line":N}`. Continue with the returned
    `next` span while `complete` is false. Exact ranges use
-   `{"kind":"span","span":...}`.
+   `{"kind":"span","span":...}`. Read through this tool even when you authored the
+   host file: its spans are authoritative. Do not compute byte offsets yourself.
 7. Use `ossia_write_source` with `change.kind = "edit"` and up to 64 non-overlapping
    edits. Every edit supplies an exact `span`, its `expectedText`, and
    `replacement`; empty expected text inserts and empty replacement deletes.
    Reserve `change.kind = "replace"` for a deliberate whole-file rewrite. Do not
-   edit the source file directly. Keep the returned new `sourceHash`.
+   edit the source file directly. Keep the returned new `sourceHash`. Set
+   `"preview": false` when you will call `ossia_check` immediately; otherwise the
+   file watcher also compiles an SVG-only preview.
 8. Call `ossia_check` with the returned source hash and the same `editId`. Add
    `expect` when musical intent is known. Pass `waitMs`, or poll `ossia_job`.
    Inspect the check result and verification, then inspect a preview. Repeat
    write/check within the same edit; do not re-import drafts. A done job means the
    check ran: declared expectations must also have verification status `passed`
-   before commit.
+   before commit. The direct CLI/MCP response is a bounded job summary; use
+   `ossia_job` when full source, event or MIDI evidence is needed. Use
+   `ossia_layout` with the completed `jobId` to inspect page, system and staff
+   structure without image inspection.
 9. Call `ossia_commit` when ready with `editId`, `expectedSourceHash` and
    `summary`; document and base version are derived from the edit. If it
    conflicts, reread context and do not overwrite another task. Auto-preview does
@@ -103,6 +111,36 @@ skeleton is:
   \midi { }
 }
 ```
+
+These skeletons are examples, not defaults: take clef, key, octave, time,
+instruments and paper size from the request. A short single-staff example is:
+
+```lilypond
+\version "2.26.0"
+\header { title = "Example" }
+\paper { #(set-paper-size "a6" 'landscape) }
+
+music = \relative c' {
+  \clef treble
+  \key c \major
+  \time 4/4
+  c4 d e f |
+  g4 a b c |
+  \bar "|."
+}
+
+\score {
+  \new Staff \music
+  \layout { ragged-right = ##f }
+  \midi { }
+}
+```
+
+`a6` landscape and `ragged-right = ##f` are presentation choices for this short
+example; use the requested page size and layout for real scores. Outside
+`\relative`, a plain `c` is C3 and `c'` is middle C. Do not infer an octave from
+note names; verify the performed pitches. The snippet above performs 60–72,
+while `c4 d e f | g4 a b c'` performs 48–60.
 
 ## Import reports and validation
 
@@ -139,7 +177,7 @@ MIDI note-ons are different counts: repeats, ties and unused definitions matter.
 are null, not a verified zero. MIDI time uses `{numerator, denominator}` fractions
 of a quarter note; duration is key-release time and excludes pedal acoustics.
 
-For example, check an eight-note ascending scale with:
+For the single-staff example above, an exact expectation could be:
 
 ```json
 {
@@ -150,7 +188,9 @@ For example, check an eight-note ascending scale with:
 }
 ```
 
-Read actual track/channel identifiers from the report. Track expectations also
+These values belong to the example; use the requested pitches, timing, track and
+channel for the actual score. Read actual track/channel identifiers from the
+report. Track expectations also
 accept `notes` with `pitch`, `start` and `duration` fractions. Simultaneous notes
 sort by pitch. Missing timing, SMPTE and format-2 cannot pass timing conditions.
 Empty expectations and zero denominators are invalid.
@@ -162,6 +202,14 @@ older checks; automatic previews never authorize a commit. Do not drop an
 expectation just to make a check pass. Jobs without a recorded music report
 cannot provide evidence; check again instead of treating missing evidence as
 success.
+
+## Rendered structure
+
+`ossia_layout` accepts a completed import or check `jobId` and returns
+`pageCount`, `systemCount`, `staffCount`, and per-page `systems[].staves` with
+bounds in SVG user units. Use it to verify structural requirements such as page,
+system or staff counts. It does not identify clefs, keys or time signatures;
+read the source and docs for those.
 
 ## Output files
 
@@ -183,8 +231,10 @@ engine build or re-check first.
 
 CLI/MCP `status` and `context` always return compact Agent responses. `status`
 lists active jobs only and includes documentation health; `context` includes one
-render identity rather than duplicated manifests. `list` and `history` are paged
-with `limit`/`offset`.
+render identity rather than duplicated manifests. `import` and `check` return a
+bounded job summary: the full import source, repeated render/manifest and all
+evidence are omitted or capped. Use `ossia_job` for full evidence. `list` and
+`history` are paged with `limit`/`offset`.
 
 `ossia_job` returns `{job, analysis}`. Without `section`, it returns a summary by
 default; `detail:"full"` is available for diagnostics. Use `section`

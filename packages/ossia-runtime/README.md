@@ -31,7 +31,10 @@ CLI commands accept one JSON object matching the corresponding MCP tool. Success
 `docs` searches or reads the offline LilyPond 2.26.0 reference. The pack is
 installed into the data directory on first use. CLI/MCP status and context
 always return compact Agent projections; `list` and `history` are paged.
-`job` returns `{job, analysis}` and supports bounded evidence sections.
+`import` and `check` return bounded job summaries; use `job` with
+`detail:"full"` for complete evidence. `job` returns `{job, analysis}` and
+supports bounded evidence sections. `layout` reports page, system and staff
+structure from a completed import or check job.
 
 ```sh
 target/debug/ossia-desktop --home /absolute/test-library import \

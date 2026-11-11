@@ -62,6 +62,12 @@ pub struct WriteSourceArgs {
     pub edit_id: EditId,
     pub expected_source_hash: ContentHash,
     pub change: SourceWriteChange,
+    #[serde(default = "preview_enabled")]
+    pub preview: bool,
+}
+
+const fn preview_enabled() -> bool {
+    true
 }
 
 /// Source state after a guarded atomic write.

@@ -12,7 +12,8 @@ Call ossia_guide for the complete workflow, then inspect ossia_status and ossia_
 Use ossia_import, ossia_open and ossia_context before editing; keep IDs private. \
 All score mutations are explicit. Validation and asynchronous work use the returned \
 job IDs and ossia_job; use section paging instead of full job results. Use \
-ossia_output for preview/export files. The browser score page is optional.";
+ossia_layout for page/system/staff structure and ossia_output for preview/export \
+files. The browser score page is optional.";
 
 fn schema<T: schemars::JsonSchema>() -> serde_json::Map<String, serde_json::Value> {
     let mut schema = serde_json::to_value(schemars::schema_for!(T))
@@ -97,7 +98,7 @@ pub fn tools() -> Vec<Tool> {
         ),
         write_tool::<ImportArgs>(
             "ossia_import",
-            "Queue an absolute-path import. format/title/author are inferred or defaulted; returns a Job. Pass waitMs to wait for completion.",
+            "Queue an absolute-path import. format/title/author are inferred or defaulted. Optional expect rejects the import before creating a document or version. Returns a bounded Job summary; pass waitMs to wait.",
             false,
         ),
         write_tool::<OpenArgs>(
@@ -116,12 +117,16 @@ pub fn tools() -> Vec<Tool> {
         ),
         write_tool::<WriteSourceArgs>(
             "ossia_write_source",
-            "Atomically replace or batch-edit the active owned source and return the computed hash. The document is derived from editId.",
+            "Atomically replace or batch-edit the active owned source and return the computed hash. The document is derived from editId. Set preview=false when an explicit check follows.",
             true,
         ),
         read_tool::<ReadSourceArgs>(
             "ossia_read_source",
             "Read a bounded UTF-8-safe source page at an exact source hash. Returns ReadSourceOutcome with the next span.",
+        ),
+        read_tool::<LayoutArgs>(
+            "ossia_layout",
+            "Inspect page, system and staff structure from a completed import or check job. Returns LayoutOutcome.",
         ),
         read_tool::<DocsRequest>(
             "ossia_docs",
@@ -134,7 +139,7 @@ pub fn tools() -> Vec<Tool> {
         ),
         write_tool::<CheckArgs>(
             "ossia_check",
-            "Queue a check of exact expectedSourceHash; documentId is derived from editId when supplied. Returns a Job; poll with ossia_job.",
+            "Queue a check of exact expectedSourceHash; documentId is derived from editId when supplied. Returns a bounded Job summary; poll or read full evidence with ossia_job.",
             false,
         ),
         write_tool::<CommitArgs>(
@@ -230,6 +235,7 @@ mod tests {
                 "ossia_edit",
                 "ossia_write_source",
                 "ossia_read_source",
+                "ossia_layout",
                 "ossia_docs",
                 "ossia_job",
                 "ossia_check",

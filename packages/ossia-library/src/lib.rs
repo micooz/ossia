@@ -42,6 +42,31 @@ pub(crate) fn not_found() -> AppError {
     AppError::new(ErrorCode::NotFound, "library entry not found")
 }
 
+fn import_expectation_error(verification: &Verification, music: &MusicReport) -> AppError {
+    let notes = &music.performance.notes;
+    let pitches = notes
+        .iter()
+        .take(64)
+        .map(|note| note.pitch)
+        .collect::<Vec<_>>();
+    let mut error = AppError::invalid("import does not match the declared music expectation");
+    error.detail = Some(serde_json::json!({
+        "verification": verification,
+        "performance": {
+            "status": music.performance.status,
+            "notes": notes.len(),
+            "pitches": pitches,
+            "truncated": notes.len() > 64,
+        },
+        "source": {
+            "status": music.source.status,
+            "noteTokens": music.source.note_tokens,
+            "measures": music.source.measures,
+        },
+    }));
+    error
+}
+
 pub struct Library {
     store: Store,
     conn: Mutex<Connection>,
@@ -194,7 +219,21 @@ impl Library {
         request: ImportRequest<'_>,
         context: &RunContext,
     ) -> Result<ImportOutcome> {
+        self.import_with_expect(engine, request, None, context)
+    }
+
+    /// Import and optionally reject the result before publishing a version.
+    pub fn import_with_expect(
+        &self,
+        engine: &dyn EngineBackend,
+        request: ImportRequest<'_>,
+        expect: Option<&MusicExpectation>,
+        context: &RunContext,
+    ) -> Result<ImportOutcome> {
         context.check()?;
+        if let Some(expect) = expect {
+            ossia_score::validate_expectation(expect)?;
+        }
         let report =
             engine.convert(request.input, request.format, request.confirmation, context)?;
         if report.status == ImportStatus::Refused
@@ -232,10 +271,14 @@ impl Library {
             return Err(compile_error(&render));
         }
         let music = self.music_report(&snapshot, &render)?;
+        let verification = ossia_score::verify_music(&music, expect);
+        if expect.is_some() && verification.status != VerificationStatus::Passed {
+            return Err(import_expectation_error(&verification, &music));
+        }
         let check_result = CheckResult {
             render: render.clone(),
             music: music.clone(),
-            verification: ossia_score::verify_music(&music, None),
+            verification,
         };
         let hash = self.store.put(snapshot.bytes())?;
         self.hit("after-cas")?;

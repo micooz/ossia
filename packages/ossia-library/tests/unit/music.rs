@@ -89,6 +89,7 @@ fn source_writes_require_owned_edit_hash_and_recover_after_replacement() {
         change: SourceWriteChange::Replace {
             text: "new c'1".into(),
         },
+        preview: true,
     };
     args.view_id = ViewId::new();
     assert_eq!(
@@ -284,6 +285,7 @@ fn source_edits_are_validated_together_and_applied_in_one_replacement() {
                 },
             ],
         },
+        preview: true,
     };
     let state = f.library.write_source(&args).unwrap();
     assert_eq!(
@@ -361,6 +363,7 @@ fn source_edits_support_insert_delete_and_reject_ambiguous_targets() {
                     },
                 ],
             },
+            preview: true,
         })
         .unwrap();
     assert_eq!(
@@ -391,6 +394,7 @@ fn source_edits_support_insert_delete_and_reject_ambiguous_targets() {
                 },
             ],
         },
+        preview: true,
     };
     assert_eq!(
         f.library.write_source(&invalid).unwrap_err().code,
@@ -422,6 +426,7 @@ fn source_edits_reject_stale_text_excess_ranges_and_oversized_results() {
                 replacement: "b".into(),
             }],
         },
+        preview: true,
     };
     assert_eq!(
         f.library.write_source(&args).unwrap_err().code,

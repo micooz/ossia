@@ -30,6 +30,7 @@ operations. The entry is published in the data directory when Ossia starts.
 - Score preview and selection context: `ossia_open`, `ossia_context`.
 - Source reading and editing: `ossia_read_source`, `ossia_edit`, `ossia_write_source`.
 - Validation and version creation: `ossia_check`, `ossia_commit`.
+- Page, system and staff structure: `ossia_layout`.
 - Output files from job or version snapshots: `ossia_output`.
 - Fixed-snapshot musical evidence: `ossia_job` with `section`.
 - Version history and restoration: `ossia_history`, `ossia_restore`.

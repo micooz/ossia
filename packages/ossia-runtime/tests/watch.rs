@@ -1,7 +1,7 @@
 mod common;
 
 use common::{until, Fixture};
-use ossia_runtime::ContentHash;
+use ossia_runtime::*;
 use std::{path::Path, time::Duration};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -65,5 +65,32 @@ async fn watcher_debounces_atomic_saves_and_recovers_deleted_file() {
     .await;
     f.runtime.stop().unwrap();
     watcher.await.unwrap().unwrap();
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn write_source_can_suppress_the_automatic_preview() {
+    let f = Fixture::new(false).await;
+    let watcher = tokio::spawn(f.runtime.clone().watch());
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let edit = f.begin();
+    let source = "\\version \"2.26.0\"\n\\score { \\new Staff { e'1 | } \\layout {} }\n";
+    let before = f.runtime.library.list_jobs().unwrap().len();
+    let written = f
+        .runtime
+        .write_source(WriteSourceArgs {
+            view_id: f.view,
+            edit_id: edit.edit_id,
+            expected_source_hash: f.doc.source_hash.clone(),
+            change: SourceWriteChange::Replace {
+                text: source.into(),
+            },
+            preview: false,
+        })
+        .unwrap();
+    assert_eq!(written.source_hash, ContentHash::of(source.as_bytes()));
+    tokio::time::sleep(Duration::from_millis(900)).await;
+    assert_eq!(f.runtime.library.list_jobs().unwrap().len(), before);
+    watcher.abort();
     f.finish().await;
 }

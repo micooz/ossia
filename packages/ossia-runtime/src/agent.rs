@@ -69,16 +69,43 @@ impl Runtime {
             .documentation_resources
             .write()
             .expect("documentation resource lock poisoned") = Some(resources.to_owned());
+        *self
+            .documentation_cache
+            .write()
+            .expect("documentation cache lock poisoned") = None;
     }
     pub fn documentation_status(&self) -> DocumentationStatus {
-        match &*self
+        if let Some(status) = self
+            .documentation_cache
+            .read()
+            .expect("documentation cache lock poisoned")
+            .clone()
+        {
+            return status;
+        }
+        let status = match &*self
             .documentation
             .read()
             .expect("documentation lock poisoned")
         {
             Ok(docs) => docs.status(),
-            Err(error) => ossia_library::Documentation::unavailable(error.clone()),
-        }
+            Err(_) => match self
+                .documentation_resources
+                .read()
+                .expect("documentation resource lock poisoned")
+                .as_ref()
+            {
+                Some(resources) => ossia_library::Documentation::inspect(resources),
+                None => ossia_library::Documentation::unavailable(invalid(
+                    "offline documentation is not configured",
+                )),
+            },
+        };
+        *self
+            .documentation_cache
+            .write()
+            .expect("documentation cache lock poisoned") = Some(status.clone());
+        status
     }
     pub fn docs(&self, request: DocsRequest) -> Result<DocsOutcome> {
         let mut documentation = self
@@ -94,6 +121,14 @@ impl Runtime {
                 .ok_or_else(|| invalid("offline documentation is not configured"))?;
             *documentation = ossia_library::Documentation::install(self.library.home(), &resources);
         }
+        let status = match &*documentation {
+            Ok(docs) => docs.status(),
+            Err(error) => ossia_library::Documentation::unavailable(error.clone()),
+        };
+        *self
+            .documentation_cache
+            .write()
+            .expect("documentation cache lock poisoned") = Some(status);
         documentation
             .as_ref()
             .map_err(Clone::clone)

@@ -401,6 +401,7 @@ fn native_scale_expectations_gate_commit_before_output() {
                     replacement: "c'4 d' e' f' | g'4 a' b' c''".into(),
                 }],
             },
+            preview: true,
         })
         .unwrap();
     let hash = written.source_hash;
@@ -502,4 +503,62 @@ fn native_scale_expectations_gate_commit_before_output() {
             summary: "verified scale",
         })
         .unwrap();
+}
+
+#[test]
+#[ignore = "requires verified native LilyPond 2.26.0"]
+fn native_import_expectation_rejects_before_publishing_a_version() {
+    let root = PathBuf::from(std::env::var_os("OSSIA_TEST_LILYPOND_ROOT").unwrap());
+    let work = tempfile::tempdir().unwrap();
+    let engine =
+        Engine::verify(&root, &work.path().join("scratch"), &RunContext::default()).unwrap();
+    let library = Library::open(&work.path().join("library")).unwrap();
+    let low = "\\version \"2.26.0\"\nMusic = { \\time 4/4 c4 d e f | g4 a b c' | }\n\\score { \\new Staff \\Music \\layout {} \\midi {} }";
+    let expect = MusicExpectation {
+        note_count: Some(8),
+        tracks: vec![TrackExpectation {
+            track: 1,
+            channel: 0,
+            pitches: Some(vec![60, 62, 64, 65, 67, 69, 71, 72]),
+            notes: None,
+        }],
+    };
+    let error = library
+        .import_with_expect(
+            &engine,
+            ImportRequest {
+                title: "low scale",
+                input: low.as_bytes(),
+                format: InputFormat::Ly,
+                confirmation: None,
+                author: "test",
+            },
+            Some(&expect),
+            &RunContext::default(),
+        )
+        .unwrap_err();
+    assert_eq!(error.code, ErrorCode::InvalidInput);
+    assert_eq!(
+        error.detail.as_ref().unwrap()["verification"]["status"],
+        "failed"
+    );
+    assert_eq!(library.document_count().unwrap(), 0);
+
+    let high = "\\version \"2.26.0\"\nMusic = \\relative c' { \\time 4/4 c4 d e f | g a b c }\n\\score { \\new Staff \\Music \\layout {} \\midi {} }";
+    let imported = library
+        .import_with_expect(
+            &engine,
+            ImportRequest {
+                title: "high scale",
+                input: high.as_bytes(),
+                format: InputFormat::Ly,
+                confirmation: None,
+                author: "test",
+            },
+            Some(&expect),
+            &RunContext::default(),
+        )
+        .unwrap();
+    assert!(imported.document.unwrap().head_version_id.is_some());
+    assert_eq!(library.document_count().unwrap(), 1);
 }

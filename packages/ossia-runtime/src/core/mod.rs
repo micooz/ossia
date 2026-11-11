@@ -44,11 +44,13 @@ struct State {
     pending: VecDeque<Pending>,
     running: HashMap<JobId, (Option<DocumentId>, RunContext)>,
     observed: HashMap<DocumentId, ContentHash>,
+    suppressed_previews: HashMap<DocumentId, ContentHash>,
 }
 
 pub struct Runtime {
     pub(crate) documentation: std::sync::RwLock<Result<ossia_library::Documentation>>,
     pub(crate) documentation_resources: std::sync::RwLock<Option<std::path::PathBuf>>,
+    pub(crate) documentation_cache: std::sync::RwLock<Option<DocumentationStatus>>,
     pub library: Arc<Library>,
     pub engine: Arc<dyn EngineBackend>,
     pub info: RuntimeInfo,
@@ -88,6 +90,7 @@ impl Runtime {
                 "offline documentation is not configured",
             ))),
             documentation_resources: std::sync::RwLock::new(None),
+            documentation_cache: std::sync::RwLock::new(None),
             info: RuntimeInfo {
                 runtime_version: env!("CARGO_PKG_VERSION").into(),
                 protocol_version: PROTOCOL_VERSION,
@@ -127,6 +130,7 @@ impl Runtime {
                 pending: VecDeque::new(),
                 running: HashMap::new(),
                 observed: HashMap::new(),
+                suppressed_previews: HashMap::new(),
             }),
             ui_language: std::sync::RwLock::new(None),
             parent_pid: Mutex::new(None),
@@ -227,6 +231,11 @@ impl Runtime {
         self.document_in_view(args.view_id, edit.document_id)?;
         let result = self.library.write_source(&args)?;
         self.observe(edit.document_id)?;
+        if !args.preview {
+            self.state()
+                .suppressed_previews
+                .insert(edit.document_id, result.source_hash.clone());
+        }
         Ok(result)
     }
 
