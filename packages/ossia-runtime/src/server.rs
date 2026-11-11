@@ -64,6 +64,10 @@ pub async fn serve(config: Config) -> Result<()> {
         }
     }
     let library = ossia_library::Library::open(&config.home)?;
+    ossia_integrations::launcher::publish(
+        library.home(),
+        &std::env::current_exe().map_err(storage)?,
+    )?;
     let ui_preferences = crate::preferences::load(library.home())?;
     let run = secure_run(library.home())?;
     let root = config.engine_root.clone();

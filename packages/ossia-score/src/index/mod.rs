@@ -57,6 +57,44 @@ impl ScoreIndex {
         self.voices.iter().find(|v| v.name == name)
     }
 
+    /// Count measures only when every rendered staff has a reliable source index.
+    /// Unused assignments do not contribute to the count.
+    pub fn measure_count(&self) -> Result<u32, String> {
+        if self.staves.is_empty() {
+            return Err(self
+                .reason
+                .clone()
+                .unwrap_or_else(|| "no reliable staff measure index".into()));
+        }
+        let mut count = 0;
+        for staff in &self.staves {
+            if staff.voices.is_empty() {
+                return Err(format!(
+                    "staff {} has no reliable voice index",
+                    staff.staff_index
+                ));
+            }
+            for name in &staff.voices {
+                let voice = self
+                    .voice(name)
+                    .ok_or_else(|| format!("unresolved voice: {name}"))?;
+                if voice.capability != LocationCapability::Measure {
+                    return Err(voice
+                        .reason
+                        .clone()
+                        .unwrap_or_else(|| format!("voice {name} cannot be reliably indexed")));
+                }
+                let end = voice
+                    .measures
+                    .last()
+                    .ok_or_else(|| format!("voice {name} has no indexed measures"))?
+                    .measure_end;
+                count = count.max(end);
+            }
+        }
+        Ok(count)
+    }
+
     pub(crate) fn measure_at(&self, byte: usize) -> Option<&Measure> {
         self.voices
             .iter()

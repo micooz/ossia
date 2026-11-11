@@ -276,7 +276,11 @@ pub struct ImportReport {
     pub source_hash: Option<ContentHash>,
     pub confirmation: Option<ContentHash>,
     pub confirmed: bool,
-    pub measures: u32,
+    /// Reliable source-index count; null when the score cannot be fully indexed.
+    pub measures: Option<u32>,
+    /// Why the source-index count is unavailable; independent of conversion status.
+    #[serde(default)]
+    pub measure_count_reason: Option<String>,
     pub voices: usize,
     pub note_events: usize,
     pub losses: Vec<String>,

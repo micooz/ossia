@@ -145,6 +145,13 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         ossia_library::Library::open(&home).err().unwrap().code,
         ErrorCode::LibraryBusy
     );
+    let published_cli = ossia_integrations::launcher::cli_path(&home);
+    let (exit, status) = cli(&published_cli, &home, &engine, "status", None).await;
+    assert_eq!(exit, 0);
+    assert_eq!(status["instanceId"], json!(discovery.runtime.instance_id));
+    let (exit, guide) = cli(&published_cli, &home, &engine, "guide", None).await;
+    assert_eq!(exit, 0);
+    assert_eq!(guide.as_str(), Some(GUIDE));
     let mut cmd = command(&executable, &home, &engine);
     cmd.arg("mcp");
     let client = ClientInfo::default()

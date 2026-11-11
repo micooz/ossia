@@ -295,6 +295,13 @@ fn management_autostart_set(app: tauri::AppHandle, enabled: bool) -> Result<bool
 }
 
 pub fn run(config: Result<server::Config>, show_main_window: bool) {
+    let config = config.and_then(|config| {
+        ossia_integrations::launcher::publish(
+            &config.home,
+            &std::env::current_exe().map_err(storage)?,
+        )?;
+        Ok(config)
+    });
     let initial_preferences = match &config {
         Ok(config) => preferences::initialize(config),
         Err(error) => Err(error.clone()),

@@ -3,6 +3,7 @@ mod codex;
 mod command;
 mod dsh;
 mod files;
+pub mod launcher;
 mod record;
 mod registry;
 mod resources;
@@ -379,7 +380,12 @@ impl Integrator {
     }
 
     pub(crate) fn skill(&self) -> Result<String, AppError> {
-        self.resources.read_text(Resource::Skill)
+        let command = launcher::guide_command(&self.home, &self.paths.launch_env);
+        let language = if cfg!(windows) { "powershell" } else { "sh" };
+        Ok(self.resources.read_text(Resource::Skill)?.replace(
+            "{{OSSIA_CLI_GUIDE}}",
+            &format!("```{language}\n{command}\n```"),
+        ))
     }
 
     pub(crate) fn icon(&self) -> Result<Vec<u8>, AppError> {

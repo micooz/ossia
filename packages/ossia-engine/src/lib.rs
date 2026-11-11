@@ -337,6 +337,10 @@ impl Engine {
             }
         }
         let index = ossia_score::build_index(&text);
+        let (measures, measure_count_reason) = match index.measure_count() {
+            Ok(count) => (Some(count), None),
+            Err(reason) => (None, Some(reason)),
+        };
         Ok(ImportReport {
             status,
             input_hash,
@@ -349,7 +353,8 @@ impl Engine {
             source_hash,
             confirmed: token.is_some() && confirmation == token.as_ref(),
             confirmation: token,
-            measures: index.max_measures,
+            measures,
+            measure_count_reason,
             voices: index.voices.len(),
             note_events: ossia_score::tokenize(index.source())
                 .iter()

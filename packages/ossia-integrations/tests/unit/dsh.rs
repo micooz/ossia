@@ -65,3 +65,58 @@ fn plugin_package_declares_both_halves_and_absolute_mcp_command() {
     assert!(patch.contains(&yaml_string(&integrator.executable().to_string_lossy())));
     assert!(patch.contains("ossia-dsh-plugin/skill"));
 }
+
+#[test]
+fn generated_skill_loads_with_host_metadata_and_disposes_registration() {
+    let (_root, integrator) = fixture();
+    let detected = DetectedAgent {
+        executable: std::env::current_exe().unwrap(),
+        version: "test".into(),
+        config_root: integrator.paths().dsh_home.clone(),
+        profile: "desktop",
+        env: BTreeMap::new(),
+    };
+    let ctx = AgentContext {
+        integrator: &integrator,
+        detected: &detected,
+    };
+    let files = plugin_files(&ctx).unwrap();
+    let loader = files
+        .iter()
+        .find(|file| file.kind == "skill-loader")
+        .unwrap();
+    let script = format!(
+        r#"
+import assert from 'node:assert/strict';
+{}
+assert.deepEqual(inject, ['skills']);
+let registered;
+let dispose;
+let disposed = false;
+apply({{
+  skills: {{ register(skill) {{
+    registered = skill;
+    return () => {{ disposed = true; }};
+  }} }},
+  effect(register) {{ dispose = register(); }}
+}});
+// DSH validates these fields when the model loads a registered skill.
+assert.equal(typeof registered.source, 'string');
+assert.equal(registered.name, 'ossia');
+assert.ok(registered.description.length > 0);
+assert.ok(registered.content.includes('ossia_status'));
+dispose();
+assert.ok(disposed);
+"#,
+        String::from_utf8_lossy(&loader.bytes)
+    );
+    let output = std::process::Command::new("node")
+        .args(["--input-type=module", "-e", &script])
+        .output()
+        .expect("Node is required to test the generated DSH plugin");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

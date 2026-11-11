@@ -8,6 +8,24 @@ use std::{
 
 const SOURCE: &str = "\\version \"2.26.0\"\n\\score { { c'1 } \\layout {} }\n";
 
+#[cfg(unix)]
+#[test]
+fn import_report_distinguishes_unavailable_measure_count_from_zero() {
+    let f = fixture();
+    for (source, expected) in [
+        ("Music = { c'1 | d'1 | } \\score { \\new Staff \\Music }", json!(2)),
+        ("Music = { c'1 | d'1 } \\score { \\new Staff \\Music }", Value::Null),
+        ("Music = { \\repeat unfold 2 { c'1 | } } \\score { \\new Staff \\Music }", Value::Null),
+        ("Unused = { c1 | c1 | c1 | } Music = { c'1 | } \\score { \\new Staff \\Music }", json!(1)),
+        ("Upper = { c'1 | } Lower = { c1 } \\score { << \\new Staff \\Upper \\new Staff \\Lower >> }", Value::Null),
+    ] {
+        let report = f.engine.convert(source.as_bytes(), InputFormat::Ly, None, &RunContext::default()).unwrap();
+        let report = serde_json::to_value(report).unwrap();
+        assert_eq!(report["measures"], expected, "{source}");
+        assert_eq!(report["measureCountReason"].is_string(), expected.is_null(), "{source}");
+    }
+}
+
 struct Fixture {
     _dir: tempfile::TempDir,
     root: PathBuf,

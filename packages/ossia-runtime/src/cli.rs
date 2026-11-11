@@ -79,6 +79,7 @@ pub enum IntegrateAction {
 impl Args {
     pub fn config(&self) -> Result<server::Config> {
         let executable = std::env::current_exe().map_err(storage)?;
+        let executable = ossia_integrations::launcher::resource_executable(&executable)?;
         let resources = resources_dir(&executable)?;
         let engine_root = self
             .engine_root
@@ -216,6 +217,12 @@ async fn run_integrate(
     action: IntegrateAction,
 ) -> Result<Option<serde_json::Value>> {
     let executable = std::env::current_exe().map_err(storage)?;
+    if matches!(
+        action,
+        IntegrateAction::Install { .. } | IntegrateAction::Sync
+    ) {
+        ossia_integrations::launcher::publish(&config.home, &executable)?;
+    }
     let mut paths = ossia_integrations::HostPaths::detected();
     paths.launch_env.insert(
         "OSSIA_ENGINE_ROOT".into(),
