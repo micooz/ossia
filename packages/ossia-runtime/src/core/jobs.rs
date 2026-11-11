@@ -335,31 +335,39 @@ impl Runtime {
             let notified = self.changed.notified();
             let tasks = {
                 let mut state = self.state();
-                let mut occupied: HashSet<_> =
-                    state.running.values().filter_map(|(doc, _)| *doc).collect();
-                let mut tasks = Vec::new();
-                let mut remaining = VecDeque::new();
-                while let Some(task) = state.pending.pop_front() {
-                    if state.running.len() < 2
-                        && task
-                            .job
-                            .document_id
-                            .is_none_or(|id| !occupied.contains(&id))
-                    {
-                        if let Some(id) = task.job.document_id {
-                            occupied.insert(id);
+                if self.maintenance.load(Ordering::Acquire) {
+                    None
+                } else {
+                    let mut occupied: HashSet<_> =
+                        state.running.values().filter_map(|(doc, _)| *doc).collect();
+                    let mut tasks = Vec::new();
+                    let mut remaining = VecDeque::new();
+                    while let Some(task) = state.pending.pop_front() {
+                        if state.running.len() < 2
+                            && task
+                                .job
+                                .document_id
+                                .is_none_or(|id| !occupied.contains(&id))
+                        {
+                            if let Some(id) = task.job.document_id {
+                                occupied.insert(id);
+                            }
+                            state.running.insert(
+                                task.job.job_id,
+                                (task.job.document_id, task.context.clone()),
+                            );
+                            tasks.push(task);
+                        } else {
+                            remaining.push_back(task);
                         }
-                        state.running.insert(
-                            task.job.job_id,
-                            (task.job.document_id, task.context.clone()),
-                        );
-                        tasks.push(task);
-                    } else {
-                        remaining.push_back(task);
                     }
+                    state.pending = remaining;
+                    Some(tasks)
                 }
-                state.pending = remaining;
-                tasks
+            };
+            let Some(tasks) = tasks else {
+                tokio::select! {_=notified=>{},_=tokio::time::sleep(Duration::from_millis(50))=>{}}
+                continue;
             };
             for task in tasks {
                 let runtime = self.clone();
@@ -383,6 +391,7 @@ impl Runtime {
                     if let Some(document) = document {
                         let _ = runtime.observe(document);
                     }
+                    runtime.maybe_cleanup_storage();
                     runtime.changed.notify_one();
                 });
             }

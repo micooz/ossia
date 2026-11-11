@@ -132,7 +132,7 @@ export async function mockScoreRuntime(
         runtime: {
           runtimeVersion: '0.1.0',
           protocolVersion: 1,
-          schemaVersion: 1,
+          schemaVersion: 2,
           instanceId: 'instance',
           home: '/synthetic/library',
           webBaseUrl: 'http://127.0.0.1',

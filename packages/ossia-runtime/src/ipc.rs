@@ -188,6 +188,7 @@ pub async fn call(endpoint: &str, method: &str, params: Value) -> Result<Value> 
     let response_timeout = match method {
         "docs" => Duration::from_secs(60),
         "import" | "check" | "restore" | "output" | "job" => Duration::from_secs(45),
+        "storage-cleanup" => Duration::from_secs(120),
         _ => Duration::from_secs(15),
     };
     let bytes = tokio::time::timeout(response_timeout, read_frame(&mut stream))
@@ -230,6 +231,14 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
         "doctor" => {
             let _: EmptyArgs = decode(params)?;
             value(runtime.doctor())
+        }
+        "storage-status" => {
+            let _: EmptyArgs = decode(params)?;
+            value(runtime.storage_status()?)
+        }
+        "storage-cleanup" => {
+            let _: EmptyArgs = decode(params)?;
+            value(runtime.storage_cleanup()?)
         }
         "list" => value(runtime.agent_list(decode(params)?)?),
         "open" => value(runtime.agent_open(decode::<OpenArgs>(params)?.document_id)?),

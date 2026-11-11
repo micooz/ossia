@@ -13,6 +13,8 @@
     "allow-management-preferences",
     "allow-management-preferences-change",
     "allow-management-autostart-set",
+    "allow-management-storage-status",
+    "allow-management-storage-cleanup",
     "core:window:allow-close",
     "core:window:allow-start-dragging",
     "core:window:allow-internal-toggle-maximize",

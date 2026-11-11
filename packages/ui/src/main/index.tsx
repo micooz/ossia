@@ -14,6 +14,9 @@ import type {
   ManagementPreferences,
   ManagementPreferencesChange,
   ManagementSnapshot,
+  StorageCacheLimit,
+  StorageCleanupReport,
+  StorageStatus,
   TrayClickAction,
   UiLanguage,
   UiTheme,
@@ -51,6 +54,8 @@ function Main() {
               theme: loaded.theme,
               language: detectedLanguage,
               trayClickAction: loaded.trayClickAction,
+              storageCacheLimit: loaded.storageCacheLimit,
+              storageAutoCleanup: loaded.storageAutoCleanup,
             } satisfies ManagementPreferencesChange,
           });
           if (live) setPreferences(initialized);
@@ -119,6 +124,9 @@ function MainContent({
   const [agents, setAgents] = useState<AgentsSnapshot | null>(null);
   const [agentProblems, setAgentProblems] = useState<AgentProblem[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
+  const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null);
+  const [storageResult, setStorageResult] = useState<StorageCleanupReport | null>(null);
+  const [storageBusy, setStorageBusy] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('ossia:management:last-page', page);
@@ -162,6 +170,31 @@ function MainContent({
     };
   }, [native]);
 
+  useEffect(() => {
+    if (!native) return;
+    if (page !== 'general' || !state?.runtime) {
+      setStorageStatus(null);
+      setStorageResult(null);
+      return;
+    }
+    let live = true;
+    const refresh = () => {
+      void invoke<StorageStatus>('management_storage_status')
+        .then((status) => {
+          if (live) setStorageStatus(status);
+        })
+        .catch((caught) => {
+          if (live) setPreferenceError(`${t('storageLoadFailed')}: ${describe(caught)}`);
+        });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 5000);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+    };
+  }, [native, page, state?.runtime?.instanceId, t]);
+
   async function action(command: 'management_start' | 'management_stop') {
     if (!native) return;
     setWorking(true);
@@ -201,12 +234,16 @@ function MainContent({
           theme: next.theme,
           language: next.language,
           trayClickAction: next.trayClickAction,
+          storageCacheLimit: next.storageCacheLimit,
+          storageAutoCleanup: next.storageAutoCleanup,
         } satisfies ManagementPreferencesChange,
       });
       setPreferences(saved);
+      return true;
     } catch (caught) {
       setPreferences(previous);
       setPreferenceError(`${t('saveFailed')}: ${describe(caught)}`);
+      return false;
     } finally {
       setPreferencesBusy(false);
     }
@@ -245,6 +282,50 @@ function MainContent({
     } finally {
       setPreferencesBusy(false);
     }
+  }
+
+  async function cleanStorage() {
+    if (!native || !state?.runtime || storageBusy) return;
+    setStorageBusy(true);
+    setPreferenceError('');
+    try {
+      const result = await invoke<StorageCleanupReport>('management_storage_cleanup');
+      setStorageResult(result);
+      setStorageStatus(await invoke<StorageStatus>('management_storage_status'));
+    } catch (caught) {
+      setPreferenceError(`${t('storageCleanupFailed')}: ${describe(caught)}`);
+    } finally {
+      setStorageBusy(false);
+    }
+  }
+
+  async function setStorageLimit(limit: StorageCacheLimit) {
+    if (!preferences || preferencesBusy || preferences.storageCacheLimit === limit) return;
+    const previous = preferences.storageCacheLimit;
+    const saved = await savePreferences({ ...preferences, storageCacheLimit: limit });
+    const rank: Record<StorageCacheLimit, number> = {
+      mib512: 0,
+      gib1: 1,
+      gib3: 2,
+      gib10: 3,
+    };
+    if (!saved || rank[limit] >= rank[previous] || !native || !state?.runtime) return;
+    setStorageBusy(true);
+    try {
+      setStorageResult(await invoke<StorageCleanupReport>('management_storage_cleanup'));
+      setStorageStatus(await invoke<StorageStatus>('management_storage_status'));
+    } catch (caught) {
+      if ((caught as { code?: string } | null)?.code !== 'conflict') {
+        setPreferenceError(`${t('storageCleanupFailed')}: ${describe(caught)}`);
+      }
+    } finally {
+      setStorageBusy(false);
+    }
+  }
+
+  async function setAutoCleanup(enabled: boolean) {
+    if (!preferences || preferencesBusy || preferences.storageAutoCleanup === enabled) return;
+    await savePreferences({ ...preferences, storageAutoCleanup: enabled });
   }
 
   async function changeAgents(agentIds: string[], enabled: boolean) {
@@ -396,6 +477,13 @@ function MainContent({
               onLanguage={(language) => void setLanguage(language)}
               onTrayClick={(action) => void setTrayClickAction(action)}
               onAutostart={(enabled) => void setAutostart(enabled)}
+              onStorageLimit={(limit) => void setStorageLimit(limit)}
+              onCleanup={() => void cleanStorage()}
+              onAutoCleanup={(enabled) => void setAutoCleanup(enabled)}
+              runtimeRunning={!!state?.runtime}
+              storage={storageStatus}
+              storageBusy={storageBusy}
+              storageResult={storageResult}
             />
           )}
           {page === 'about' && (

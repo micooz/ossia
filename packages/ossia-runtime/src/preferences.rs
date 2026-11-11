@@ -44,12 +44,46 @@ pub fn save(home: &Path, preferences: &UiPreferences) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{TrayClickAction, UiLanguage, UiTheme};
+    use crate::{StorageCacheLimit, TrayClickAction, UiLanguage, UiTheme};
 
     #[test]
     fn missing_file_uses_defaults() {
         let root = tempfile::tempdir().unwrap();
         assert_eq!(load(root.path()).unwrap(), UiPreferences::default());
+    }
+
+    #[test]
+    fn legacy_preferences_use_the_default_storage_limit() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(
+            path(root.path()),
+            br#"{"theme":"dark","language":null,"trayClickAction":"menu"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            load(root.path()).unwrap(),
+            UiPreferences {
+                theme: UiTheme::Dark,
+                language: None,
+                tray_click_action: TrayClickAction::Menu,
+                storage_cache_limit: StorageCacheLimit::Gib1,
+                storage_auto_cleanup: true,
+            }
+        );
+    }
+
+    #[test]
+    fn removed_two_gib_limit_migrates_to_three_gib() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(
+            path(root.path()),
+            br#"{"theme":"dark","language":null,"trayClickAction":"menu","storageCacheLimit":"gib2"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            load(root.path()).unwrap().storage_cache_limit,
+            StorageCacheLimit::Gib3
+        );
     }
 
     #[test]
@@ -59,6 +93,8 @@ mod tests {
             theme: UiTheme::Dark,
             language: Some(UiLanguage::ZhCn),
             tray_click_action: TrayClickAction::Menu,
+            storage_cache_limit: StorageCacheLimit::Gib10,
+            storage_auto_cleanup: false,
         };
         save(root.path(), &expected).unwrap();
         assert_eq!(load(root.path()).unwrap(), expected);

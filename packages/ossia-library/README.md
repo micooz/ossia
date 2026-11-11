@@ -8,7 +8,25 @@ Local document library: immutable source snapshots, public `score.ly` files, edi
 
 Schema 1 uses `library.sqlite`, SQLite application ID `0x4f535349`, WAL, foreign keys and FULL synchronization. Unknown markers or schema versions return `runtime-incompatible`.
 
-Public source is `documents/<documentId>/score.ly`. `original/input.ly`, `original/input.musicxml` or `original/input.mid` preserves the supplied input. Source bytes, including BOM and CRLF, are stored as gzip CAS objects in `contents/<SHA-256>.gz`; the hash addresses uncompressed bytes. Engine assets stay in the P02 namespace beneath `artifacts/`. Interrupted writes can leave unreferenced content or import directories; this module does not garbage-collect them.
+Public source is `documents/<documentId>/score.ly`. `original/input.ly`, `original/input.musicxml` or `original/input.mid` preserves the supplied input. Source bytes, including BOM and CRLF, are stored as gzip CAS objects in `contents/<SHA-256>.gz`; the hash addresses uncompressed bytes. Engine assets stay in the P02 namespace beneath `artifacts/`. Interrupted writes can leave unreferenced content or import directories; idle maintenance removes them.
+
+## Storage maintenance
+
+Schema 2 records job and render timestamps so maintenance can apply age and count
+retention without deleting current sources or committed versions. The runtime
+cleans regenerable data only: terminal jobs older than 30 days (or beyond 200 per
+document), render records older than 90 days (or beyond 500 per document), stale
+locks, abandoned imports, old scratch directories, and unreferenced content
+objects. Every document keeps its latest 20 jobs and renders, its current render,
+active edit receipts and open-view artifacts.
+
+The default `artifacts/` cache budget is 1 GiB and can be set to 512 MiB,
+3 GiB or 10 GiB. Exceeding the budget evicts the least-recently-used
+non-protected render records and their assets until usage falls to 75% of the
+limit. Version history, public source files and original imports are never
+pruned automatically. A core data directory above 5 GiB produces a warning in
+the management window. Automatic cleanup is enabled by default and can be
+disabled independently from manual cleanup.
 
 ## Import and editing
 

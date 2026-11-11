@@ -118,7 +118,7 @@ select:focus-visible {
 
 button:disabled,
 select:disabled {
-  cursor: default;
+  cursor: not-allowed;
   opacity: 0.55;
 }
 
@@ -534,10 +534,39 @@ code.setting-value {
   border-radius: 8px;
   background: var(--surface);
   font-size: 12px;
+  transition:
+    background-color 120ms ease,
+    transform 100ms ease;
 }
 
 .action-row button:hover:not(:disabled) {
   background: var(--hover-surface);
+}
+
+.action-row button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.action-row button.text-action {
+  padding-inline: 8px;
+  border-color: transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+.action-row button.text-action:hover:not(:disabled) {
+  background: var(--hover-surface);
+}
+
+.action-row button.text-action:disabled {
+  cursor: not-allowed;
+}
+
+.storage-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
 }
 
 .action-row button svg {
@@ -1032,6 +1061,10 @@ button.service-badge:hover {
 .settings-page .setting-note {
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+.settings-page .setting-note[data-tone='warn'] {
+  color: var(--warn);
 }
 
 .settings-page .settings-row > .setting-label {

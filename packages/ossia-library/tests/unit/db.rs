@@ -59,3 +59,63 @@ fn initialization_schema_and_writer_lock_are_isolated() {
         ErrorCode::RuntimeIncompatible
     );
 }
+
+#[test]
+fn schema_one_migration_preserves_documents_and_adds_storage_timestamps() {
+    let root = tempfile::tempdir().unwrap();
+    let document = {
+        let library = Library::open(root.path()).unwrap();
+        let engine = crate::test_support::TestEngine::default();
+        library
+            .import(
+                &engine,
+                ImportRequest {
+                    title: "migration",
+                    input: b"A c'1",
+                    format: InputFormat::Ly,
+                    confirmation: None,
+                    author: "test",
+                },
+                &RunContext::default(),
+            )
+            .unwrap()
+            .document
+            .unwrap()
+    };
+    {
+        let conn = Connection::open(root.path().join(storage::DATABASE)).unwrap();
+        conn.execute_batch(
+            "ALTER TABLE jobs DROP COLUMN updated_at;
+             ALTER TABLE jobs DROP COLUMN created_at;
+             ALTER TABLE renders DROP COLUMN last_used_at;
+             ALTER TABLE renders DROP COLUMN created_at;
+             PRAGMA user_version=1;",
+        )
+        .unwrap();
+    }
+    let library = Library::open(root.path()).unwrap();
+    let migrated = library.get_document(document.document_id).unwrap();
+    assert_eq!(migrated.title, "migration");
+    assert!(migrated.last_successful_render.is_some());
+    let conn = library.db().unwrap();
+    assert_eq!(
+        conn.pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))
+            .unwrap(),
+        SCHEMA_VERSION
+    );
+    for (table, column) in [
+        ("jobs", "created_at"),
+        ("jobs", "updated_at"),
+        ("renders", "created_at"),
+        ("renders", "last_used_at"),
+    ] {
+        let timestamp: i64 = conn
+            .query_row(
+                &format!("SELECT {column} FROM {table} LIMIT 1"),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(timestamp > 0, "{table}.{column}");
+    }
+}

@@ -461,6 +461,14 @@ pub struct UiPreferences {
     pub theme: UiTheme,
     pub language: Option<UiLanguage>,
     pub tray_click_action: TrayClickAction,
+    #[serde(default)]
+    pub storage_cache_limit: StorageCacheLimit,
+    #[serde(default = "default_storage_auto_cleanup")]
+    pub storage_auto_cleanup: bool,
+}
+
+fn default_storage_auto_cleanup() -> bool {
+    true
 }
 
 impl Default for UiPreferences {
@@ -469,6 +477,8 @@ impl Default for UiPreferences {
             theme: UiTheme::System,
             language: None,
             tray_click_action: TrayClickAction::Window,
+            storage_cache_limit: StorageCacheLimit::Gib1,
+            storage_auto_cleanup: true,
         }
     }
 }
@@ -480,6 +490,8 @@ pub struct ManagementPreferences {
     pub language: Option<UiLanguage>,
     pub tray_click_action: TrayClickAction,
     pub tray_click_action_editable: bool,
+    pub storage_cache_limit: StorageCacheLimit,
+    pub storage_auto_cleanup: bool,
     pub launch_at_login: bool,
     pub launch_at_login_editable: bool,
     pub app_version: String,
@@ -491,6 +503,8 @@ pub struct ManagementPreferencesChange {
     pub theme: UiTheme,
     pub language: Option<UiLanguage>,
     pub tray_click_action: TrayClickAction,
+    pub storage_cache_limit: StorageCacheLimit,
+    pub storage_auto_cleanup: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]

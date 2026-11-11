@@ -7,6 +7,8 @@ import type {
   ManagementPreferences,
   ManagementPreferencesChange,
   ManagementSnapshot,
+  StorageCleanupReport,
+  StorageStatus,
 } from '../../src/generated/protocol.ts';
 
 /** Install the management window bridge with isolated preferences and Agent state. */
@@ -16,6 +18,8 @@ export async function mockManagement(page: Page, { empty = false, initializing =
     language: 'zh-CN',
     trayClickAction: 'window',
     trayClickActionEditable: true,
+    storageCacheLimit: 'gib1',
+    storageAutoCleanup: true,
     launchAtLogin: false,
     launchAtLoginEditable: true,
     appVersion: '0.1.0',
@@ -67,12 +71,31 @@ export async function mockManagement(page: Page, { empty = false, initializing =
     syncing: false,
     error: null,
   };
-  const payload = JSON.stringify({ preferences, status, agents, initializing });
+  const storage: StorageStatus = {
+    home: '/tmp/ossia',
+    totalBytes: 1_500_000_000,
+    coreBytes: 1_400_000_000,
+    cacheBytes: 100_000_000,
+    cacheLimitBytes: 1_073_741_824,
+    databaseBytes: 10_000_000,
+    documentsBytes: 2_000_000,
+    contentsBytes: 3_000_000,
+    artifactsBytes: 100_000_000,
+    transientBytes: 0,
+    integrationsBytes: 1_000_000,
+    documentationBytes: 0,
+    jobCount: 42,
+    renderCount: 18,
+    coreWarning: false,
+    idle: true,
+  };
+  const payload = JSON.stringify({ preferences, status, agents, storage, initializing });
   await page.addInitScript((raw) => {
-    const { preferences, status, agents, initializing } = JSON.parse(raw) as {
+    const { preferences, status, agents, storage, initializing } = JSON.parse(raw) as {
       preferences: ManagementPreferences;
       status: ManagementSnapshot;
       agents: AgentsSnapshot;
+      storage: StorageStatus;
       initializing: boolean;
     };
     let callbackId = 0;
@@ -90,6 +113,25 @@ export async function mockManagement(page: Page, { empty = false, initializing =
           return { ...preferences };
         }
         if (command === 'management_status') return status;
+        if (command === 'management_storage_status') return status.runtime ? storage : null;
+        if (command === 'management_storage_cleanup') {
+          const report: StorageCleanupReport = {
+            freedBytes: 2_500_000,
+            removedJobs: 2,
+            removedRenders: 1,
+            removedContentObjects: 0,
+            removedCacheFiles: 3,
+            removedStagingDirs: 0,
+            overLimit: false,
+            warnings: [],
+          };
+          storage.cacheBytes = Math.max(0, storage.cacheBytes - report.freedBytes);
+          storage.totalBytes = Math.max(0, storage.totalBytes - report.freedBytes);
+          storage.artifactsBytes = storage.cacheBytes;
+          storage.jobCount = Math.max(0, storage.jobCount - report.removedJobs);
+          storage.renderCount = Math.max(0, storage.renderCount - report.removedRenders);
+          return report;
+        }
         if (command === 'management_agents_state') {
           if (initializing) {
             await new Promise<void>((resolve) => {
@@ -115,7 +157,7 @@ export async function mockManagement(page: Page, { empty = false, initializing =
           status.runtime = {
             runtimeVersion: '0.1.0',
             protocolVersion: 1,
-            schemaVersion: 1,
+            schemaVersion: 2,
             instanceId: 'test',
             home: status.home,
             webBaseUrl: 'http://127.0.0.1:3212',

@@ -59,7 +59,7 @@ fn latest_explicit_check_wins_and_preview_cannot_authorize_commit() {
 }
 
 #[test]
-fn existing_schema_adds_check_binding_without_trusting_old_receipts() {
+fn existing_schema_migrates_check_binding_without_trusting_old_receipts() {
     let root = tempfile::tempdir().unwrap();
     let library = Library::open(root.path()).unwrap();
     drop(library);
@@ -73,7 +73,7 @@ fn existing_schema_adds_check_binding_without_trusting_old_receipts() {
             .unwrap()
             .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        1
+        SCHEMA_VERSION
     );
     assert!(library.list_documents().unwrap().is_empty());
 }

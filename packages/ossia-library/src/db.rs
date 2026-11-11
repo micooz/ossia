@@ -23,6 +23,9 @@ where
 pub(crate) fn now() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
+pub(crate) fn now_millis() -> i64 {
+    chrono::Utc::now().timestamp_millis()
+}
 
 pub(crate) struct Document {
     pub id: DocumentId,
@@ -154,8 +157,8 @@ pub(crate) fn record_render(
     doc: DocumentId,
     render: &RenderManifest,
 ) -> Result<()> {
-    conn.execute("INSERT INTO renders(document_id,source_hash,engine_build_id,options_hash,body) VALUES (?1,?2,?3,?4,?5) ON CONFLICT(document_id,source_hash,engine_build_id,options_hash) DO UPDATE SET body=excluded.body",
-        params![doc.to_string(),render.source_hash.to_string(),render.engine_build_id,render.options_hash.to_string(),encode(render)?]).map_err(storage_error)?;
+    conn.execute("INSERT INTO renders(document_id,source_hash,engine_build_id,options_hash,body,created_at,last_used_at) VALUES (?1,?2,?3,?4,?5,?6,?6) ON CONFLICT(document_id,source_hash,engine_build_id,options_hash) DO UPDATE SET body=excluded.body,last_used_at=excluded.last_used_at",
+        params![doc.to_string(),render.source_hash.to_string(),render.engine_build_id,render.options_hash.to_string(),encode(render)?,now_millis()]).map_err(storage_error)?;
     Ok(())
 }
 
@@ -174,8 +177,8 @@ pub(crate) fn job(conn: &Connection, id: JobId) -> Result<Job> {
 
 pub(crate) fn save_job(conn: &Connection, value: &Job) -> Result<()> {
     let state = serde_json::to_value(value.state).map_err(storage_error)?;
-    conn.execute("INSERT INTO jobs(job_id,document_id,source_hash,state,body,kind) VALUES (?1,?2,?3,?4,?5,?6) ON CONFLICT(job_id) DO UPDATE SET state=excluded.state,body=excluded.body",
-        params![value.job_id.to_string(),value.document_id.map(|v|v.to_string()),value.source_hash.as_ref().map(|v|v.to_string()),state.as_str(),encode(value)?,value.kind]).map_err(storage_error)?;
+    conn.execute("INSERT INTO jobs(job_id,document_id,source_hash,state,body,kind,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?7) ON CONFLICT(job_id) DO UPDATE SET state=excluded.state,body=excluded.body,updated_at=excluded.updated_at",
+        params![value.job_id.to_string(),value.document_id.map(|v|v.to_string()),value.source_hash.as_ref().map(|v|v.to_string()),state.as_str(),encode(value)?,value.kind,now_millis()]).map_err(storage_error)?;
     Ok(())
 }
 

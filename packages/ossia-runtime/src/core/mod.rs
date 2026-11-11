@@ -13,6 +13,7 @@ use std::{
 use tokio::sync::Notify;
 
 mod jobs;
+mod storage;
 mod views;
 mod watch;
 use jobs::Pending;
@@ -59,6 +60,8 @@ pub struct Runtime {
     parent_pid: Mutex<Option<u32>>,
     pub changed: Notify,
     pub stopping: AtomicBool,
+    maintenance: AtomicBool,
+    last_maintenance: Mutex<Instant>,
 }
 
 fn secret() -> String {
@@ -117,6 +120,7 @@ impl Runtime {
                     "version-render".into(),
                     "output-reveal".into(),
                     "ui-language".into(),
+                    "storage".into(),
                 ],
             },
             library: Arc::new(library),
@@ -136,6 +140,8 @@ impl Runtime {
             parent_pid: Mutex::new(None),
             changed: Notify::new(),
             stopping: AtomicBool::new(false),
+            maintenance: AtomicBool::new(false),
+            last_maintenance: Mutex::new(Instant::now()),
         })
     }
 

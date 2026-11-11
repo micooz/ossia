@@ -384,7 +384,7 @@ fn ipc_handshake_rejects_wrong_home_schema_and_protocol() {
     let mut info = RuntimeInfo {
         runtime_version: "test".into(),
         protocol_version: PROTOCOL_VERSION,
-        schema_version: 1,
+        schema_version: SCHEMA_VERSION,
         instance_id: "test".into(),
         home: home.to_string_lossy().into_owned(),
         web_base_url: "http://127.0.0.1:3211".into(),
@@ -397,6 +397,6 @@ fn ipc_handshake_rejects_wrong_home_schema_and_protocol() {
         ErrorCode::RuntimeIncompatible
     );
     info.protocol_version = PROTOCOL_VERSION;
-    info.schema_version = 2;
+    info.schema_version = SCHEMA_VERSION + 1;
     assert!(ipc::verify_handshake(&home, &info).is_err());
 }

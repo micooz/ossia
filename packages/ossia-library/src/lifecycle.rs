@@ -32,18 +32,19 @@ impl Library {
                 storage_error(e)
             }
         })?;
-        if !storage::preflight(&store.home)? {
+        let previous_schema = storage::preflight(&store.home)?;
+        if previous_schema.is_none() {
             storage::initialize(&store)?;
         }
         let mut conn = Connection::open(store.path(storage::DATABASE)?).map_err(storage_error)?;
-        let schema: u32 = conn
+        let mut schema: u32 = conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(storage_error)?;
-        let has_check_job: bool = conn.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('check_receipts') WHERE name='job_id')",[],|r|r.get(0)).map_err(storage_error)?;
-        if schema == SCHEMA_VERSION && !has_check_job {
-            let tx = conn.transaction().map_err(storage_error)?;
-            tx.execute_batch("DELETE FROM check_receipts; ALTER TABLE check_receipts ADD COLUMN job_id TEXT REFERENCES jobs(job_id); ALTER TABLE check_requests ADD COLUMN edit_id TEXT REFERENCES edits(edit_id);").map_err(storage_error)?;
-            tx.commit().map_err(storage_error)?;
+        if schema < SCHEMA_VERSION {
+            storage::migrate(&mut conn, schema)?;
+            schema = conn
+                .pragma_query_value(None, "user_version", |r| r.get(0))
+                .map_err(storage_error)?;
         }
         if schema != SCHEMA_VERSION {
             return Err(AppError::new(

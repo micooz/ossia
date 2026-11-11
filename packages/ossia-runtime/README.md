@@ -12,6 +12,15 @@ pnpm dev:runtime
 
 `dev:runtime` explicitly selects the repository `.ossia`, port 3212, the prepared engine and UI dist, and permits `http://127.0.0.1:5173`. It does not start Vite or install resources. The runtime uses `library.sqlite` in the selected home. The P05 score SPA and Tauri main window consume the same local API; `pnpm dev:desktop` also drives the development service and Vite.
 
+On startup the runtime prunes abandoned imports, stale engine scratch data,
+expired jobs and render records, orphaned content and cache entries beyond the
+selected 512 MiB, 1 GiB, 3 GiB or 10 GiB limit. It repeats the cleanup every six hours
+and after idle work at most hourly. Cleanup waits for the job queue to become
+empty, and new jobs remain queued until it finishes. The management window reads
+the same status and can request cleanup over IPC; it never removes documents or
+version history automatically. Automatic cleanup is enabled by default and can
+be disabled in the management window without disabling manual cleanup.
+
 The binary is `target/debug/ossia-desktop`. Global options precede or follow the subcommand:
 
 ```sh

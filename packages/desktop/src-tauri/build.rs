@@ -12,6 +12,8 @@ fn main() {
             "management_preferences",
             "management_preferences_change",
             "management_autostart_set",
+            "management_storage_status",
+            "management_storage_cleanup",
         ]),
     ))
     .expect("build Tauri management permissions");

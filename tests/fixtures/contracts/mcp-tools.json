@@ -342,7 +342,7 @@
           "type": "boolean"
         },
         "author": {
-          "default": "agent",
+          "default": "Ossia",
           "type": "string"
         },
         "baseVersionId": {

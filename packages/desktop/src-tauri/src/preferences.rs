@@ -38,6 +38,8 @@ pub fn snapshot<R: tauri::Runtime>(
         language: preferences.language,
         tray_click_action: preferences.tray_click_action.effective(),
         tray_click_action_editable: !cfg!(target_os = "linux"),
+        storage_cache_limit: preferences.storage_cache_limit,
+        storage_auto_cleanup: preferences.storage_auto_cleanup,
         launch_at_login,
         launch_at_login_editable: !debug,
         app_version: app.package_info().version.to_string(),

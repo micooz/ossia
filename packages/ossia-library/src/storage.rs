@@ -135,13 +135,13 @@ pub(crate) fn ensure_directory(path: &Path) -> Result<()> {
 }
 
 /// Inspect the header without opening SQLite, which could create WAL sidecars.
-pub(crate) fn preflight(home: &Path) -> Result<bool> {
+pub(crate) fn preflight(home: &Path) -> Result<Option<u32>> {
     let database = home.join(DATABASE);
     let mut header = [0; 100];
     let exists = match fs::symlink_metadata(&database) {
         Ok(meta) if meta.file_type().is_file() => true,
         Ok(_) => return Err(storage_error("library database must be a regular file")),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(storage_error(e)),
     };
     let recognized = exists
@@ -151,15 +151,72 @@ pub(crate) fn preflight(home: &Path) -> Result<bool> {
             .is_ok()
         && &header[..16] == b"SQLite format 3\0"
         && u32::from_be_bytes(header[68..72].try_into().unwrap()) == APPLICATION_ID;
-    if (exists && !recognized)
-        || (recognized && u32::from_be_bytes(header[60..64].try_into().unwrap()) != SCHEMA_VERSION)
-    {
+    if !recognized {
         return Err(AppError::new(
             ErrorCode::RuntimeIncompatible,
             "unrecognized library database or schema",
         ));
     }
-    Ok(recognized)
+    let version = u32::from_be_bytes(header[60..64].try_into().unwrap());
+    if version == 0 || version > SCHEMA_VERSION {
+        return Err(AppError::new(
+            ErrorCode::RuntimeIncompatible,
+            "unsupported library schema",
+        ));
+    }
+    Ok(Some(version))
+}
+
+pub(crate) fn migrate(conn: &mut Connection, from: u32) -> Result<()> {
+    if from == 1 {
+        let has_check_job: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('check_receipts') WHERE name='job_id')",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(storage_error)?;
+        let tx = conn.transaction().map_err(storage_error)?;
+        if !has_check_job {
+            tx.execute_batch(
+                "DELETE FROM check_receipts;
+                 ALTER TABLE check_receipts ADD COLUMN job_id TEXT REFERENCES jobs(job_id);
+                 ALTER TABLE check_requests ADD COLUMN edit_id TEXT REFERENCES edits(edit_id);",
+            )
+            .map_err(storage_error)?;
+        }
+        let now = crate::db::now_millis();
+        for (table, columns) in [
+            ("jobs", ["created_at", "updated_at"]),
+            ("renders", ["created_at", "last_used_at"]),
+        ] {
+            for column in columns {
+                let exists: bool = tx
+                    .query_row(
+                        &format!(
+                            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('{table}') WHERE name=?1)"
+                        ),
+                        [column],
+                        |row| row.get(0),
+                    )
+                    .map_err(storage_error)?;
+                if !exists {
+                    tx.execute_batch(&format!(
+                        "ALTER TABLE {table} ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0"
+                    ))
+                    .map_err(storage_error)?;
+                }
+                tx.execute(
+                    &format!("UPDATE {table} SET {column}=?1 WHERE {column}=0"),
+                    [now],
+                )
+                .map_err(storage_error)?;
+            }
+        }
+        tx.commit().map_err(storage_error)?;
+    }
+    conn.pragma_update(None, "user_version", SCHEMA_VERSION)
+        .map_err(storage_error)
 }
 
 pub(crate) fn initialize(store: &Store) -> Result<()> {

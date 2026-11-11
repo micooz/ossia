@@ -6,7 +6,7 @@ mod window;
 use ossia_runtime::{
     ipc, server, AgentsChange, AgentsMutation, AgentsSnapshot, AppError, DoctorReport, ErrorCode,
     ManagementPreferences, ManagementPreferencesChange, ManagementSnapshot, Result,
-    TrayClickAction, UiLanguage, UiPreferences,
+    StorageCleanupReport, StorageStatus, TrayClickAction, UiLanguage, UiPreferences,
 };
 use serde_json::json;
 use std::{
@@ -270,6 +270,8 @@ async fn management_preferences_change(
         theme: change.theme,
         language: change.language,
         tray_click_action: change.tray_click_action,
+        storage_cache_limit: change.storage_cache_limit,
+        storage_auto_cleanup: change.storage_auto_cleanup,
     };
     tray::apply(&app, preferences::language(&next), next.tray_click_action)?;
     window::set_language(&app, preferences::language(&next))?;
@@ -296,6 +298,24 @@ async fn management_preferences_change(
 #[tauri::command]
 fn management_autostart_set(app: tauri::AppHandle, enabled: bool) -> Result<bool> {
     preferences::set_autostart(&app, enabled)
+}
+
+#[tauri::command]
+async fn management_storage_status(state: tauri::State<'_, Management>) -> Result<StorageStatus> {
+    let config = config(&state)?;
+    let discovery = ipc::connect(&config.home).await?;
+    let value = ipc::call(&discovery.endpoint, "storage-status", json!({})).await?;
+    serde_json::from_value(value).map_err(storage)
+}
+
+#[tauri::command]
+async fn management_storage_cleanup(
+    state: tauri::State<'_, Management>,
+) -> Result<StorageCleanupReport> {
+    let config = config(&state)?;
+    let discovery = ipc::connect(&config.home).await?;
+    let value = ipc::call(&discovery.endpoint, "storage-cleanup", json!({})).await?;
+    serde_json::from_value(value).map_err(storage)
 }
 
 pub fn run(config: Result<server::Config>, show_main_window: bool) {
@@ -363,7 +383,9 @@ pub fn run(config: Result<server::Config>, show_main_window: bool) {
             management_agents_change,
             management_preferences,
             management_preferences_change,
-            management_autostart_set
+            management_autostart_set,
+            management_storage_status,
+            management_storage_cleanup
         ])
         .build(tauri::generate_context!())
         .expect("error while building ossia desktop");

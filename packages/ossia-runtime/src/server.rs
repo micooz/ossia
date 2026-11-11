@@ -70,6 +70,11 @@ pub async fn serve(config: Config) -> Result<()> {
         &std::env::current_exe().map_err(storage)?,
     )?;
     let ui_preferences = crate::preferences::load(library.home())?;
+    if ui_preferences.storage_auto_cleanup {
+        if let Err(error) = library.storage_cleanup(ui_preferences.storage_cache_limit, &[]) {
+            eprintln!("ossia: startup storage cleanup failed: {error}");
+        }
+    }
     let run = secure_run(library.home())?;
     let root = config.engine_root.clone();
     let scratch = run.join("scratch");
@@ -113,6 +118,7 @@ pub async fn serve(config: Config) -> Result<()> {
         runtime.info.instance_id, runtime.info.web_base_url
     );
     let scheduler = tokio::spawn(runtime.clone().schedule());
+    let maintenance = tokio::spawn(runtime.clone().maintain_storage());
     let watch_runtime = runtime.clone();
     let watcher = tokio::spawn(async move {
         let result = watch_runtime.clone().watch().await;
@@ -144,6 +150,7 @@ pub async fn serve(config: Config) -> Result<()> {
         .await;
     let _ = runtime.stop();
     let _ = scheduler.await;
+    let _ = maintenance.await;
     let _ = watcher.await;
     let ipc_result = ipc_task.await.map_err(storage)?;
     if ipc::read_discovery(runtime.library.home())

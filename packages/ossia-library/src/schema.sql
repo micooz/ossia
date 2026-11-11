@@ -38,7 +38,9 @@ CREATE TABLE jobs (
     document_id TEXT REFERENCES documents(document_id),
     source_hash TEXT REFERENCES contents(hash),
     state TEXT NOT NULL CHECK(state IN ('queued','running','done','error','cancelled','interrupted')),
-    body TEXT NOT NULL
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
 );
 CREATE TABLE renders (
     document_id TEXT NOT NULL REFERENCES documents(document_id),
@@ -46,6 +48,8 @@ CREATE TABLE renders (
     engine_build_id TEXT NOT NULL,
     options_hash TEXT NOT NULL,
     body TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    last_used_at INTEGER NOT NULL,
     PRIMARY KEY(document_id,source_hash,engine_build_id,options_hash)
 );
 CREATE TABLE worktree_intents (

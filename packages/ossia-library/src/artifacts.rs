@@ -42,13 +42,22 @@ impl Library {
         let version = self.get_version(document, version)?;
         let options = CompileOptions::default();
         let options_hash = ContentHash::of(&serde_json::to_vec(&options).map_err(storage_error)?);
-        let cached: Option<String> = {
+        let cached: Option<(i64, String)> = {
             use rusqlite::OptionalExtension;
-            self.db()?.query_row("SELECT body FROM renders WHERE document_id=?1 AND source_hash=?2 AND engine_build_id=?3 AND options_hash=?4",
-                rusqlite::params![document.to_string(), version.source_hash.to_string(), engine.build_id(), options_hash.to_string()], |r| r.get(0)).optional().map_err(storage_error)?
+            let conn = self.db()?;
+            let cached = conn.query_row("SELECT rowid,body FROM renders WHERE document_id=?1 AND source_hash=?2 AND engine_build_id=?3 AND options_hash=?4",
+                rusqlite::params![document.to_string(), version.source_hash.to_string(), engine.build_id(), options_hash.to_string()], |r| Ok((r.get(0)?, r.get(1)?))).optional().map_err(storage_error)?;
+            if let Some((rowid, _)) = &cached {
+                conn.execute(
+                    "UPDATE renders SET last_used_at=?1 WHERE rowid=?2",
+                    rusqlite::params![db::now_millis(), rowid],
+                )
+                .map_err(storage_error)?;
+            }
+            cached
         };
         let snapshot = self.version_snapshot(version.version_id)?;
-        let render = if let Some(body) = cached {
+        let render = if let Some((_, body)) = cached {
             db::decode(body)?
         } else {
             engine.compile(&snapshot, &options, &self.artifact_root()?, context)?
@@ -96,20 +105,37 @@ impl Library {
     pub fn render(&self, key: &ContentHash) -> Result<(DocumentId, RenderManifest)> {
         let conn = self.db()?;
         let mut statement = conn
-            .prepare("SELECT document_id,body FROM renders")
+            .prepare("SELECT rowid,document_id,body FROM renders")
             .map_err(storage_error)?;
         let rows = statement
-            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                ))
+            })
             .map_err(storage_error)?;
+        let mut found = None;
         for row in rows {
-            let (document, body) = row.map_err(storage_error)?;
+            let (rowid, document, body) = row.map_err(storage_error)?;
             let document = db::parse(document)?;
             let render: RenderManifest = db::decode(body)?;
             if &render_key(document, &render) == key {
-                return Ok((document, render));
+                found = Some((rowid, document, render));
+                break;
             }
         }
-        Err(not_found())
+        drop(statement);
+        let Some((rowid, document, render)) = found else {
+            return Err(not_found());
+        };
+        conn.execute(
+            "UPDATE renders SET last_used_at=?1 WHERE rowid=?2",
+            rusqlite::params![db::now_millis(), rowid],
+        )
+        .map_err(storage_error)?;
+        Ok((document, render))
     }
 
     pub fn read_artifact(&self, asset: &ArtifactRef) -> Result<Vec<u8>> {

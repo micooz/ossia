@@ -6,7 +6,7 @@ use std::{fmt, fmt::Write as _, str::FromStr};
 use uuid::Uuid;
 
 pub const PROTOCOL_VERSION: u32 = 1;
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 macro_rules! identifier {
     ($($name:ident),+ $(,)?) => {$ (
@@ -495,6 +495,8 @@ pub struct CheckOutcome {
 
 mod runtime;
 pub use runtime::*;
+mod storage;
+pub use storage::*;
 mod integration;
 pub use integration::*;
 

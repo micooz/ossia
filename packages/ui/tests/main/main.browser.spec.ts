@@ -12,6 +12,7 @@ test('no ticket explains how to open; browser management cannot invoke native co
   await page.getByRole('button', { name: '服务未连接' }).click();
   await expect(page.getByRole('dialog', { name: '本地服务' })).toBeVisible();
   await expect(page.getByRole('button', { name: '启动服务' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '启动服务' })).toHaveCSS('cursor', 'not-allowed');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Agent', exact: true })).toHaveAttribute(
     'aria-current',
@@ -24,6 +25,7 @@ test('no ticket explains how to open; browser management cannot invoke native co
   await page.getByRole('button', { name: '常规' }).click();
   await expect(page.getByRole('heading', { name: '常规' })).toBeVisible();
   await expect(page.getByLabel('语言')).toBeDisabled();
+  await expect(page.getByLabel('语言')).toHaveCSS('cursor', 'not-allowed');
   await page.emulateMedia({ colorScheme: 'dark' });
   expect(
     await page.evaluate(() =>
@@ -69,6 +71,64 @@ test('management restores the last panel after reload and reopening the window',
   await reopened.getByRole('button', { name: 'Agent', exact: true }).click();
   await reopened.reload();
   await expect(reopened.getByRole('heading', { name: 'Agent 接入', exact: true })).toBeVisible();
+});
+
+test('storage settings show usage and run cleanup for the connected runtime', async ({ page }) => {
+  await mockManagement(page);
+  await page.goto('/main.html');
+  await page.getByRole('button', { name: '服务未连接' }).click();
+  const dialog = page.getByRole('dialog', { name: '本地服务' });
+  await dialog.getByRole('button', { name: '启动服务' }).click();
+  await expect(dialog.getByRole('button', { name: '停止服务', exact: true })).toBeEnabled();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '常规', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '存储' })).toBeVisible();
+  await expect(page.getByText('95 MiB / 1.0 GiB')).toBeVisible();
+  await expect(
+    page.getByText('42 条任务 · 18 条渲染记录 / 核心 1.3 GiB · 缓存 95 MiB · 临时 0 B'),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: '1 GB' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '3 GB' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '10 GB' })).toBeVisible();
+  const autoCleanup = page.getByRole('switch', { name: '自动清理' });
+  await expect(autoCleanup).toBeChecked();
+  await expect(autoCleanup).toHaveCSS('width', '38px');
+  await expect(autoCleanup).toHaveCSS('height', '22px');
+  await expect(autoCleanup).toHaveCSS('border-top-width', '0px');
+  await autoCleanup.click();
+  await expect(autoCleanup).not.toBeChecked();
+  await expect(page.getByText('自动清理已关闭，仍可手动清理。')).toBeVisible();
+  await expect(page.getByRole('button', { name: '立即清理' })).toBeEnabled();
+  await autoCleanup.click();
+  await expect(autoCleanup).toBeChecked();
+  const cleanup = page.getByRole('button', { name: '立即清理' });
+  await expect(cleanup).toHaveCSS('cursor', 'pointer');
+  const cleanupBackground = await cleanup.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  await cleanup.hover();
+  expect(await cleanup.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(
+    cleanupBackground,
+  );
+  await page.mouse.down();
+  await expect
+    .poll(() => cleanup.evaluate((element) => getComputedStyle(element).transform))
+    .toContain('matrix');
+  await page.mouse.move(0, 0);
+  await page.mouse.up();
+  await cleanup.click();
+  await expect(page.getByText('已释放 2.4 MiB；移除 2 条任务和 1 条渲染记录。')).toBeVisible();
+  await page.getByRole('button', { name: '512 MiB' }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as Window & { managementCommands?: string[] }).managementCommands?.filter(
+            (command) => command === 'management_storage_cleanup',
+          ).length,
+      ),
+    )
+    .toBeGreaterThan(1);
 });
 
 test('management shows details and target config paths only for connected agents', async ({
@@ -166,7 +226,9 @@ test('management shows details and target config paths only for connected agents
       if (name === '常规') {
         for (const row of await page.locator('.settings-page .settings-row').all()) {
           const label = await row.locator('.setting-label').boundingBox();
-          const control = await row.locator('.segmented, select, .switch').boundingBox();
+          const controlLocator = row.locator('.segmented, select, .switch');
+          if ((await controlLocator.count()) === 0) continue;
+          const control = await controlLocator.boundingBox();
           expect(control!.y).toBeLessThan(label!.y + label!.height);
           for (const button of await row.locator('.segment-button').all()) {
             expect(

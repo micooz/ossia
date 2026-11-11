@@ -11,6 +11,7 @@ mod music;
 mod recovery;
 mod source;
 mod storage;
+mod storage_manager;
 #[cfg(test)]
 #[path = "../tests/unit/support.rs"]
 mod test_support;
@@ -108,8 +109,16 @@ impl Library {
                 _ => DocumentEditState::Idle,
             }
         };
-        let current = conn.query_row("SELECT body FROM renders WHERE document_id=?1 AND source_hash=?2 ORDER BY rowid DESC LIMIT 1",
-            params![id.to_string(),snapshot.source_hash().to_string()],|r|r.get::<_,String>(0)).optional().map_err(storage_error)?;
+        let current_row = conn.query_row("SELECT rowid,body FROM renders WHERE document_id=?1 AND source_hash=?2 ORDER BY rowid DESC LIMIT 1",
+            params![id.to_string(),snapshot.source_hash().to_string()],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?))).optional().map_err(storage_error)?;
+        if let Some((rowid, _)) = &current_row {
+            conn.execute(
+                "UPDATE renders SET last_used_at=?1 WHERE rowid=?2",
+                params![db::now_millis(), rowid],
+            )
+            .map_err(storage_error)?;
+        }
+        let current = current_row.map(|(_, body)| body);
         let fallback = if current.is_none() {
             conn.query_row(
                 "SELECT last_render FROM documents WHERE document_id=?1",
