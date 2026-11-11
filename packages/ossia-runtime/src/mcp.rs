@@ -15,12 +15,26 @@ job IDs and ossia_job; use section paging instead of full job results. Use \
 ossia_output for preview/export files. The browser score page is optional.";
 
 fn schema<T: schemars::JsonSchema>() -> serde_json::Map<String, serde_json::Value> {
-    let schema = schemars::schema_for!(T);
-    serde_json::to_value(schema)
+    let mut schema = serde_json::to_value(schemars::schema_for!(T))
         .expect("schema serialization")
         .as_object()
         .expect("object schema")
-        .clone()
+        .clone();
+    // MCP clients require an object at the schema root; tagged enum arguments
+    // otherwise serialize as a root-level oneOf.
+    if !schema.contains_key("type")
+        && schema
+            .get("oneOf")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|variants| {
+                variants.iter().all(|variant| {
+                    variant.get("type").and_then(serde_json::Value::as_str) == Some("object")
+                })
+            })
+    {
+        schema.insert("type".into(), "object".into());
+    }
+    schema
 }
 
 fn tool<T: schemars::JsonSchema>(
@@ -227,5 +241,8 @@ mod tests {
         );
         assert!(tools.iter().all(|tool| tool.output_schema.is_none()));
         assert!(tools.iter().all(|tool| tool.annotations.is_some()));
+        assert!(tools.iter().all(|tool| {
+            tool.input_schema.get("type").and_then(Value::as_str) == Some("object")
+        }));
     }
 }

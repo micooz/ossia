@@ -161,10 +161,9 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         .unwrap();
     let tools = client.list_all_tools().await.unwrap();
     assert_eq!(tools.len(), mcp::tools().len());
-    assert!(tools.iter().all(|t| {
-        t.input_schema.get("type").and_then(Value::as_str) == Some("object")
-            || t.input_schema.contains_key("oneOf")
-    }));
+    assert!(tools
+        .iter()
+        .all(|t| t.input_schema.get("type").and_then(Value::as_str) == Some("object")));
     assert!(call(&client, "ossia_guide", json!({}))
         .await
         .as_str()

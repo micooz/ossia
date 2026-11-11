@@ -659,7 +659,8 @@
           "type": "object"
         }
       ],
-      "title": "DocsRequest"
+      "title": "DocsRequest",
+      "type": "object"
     },
     "annotations": {
       "readOnlyHint": true,

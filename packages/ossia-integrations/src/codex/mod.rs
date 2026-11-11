@@ -164,7 +164,10 @@ pub(super) fn plugin_files(ctx: &AgentContext) -> Result<Vec<FilePlan>, AppError
 }
 
 pub(super) fn plugin_entry(ctx: &AgentContext) -> Result<Option<Value>, AppError> {
-    let text = run(ctx, &["plugin", "list", "--json"])?;
+    let text = run(
+        ctx,
+        &["plugin", "list", "--json", "--marketplace", MARKETPLACE],
+    )?;
     let value: Value = serde_json::from_str(&text).map_err(|error| {
         AppError::new(
             ErrorCode::RuntimeUnavailable,

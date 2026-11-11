@@ -56,3 +56,39 @@ fn plugin_files_point_to_the_absolute_runtime_and_shared_root() {
         .iter()
         .all(|file| file.path.starts_with(integrator.shared_root())));
 }
+
+#[cfg(unix)]
+#[test]
+fn plugin_status_only_lists_the_owned_marketplace() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let (root, integrator) = fixture();
+    let host = root.path().join("codex");
+    let args = root.path().join("arguments.txt");
+    std::fs::write(
+        &host,
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$OSSIA_TEST_ARGS\"\nprintf '{\"installed\":[]}'\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&host, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let detected = DetectedAgent {
+        executable: host,
+        version: "test".into(),
+        config_root: integrator.paths().codex_home.clone(),
+        profile: "default",
+        env: BTreeMap::from([(
+            "OSSIA_TEST_ARGS".into(),
+            args.to_string_lossy().into_owned(),
+        )]),
+    };
+    let ctx = AgentContext {
+        integrator: &integrator,
+        detected: &detected,
+    };
+
+    assert!(plugin_entry(&ctx).unwrap().is_none());
+    assert_eq!(
+        std::fs::read_to_string(args).unwrap(),
+        "plugin\nlist\n--json\n--marketplace\nossia-local\n"
+    );
+}
