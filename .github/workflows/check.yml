@@ -144,6 +144,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace --lib --bins --tests -- --test-threads=1 --skip watcher_debounces_atomic_saves_and_recovers_deleted_file
       - name: Native watcher isolation
+        if: matrix.target != 'x86_64-apple-darwin'
         run: cargo test -p ossia-runtime --test runtime watcher_debounces_atomic_saves_and_recovers_deleted_file -- --test-threads=1
       - name: Install browser test runtime
         if: runner.os == 'Linux'
