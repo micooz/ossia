@@ -64,6 +64,67 @@ pub(crate) fn summarize_job(mut job: Job) -> Job {
 }
 
 impl Runtime {
+    pub fn initialize_documentation(&self, resources: &std::path::Path) {
+        *self
+            .documentation_resources
+            .write()
+            .expect("documentation resource lock poisoned") = Some(resources.to_owned());
+    }
+    pub fn documentation_status(&self) -> DocumentationStatus {
+        match &*self
+            .documentation
+            .read()
+            .expect("documentation lock poisoned")
+        {
+            Ok(docs) => docs.status(),
+            Err(error) => ossia_library::Documentation::unavailable(error.clone()),
+        }
+    }
+    pub fn docs(&self, args: DocsArgs) -> Result<DocsOutcome> {
+        let mut documentation = self
+            .documentation
+            .write()
+            .expect("documentation lock poisoned");
+        if documentation.is_err() {
+            let resources = self
+                .documentation_resources
+                .read()
+                .expect("documentation resource lock poisoned")
+                .clone()
+                .ok_or_else(|| invalid("offline documentation is not configured"))?;
+            *documentation = ossia_library::Documentation::install(self.library.home(), &resources);
+        }
+        documentation
+            .as_ref()
+            .map_err(Clone::clone)
+            .and_then(|docs| docs.query(args))
+    }
+    pub fn doctor(&self) -> DoctorReport {
+        let documentation = self
+            .documentation_resources
+            .read()
+            .expect("documentation resource lock poisoned")
+            .as_ref()
+            .map_or_else(
+                || self.documentation_status(),
+                |resources| ossia_library::Documentation::inspect(resources),
+            );
+        DoctorReport {
+            home: self.library.home().to_string_lossy().into_owned(),
+            engine: EngineHealth {
+                ok: true,
+                build_id: Some(self.engine.build_id().into()),
+                error: None,
+            },
+            runtime: RuntimeHealth {
+                ok: true,
+                info: Some(self.info.clone()),
+                error: None,
+            },
+            documentation: Some(documentation),
+        }
+    }
+
     pub fn agent_status(&self, args: StatusArgs) -> Result<Value> {
         if args.detail == DetailLevel::Full {
             return value(self.status()?);

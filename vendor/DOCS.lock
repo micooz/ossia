@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "version": "2.26.0",
+  "formatVersion": 1,
+  "language": "en",
+  "url": "https://gitlab.com/lilypond/lilypond/-/releases/v2.26.0/downloads/lilypond-2.26.0-documentation.tar.xz",
+  "file": "lilypond-2.26.0-documentation.tar.xz",
+  "sha256": "a0eb14bb70454510c49a40addc61bc30d5fadf5ee1cb042c2ebebc13e16cbf66",
+  "archiveRoot": "share/doc/lilypond/html",
+  "manuals": ["learning", "notation", "snippets", "usage", "internals", "extending", "music-glossary"],
+  "extraction": "filtered English HTML and referenced assets, original notices, and SQLite FTS5"
+}

@@ -11,7 +11,7 @@ import {
   parseTag,
   rpmBundleConfig,
   setVersion,
-} from './version.mjs';
+} from '../../../scripts/release/version.mjs';
 
 void test('release tags parse stable and numbered beta versions', () => {
   assert.equal(parseTag('v0.1.0'), '0.1.0');

@@ -21,6 +21,8 @@ const child = spawn(
     '3212',
     '--engine-root',
     candidateRoots(root).roots[0].dir,
+    '--docs-root',
+    path.join(root, 'vendor/docs/lilypond/2.26.0'),
     '--static-dir',
     path.join(root, 'packages/ui/dist'),
     '--dev-origin',

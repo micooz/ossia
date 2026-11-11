@@ -18,6 +18,7 @@ async fn status_before_runtime_discovery_is_not_an_error() {
         home: root.path().into(),
         port: 0,
         engine_root: root.path().join("engine"),
+        docs_root: root.path().join("docs"),
         static_dir: None,
         dev_origin: None,
     };

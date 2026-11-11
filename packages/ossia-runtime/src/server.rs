@@ -12,6 +12,7 @@ pub struct Config {
     pub port: u16,
     pub engine_root: PathBuf,
     pub static_dir: Option<PathBuf>,
+    pub docs_root: PathBuf,
     pub dev_origin: Option<String>,
 }
 
@@ -87,6 +88,7 @@ pub async fn serve(config: Config) -> Result<()> {
         })?;
     let url = format!("http://{}", listener.local_addr().map_err(storage)?);
     let runtime = Runtime::new(library, Arc::new(engine), url);
+    runtime.initialize_documentation(&config.docs_root);
     runtime.initialize_ui_language(ui_preferences.language);
     watch_parent(runtime.clone());
     let endpoint = ipc::endpoint(runtime.library.home())?;
@@ -188,6 +190,7 @@ async fn ensure_runtime_inner(
         .arg(config.port.to_string())
         .arg("--engine-root")
         .arg(&config.engine_root);
+    command.arg("--docs-root").arg(&config.docs_root);
     if let Some(dir) = &config.static_dir {
         command.arg("--static-dir").arg(dir);
     }
@@ -333,6 +336,7 @@ pub async fn doctor(config: &Config) -> Result<DoctorReport> {
     .map_err(storage)?;
     let discovery = ipc::connect(&config.home).await;
     Ok(DoctorReport {
+        documentation: Some(ossia_library::Documentation::inspect(&config.docs_root)),
         home: config.home.to_string_lossy().into_owned(),
         engine: match resource {
             Ok(id) => EngineHealth {

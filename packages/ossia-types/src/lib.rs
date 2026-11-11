@@ -504,3 +504,6 @@ pub use music::*;
 
 mod agent;
 pub use agent::*;
+
+mod docs;
+pub use docs::*;

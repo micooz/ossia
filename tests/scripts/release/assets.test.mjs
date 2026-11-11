@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { assetName, collectRelease, INSTALL_ASSETS } from './assets.mjs';
+import { assetName, collectRelease, INSTALL_ASSETS } from '../../../scripts/release/assets.mjs';
 
 void test('Tauri output names map to the public asset contract', () => {
   assert.equal(assetName('Ossia_0.1.0_aarch64-apple-darwin.dmg'), 'ossia-darwin-arm64.dmg');

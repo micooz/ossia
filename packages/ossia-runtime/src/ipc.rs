@@ -185,7 +185,12 @@ pub async fn call(endpoint: &str, method: &str, params: Value) -> Result<Value> 
         },
     )
     .await?;
-    let bytes = tokio::time::timeout(Duration::from_secs(15), read_frame(&mut stream))
+    let response_timeout = if matches!(method, "docs" | "artifact") {
+        Duration::from_secs(60)
+    } else {
+        Duration::from_secs(15)
+    };
+    let bytes = tokio::time::timeout(response_timeout, read_frame(&mut stream))
         .await
         .map_err(|_| AppError::new(ErrorCode::RuntimeUnavailable, "runtime did not respond"))??;
     let response: RpcResponse = serde_json::from_slice(&bytes).map_err(storage)?;
@@ -219,9 +224,10 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
         }
         "status" => runtime.agent_status(decode(params)?),
         "analysis" => value(runtime.analysis(decode(params)?)?),
+        "docs" => value(runtime.docs(decode(params)?)?),
         "doctor" => {
             let _: EmptyArgs = decode(params)?;
-            value(runtime.status()?)
+            value(runtime.doctor())
         }
         "list" => {
             let _: EmptyArgs = decode(params)?;

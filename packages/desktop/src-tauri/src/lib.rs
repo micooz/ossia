@@ -87,6 +87,10 @@ fn integrator(config: &server::Config) -> Result<ossia_integrations::Integrator>
     let executable = std::env::current_exe().map_err(storage)?;
     let mut paths = ossia_integrations::HostPaths::detected();
     paths.launch_env.insert(
+        "OSSIA_DOCS_ROOT".into(),
+        config.docs_root.to_string_lossy().into_owned(),
+    );
+    paths.launch_env.insert(
         "OSSIA_ENGINE_ROOT".into(),
         config.engine_root.to_string_lossy().into_owned(),
     );

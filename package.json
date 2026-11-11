@@ -18,14 +18,17 @@
     "generate:contracts": "cargo run --quiet -p ossia-runtime --bin generate-contracts --",
     "generate:types": "cargo run --quiet -p ossia-types --bin generate-types --",
     "package": "node scripts/package.mjs",
-    "setup": "pnpm install && pnpm engine:install",
-    "test:engine": "node --test scripts/engine.test.mjs",
-    "test:package": "node --test scripts/package.test.mjs",
-    "test:release": "node --test scripts/release/version.test.mjs scripts/release/tags.test.mjs scripts/release/assets.test.mjs scripts/release/notes.test.mjs",
+    "setup": "pnpm install && pnpm engine:install && pnpm docs:prepare",
+    "test:engine": "node --test tests/scripts/engine.test.mjs",
+    "test:package": "node --test tests/scripts/package.test.mjs",
+    "test:release": "node --test tests/scripts/release/version.test.mjs tests/scripts/release/tags.test.mjs tests/scripts/release/assets.test.mjs tests/scripts/release/notes.test.mjs",
     "test:ui": "pnpm --filter @ossia/ui test",
-    "test:ui:native": "pnpm --filter @ossia/ui test:native"
+    "test:ui:native": "pnpm --filter @ossia/ui test:native",
+    "docs:prepare": "node --no-warnings=ExperimentalWarning scripts/docs.mjs --download",
+    "test:docs": "node --no-warnings=ExperimentalWarning --test tests/scripts/docs.test.mjs"
   },
   "devDependencies": {
+    "parse5": "^8.1.1",
     "vite-plus": "^1.5.1"
   },
   "engines": {

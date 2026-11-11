@@ -166,6 +166,9 @@ importers:
 
   .:
     devDependencies:
+      parse5:
+        specifier: ^8.1.1
+        version: 8.1.1
       vite-plus:
         specifier: ^1.5.1
         version: 1.5.1(@types/node@26.6.4)(@vitest/ui@5.1.0)(playwright@1.65.0)(typescript@5.9.3)
@@ -1027,6 +1030,10 @@ packages:
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
 
+  entities@9.0.0:
+    resolution: {integrity: sha512-oJFNDJg3kTPwAD1cNn2+WmUq4wFoo09npc3Ydf1D7ED4smRiWrsKnaLxykrTWgyGEcusc87P5dxlAleol9kpkg==}
+    engines: {node: '>=20.19.0'}
+
   es-module-lexer@2.3.2:
     resolution: {integrity: sha512-poHGpORABojJJucnV9KbOavETW8lBVnphkW77ER5/BQ5Fz7oXSoCNek7IH3vR5nRjdsEz926ibFYX8KtLQmdyw==}
 
@@ -1195,6 +1202,9 @@ packages:
         optional: true
       vite-plus:
         optional: true
+
+  parse5@8.1.1:
+    resolution: {integrity: sha512-EcR/6WDcU7b2N3vQSxKALCk9lXGtUMQxXio008OEMBE0kavu/7JLfBEeFPzi43nMqVDSbEn3QCK+BMCc9zO//w==}
 
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
@@ -1905,6 +1915,8 @@ snapshots:
 
   dom-accessibility-api@0.5.16: {}
 
+  entities@9.0.0: {}
+
   es-module-lexer@2.3.2: {}
 
   estree-walker@3.0.3:
@@ -2050,6 +2062,10 @@ snapshots:
       '@oxlint/binding-win32-x64-msvc': 1.91.0
       oxlint-tsgolint: 7.0.2005
       vite-plus: 1.5.1(@types/node@26.6.4)(@vitest/ui@5.1.0)(playwright@1.65.0)(typescript@5.9.3)
+
+  parse5@8.1.1:
+    dependencies:
+      entities: 9.0.0
 
   pathe@2.0.3: {}
 

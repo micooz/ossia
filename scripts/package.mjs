@@ -217,6 +217,7 @@ function notices(manifest) {
     `Ossia ${manifest.appVersion} (${manifest.target})`,
     '',
     'The LilyPond engine and its complete license tree are included under `licenses/engine/`.',
+    'Offline LilyPond manuals and their original notices are included under `docs/` and `licenses/documentation/`.',
     'Ossia itself is GPL-3.0-or-later; the full license text is `licenses/Ossia-GPL-3.0-or-later.txt`.',
     '',
   ];
@@ -279,7 +280,24 @@ function materials(stage, target, entry, sourceArchive) {
   const dependencyLock = JSON.parse(
     fs.readFileSync(path.join(ROOT, 'vendor/ENGINE.dependencies.json'), 'utf8'),
   );
+  const documentation = JSON.parse(fs.readFileSync(path.join(ROOT, 'vendor/DOCS.lock'), 'utf8'));
+  const docsManifest = JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'vendor/docs/lilypond/2.26.0/manifest.json'), 'utf8'),
+  );
+  if (
+    documentation.version !== entry.version ||
+    docsManifest.archiveSha256 !== documentation.sha256
+  )
+    throw new Error('documentation does not match the packaged engine');
+  const docsLicenses = path.join(licenses, 'documentation');
+  fs.mkdirSync(docsLicenses, { recursive: true });
+  for (const file of fs.readdirSync(path.join(ROOT, 'vendor/docs/lilypond/2.26.0/notices')))
+    fs.copyFileSync(
+      path.join(ROOT, 'vendor/docs/lilypond/2.26.0/notices', file),
+      path.join(docsLicenses, file),
+    );
   const manifest = {
+    documentation: { ...documentation, contentHash: docsManifest.contentHash },
     schemaVersion: 1,
     appVersion: APP_VERSION,
     target,
@@ -338,6 +356,7 @@ function overlay(stage, target, entry) {
       resources: {
         [`${engine}${path.sep}`]: 'engine',
         [`${ui}${path.sep}`]: 'ui',
+        [`${path.join(ROOT, 'vendor/docs/lilypond/2.26.0')}${path.sep}`]: 'docs/lilypond/2.26.0',
         [`${licenses}${path.sep}`]: 'licenses',
       },
     },

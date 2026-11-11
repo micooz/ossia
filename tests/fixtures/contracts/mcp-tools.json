@@ -274,6 +274,61 @@
     }
   },
   {
+    "name": "ossia_docs",
+    "description": "Search or read the bundled offline LilyPond documentation matching this engine.",
+    "inputSchema": {
+      "$defs": {
+        "DocsAction": {
+          "description": "Offline reference operation.",
+          "enum": [
+            "search",
+            "read"
+          ],
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Search keywords or read one stable chapter ID with character-based pagination.",
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/DocsAction"
+        },
+        "chapterId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "default": 0,
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "query": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "DocsArgs",
+      "type": "object"
+    }
+  },
+  {
     "name": "ossia_analysis",
     "description": "Read paginated notes, written pitch events or verification differences from a fixed check.",
     "inputSchema": {

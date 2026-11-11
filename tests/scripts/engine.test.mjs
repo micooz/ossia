@@ -12,11 +12,11 @@ import {
   readLock,
   verifyTree,
   writeInventory,
-} from './engine.mjs';
+} from '../../scripts/engine.mjs';
 
 await test('five-target lock declares actual launchers and refuses unbuilt ARM64 packages', async () => {
   const lock = parseLock(
-    fs.readFileSync(new URL('../vendor/ENGINE.lock', import.meta.url), 'utf8'),
+    fs.readFileSync(new URL('../../vendor/ENGINE.lock', import.meta.url), 'utf8'),
   );
   assert.equal(Object.keys(lock.targets).length, 5);
   assert.equal(lock.targets['mingw-x86_64'].tools.musicxml2ly.program, 'bin/python.exe');
@@ -63,7 +63,7 @@ await test('missing or corrupted archive never destroys an existing engine', asy
   try {
     fs.mkdirSync(path.join(root, 'vendor'));
     fs.copyFileSync(
-      new URL('../vendor/ENGINE.lock', import.meta.url),
+      new URL('../../vendor/ENGINE.lock', import.meta.url),
       path.join(root, 'vendor/ENGINE.lock'),
     );
     const lock = readLock(root);

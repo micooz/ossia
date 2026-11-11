@@ -36,6 +36,7 @@ pub fn tools() -> Vec<Tool> {
     tool::<ContextArgs>("ossia_context","Read this explicit view's document, selection, source spans and event cursor."),
     tool::<EditArgs>("ossia_edit","Explicitly begin, resume, end, discard or acknowledge recovery; keep editId private."),
     tool::<WriteSourceArgs>("ossia_write_source","Atomically replace the active owned edit source and return its computed hash."),
+    tool::<DocsArgs>("ossia_docs","Search or read the bundled offline LilyPond documentation matching this engine."),
     tool::<AnalysisArgs>("ossia_analysis","Read paginated notes, written pitch events or verification differences from a fixed check."),
     tool::<ArtifactArgs>("ossia_artifact","Queue a verified SVG, PNG, MIDI or PDF from a completed import/check snapshot."),
     tool::<CheckArgs>("ossia_check","Queue a check of exact expectedSourceHash; editId binds successful checks to commit."),

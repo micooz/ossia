@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { CHINESE_MARKER, splitBilingualNotes } from './notes.mjs';
+import { CHINESE_MARKER, splitBilingualNotes } from '../../../scripts/release/notes.mjs';
 
 void test('bilingual DeepSeek notes require matching category order', () => {
   const notes = `## Features

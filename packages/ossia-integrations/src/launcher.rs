@@ -133,6 +133,7 @@ pub(crate) fn guide_command(home: &Path, env: &BTreeMap<String, String>) -> Stri
     for (key, flag) in [
         ("OSSIA_ENGINE_ROOT", "--engine-root"),
         ("OSSIA_STATIC_DIR", "--static-dir"),
+        ("OSSIA_DOCS_ROOT", "--docs-root"),
     ] {
         if let Some(value) = env.get(key) {
             args.extend([flag.into(), value.clone()]);

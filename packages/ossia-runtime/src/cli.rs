@@ -15,6 +15,8 @@ pub struct Args {
     #[arg(long, global = true)]
     pub static_dir: Option<PathBuf>,
     #[arg(long, global = true)]
+    pub docs_root: Option<PathBuf>,
+    #[arg(long, global = true)]
     pub dev_origin: Option<String>,
     #[arg(long, global = true, hide = true)]
     pub no_main_window: bool,
@@ -39,6 +41,9 @@ pub enum Command {
     },
     /// Each operation accepts the same JSON object as its MCP tool.
     WriteSource {
+        json: String,
+    },
+    Docs {
         json: String,
     },
     Analysis {
@@ -106,7 +111,16 @@ impl Args {
             .static_dir
             .clone()
             .or_else(|| Some(resources.join("ui")));
+        let docs_root = self
+            .docs_root
+            .clone()
+            .or_else(|| std::env::var_os("OSSIA_DOCS_ROOT").map(PathBuf::from))
+            .unwrap_or_else(|| resources.join("docs/lilypond/2.26.0"));
+        if !docs_root.is_absolute() {
+            return Err(invalid("docs root must be absolute"));
+        }
         Ok(server::Config {
+            docs_root,
             home: server::resolve_home(self.home.clone())?,
             port: self.port,
             engine_root,
@@ -207,6 +221,7 @@ pub async fn run(args: Args) -> Result<Option<serde_json::Value>> {
                 Command::Status { json } => ("status", json),
                 Command::List => ("list", "{}".into()),
                 Command::WriteSource { json } => ("write_source", json),
+                Command::Docs { json } => ("docs", json),
                 Command::Analysis { json } => ("analysis", json),
                 Command::Artifact { json } => ("artifact", json),
                 Command::Import { json } => ("import", json),
@@ -239,6 +254,10 @@ async fn run_integrate(
         ossia_integrations::launcher::publish(&config.home, &executable)?;
     }
     let mut paths = ossia_integrations::HostPaths::detected();
+    paths.launch_env.insert(
+        "OSSIA_DOCS_ROOT".into(),
+        config.docs_root.to_string_lossy().into_owned(),
+    );
     paths.launch_env.insert(
         "OSSIA_ENGINE_ROOT".into(),
         config.engine_root.to_string_lossy().into_owned(),

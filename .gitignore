@@ -42,3 +42,6 @@ artifacts/
 packages/ui/test-results/
 packages/ui/playwright-report/
 .impeccable/review/
+
+# Reproducible offline LilyPond documentation pack.
+vendor/docs/

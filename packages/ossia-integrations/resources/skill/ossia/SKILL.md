@@ -25,6 +25,7 @@ operations. The entry is published in the data directory when Ossia starts.
 ## Capability index
 
 - Runtime and diagnostics: `ossia_status`, `ossia_doctor`.
+- Offline LilyPond syntax reference: `ossia_docs`.
 - Library, score creation, and import: `ossia_list`, `ossia_import`.
 - Score preview and selection context: `ossia_open`, `ossia_context`.
 - Editing, validation, and version creation: `ossia_edit`, `ossia_write_source`, `ossia_check`, `ossia_commit`.

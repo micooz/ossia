@@ -47,6 +47,8 @@ struct State {
 }
 
 pub struct Runtime {
+    pub(crate) documentation: std::sync::RwLock<Result<ossia_library::Documentation>>,
+    pub(crate) documentation_resources: std::sync::RwLock<Option<std::path::PathBuf>>,
     pub library: Arc<Library>,
     pub engine: Arc<dyn EngineBackend>,
     pub info: RuntimeInfo,
@@ -82,6 +84,10 @@ impl Runtime {
         web_base_url: String,
     ) -> Arc<Self> {
         Arc::new(Self {
+            documentation: std::sync::RwLock::new(Err(invalid(
+                "offline documentation is not configured",
+            ))),
+            documentation_resources: std::sync::RwLock::new(None),
             info: RuntimeInfo {
                 runtime_version: env!("CARGO_PKG_VERSION").into(),
                 protocol_version: PROTOCOL_VERSION,
@@ -95,6 +101,7 @@ impl Runtime {
                     "draft-artifacts".into(),
                     "music-analysis".into(),
                     "music-expectations".into(),
+                    "offline-docs".into(),
                     "views".into(),
                     "jobs".into(),
                     "events".into(),

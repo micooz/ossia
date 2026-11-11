@@ -7,6 +7,11 @@ fn main() {
     let mut declarations = BTreeMap::new();
     macro_rules! register {($($ty:ty),+ $(,)?)=>{$(declarations.insert(<$ty>::ident(&cfg),<$ty>::decl(&cfg));)+};}
     register!(
+        DocsAction,
+        DocsArgs,
+        DocsHit,
+        DocsOutcome,
+        DocumentationStatus,
         DetailLevel,
         StatusArgs,
         AgentStatus,

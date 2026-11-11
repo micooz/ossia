@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { assertBuildable, specFor } from './package.mjs';
+import { assertBuildable, specFor } from '../../scripts/package.mjs';
 
 void test('targets map to Rust triples and platform bundles', () => {
   assert.deepEqual(specFor('darwin-arm64'), {

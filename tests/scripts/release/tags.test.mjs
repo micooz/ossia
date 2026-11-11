@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { highestTag, nextPatchTag } from './tags.mjs';
+import { highestTag, nextPatchTag } from '../../../scripts/release/tags.mjs';
 
 void test('the highest release tag uses the same ordering as version checks', () => {
   assert.equal(highestTag(['v0.1.0', 'v0.2.0-beta.1', 'v0.1.9']), 'v0.2.0-beta.1');

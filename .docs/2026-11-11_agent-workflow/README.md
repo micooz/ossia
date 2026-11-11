@@ -50,6 +50,20 @@ cache by SVG, dimensions, renderer and font metadata. Library/runtime/engine tes
 and Clippy pass. Native macOS ARM64 evidence covers SVG/MIDI/PDF/PNG before commit,
 1600px PNG output, old-snapshot isolation and oversized preview rejection.
 
+## Offline LilyPond reference
+
+The locked 2.26.0 reference pack contains filtered English HTML, referenced
+examples and images, source notices, and an FTS5 index. It installs by content
+identity under the data directory and does not block runtime startup. Missing or
+damaged docs fail documentation requests and doctor diagnostics without affecting
+score operations. The current macOS pack is approximately 37 MiB.
+
+`scripts/docs.mjs` builds the pack with Node 22, parse5, native `node:sqlite` and
+system `tar`. Helper tests live under `tests/scripts/`, matching the source layout.
+Synthetic build tests verify code indentation, navigation exclusion, asset
+retention, PDF exclusion, checksum rejection and manifest identity. Native CLI/MCP
+evidence verifies offline octave search and read.
+
 ## Agent response projections
 
 Agent status omits terminal task history, and context omits duplicate render

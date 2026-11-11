@@ -313,6 +313,8 @@ pub struct RuntimeHealth {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct DoctorReport {
+    #[serde(default)]
+    pub documentation: Option<DocumentationStatus>,
     pub home: String,
     pub engine: EngineHealth,
     pub runtime: RuntimeHealth,

@@ -22,6 +22,25 @@ manual as a JSON string. Score operations start the resident runtime on demand.
 An operation error does not mean MCP is unavailable. If a write loses its
 response, inspect current state before retrying through another transport.
 
+## LilyPond reference
+
+The runtime installs the official English LilyPond 2.26.0 manuals into its data
+directory. Use `ossia_docs` with action `search` before guessing an unfamiliar
+syntax, octave rule, engraving command or layout property. Read promising results
+with action `read` and the returned `chapterId`; `offset` and `nextOffset` page
+long chapters. Search asks for `query`; read asks for `chapterId`. Local search
+accepts a few Chinese terms such as 八度, 时值 and 谱号.
+
+Search and chapter results include the authoritative LilyPond URL, a local
+chapter ID and the offline source archive path. The archive retains English
+manual HTML, examples, images and the upstream notices. Search text is indexed
+from the same 2.26.0 package used by the engine. A missing or damaged package is
+reported by `ossia_doctor`; it does not disable score editing.
+
+Official examples may use includes, multiple files or LilyPond features outside
+Ossia's current verified analysis subset. Follow the Ossia workflow for ownership,
+snapshots and commit authorization, and use a check to verify the actual result.
+
 ## Create and edit
 
 1. Call `ossia_status` to inspect the connected runtime and capabilities, then

@@ -91,6 +91,8 @@ pub fn autostart_args(config: &server::Config) -> Vec<String> {
         config.port.to_string(),
         "--engine-root".into(),
         config.engine_root.to_string_lossy().into_owned(),
+        "--docs-root".into(),
+        config.docs_root.to_string_lossy().into_owned(),
     ];
     if let Some(static_dir) = &config.static_dir {
         args.push("--static-dir".into());
@@ -134,6 +136,7 @@ mod tests {
             home: PathBuf::from("/tmp/ossia home"),
             port: 3212,
             engine_root: PathBuf::from("/tmp/engine"),
+            docs_root: PathBuf::from("/tmp/docs"),
             static_dir: Some(PathBuf::from("/tmp/ui")),
             dev_origin: Some("http://127.0.0.1:5173".into()),
         };
@@ -146,6 +149,8 @@ mod tests {
                 "3212",
                 "--engine-root",
                 "/tmp/engine",
+                "--docs-root",
+                "/tmp/docs",
                 "--static-dir",
                 "/tmp/ui",
                 "--dev-origin",
