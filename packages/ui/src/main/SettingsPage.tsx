@@ -8,7 +8,7 @@ import type {
   UiTheme,
 } from '../generated/protocol.ts';
 import { useI18n } from '../i18n.tsx';
-import { Segmented } from './ui.tsx';
+import { Segmented, formatBytes } from './ui.tsx';
 
 export function SettingsPage({
   native,
@@ -47,16 +47,6 @@ export function SettingsPage({
   const disabled = !native || !preferences || busy;
   const trayEditable = preferences?.trayClickActionEditable ?? platform !== 'linux';
   const autostartEditable = preferences?.launchAtLoginEditable ?? false;
-  const formatBytes = (bytes: number) => {
-    const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
-    let value = bytes;
-    let unit = 0;
-    while (value >= 1024 && unit < units.length - 1) {
-      value /= 1024;
-      unit += 1;
-    }
-    return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
-  };
   return (
     <section className="page-section settings-page" aria-labelledby="general-title">
       <h1 id="general-title">{t('general')}</h1>
@@ -200,11 +190,7 @@ export function SettingsPage({
                     : storage && !storage.idle
                       ? t('storageBusyTasks')
                       : storageResult
-                        ? t('storageCleanupResult', {
-                            size: formatBytes(storageResult.freedBytes),
-                            jobs: storageResult.removedJobs,
-                            renders: storageResult.removedRenders,
-                          })
+                        ? t('storageCleanupCompleted')
                         : preferences?.storageAutoCleanup === false
                           ? t('storageAutoCleanupOff')
                           : t('storageCleanupNote')}

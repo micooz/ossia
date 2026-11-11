@@ -16,6 +16,21 @@ fn large_policy() -> StoragePolicy {
 }
 
 #[test]
+fn core_warning_threshold_is_two_gibibytes() {
+    let fixture = Fixture::new();
+    let large = fixture.library.home().join("documents/large-sparse.bin");
+    let file = fs::File::create(&large).unwrap();
+    file.set_len(2 * 1024 * 1024 * 1024 + 1).unwrap();
+    assert!(
+        fixture
+            .library
+            .storage_status(StorageCacheLimit::Gib1)
+            .unwrap()
+            .core_warning
+    );
+}
+
+#[test]
 fn retention_prunes_terminal_jobs_but_keeps_newest_and_active_receipts() {
     let fixture = Fixture::new();
     let now = db::now_millis();

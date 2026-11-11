@@ -10,7 +10,7 @@ use files::{count, database_size, directory_size, file_size};
 #[path = "../tests/unit/storage_manager.rs"]
 mod tests;
 
-const CORE_WARNING_BYTES: u64 = 5 * 1024 * 1024 * 1024;
+const CORE_WARNING_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 const JOB_RETENTION_MS: i64 = 30 * 24 * 60 * 60 * 1000;
 const RENDER_RETENTION_MS: i64 = 90 * 24 * 60 * 60 * 1000;
 const JOBS_PER_DOCUMENT: usize = 200;

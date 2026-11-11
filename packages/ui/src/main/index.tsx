@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Bot, Info, Settings, ShieldAlert, X } from 'lucide-react';
+import { Bot, Info, Settings, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -27,17 +27,19 @@ import { AgentsPage } from './AgentsPage.tsx';
 import mark from './assets/ossia-mark.svg';
 import { ServiceDialog } from './ServiceDialog.tsx';
 import { SettingsPage } from './SettingsPage.tsx';
+import { ToastRegion, useToasts } from './Toast.tsx';
+import type { ToastKind } from './Toast.tsx';
 import { platformName } from './types.ts';
 import type { Page } from './types.ts';
-import { NavItem } from './ui.tsx';
+import { NavItem, formatBytes } from './ui.tsx';
 
 import './main.css';
 
 function Main() {
   const native = '__TAURI_INTERNALS__' in window;
   const detectedLanguage = matchSystemLanguage(navigator.languages);
+  const toast = useToasts();
   const [preferences, setPreferences] = useState<ManagementPreferences | null>(null);
-  const [preferenceError, setPreferenceError] = useState('');
 
   useEffect(() => {
     document.body.dataset.platform = !native ? 'browser' : platformName();
@@ -64,7 +66,7 @@ function Main() {
         }
       })
       .catch((error) => {
-        if (live) setPreferenceError(describe(error));
+        if (live) toast.show(describe(error), 'error');
       });
     return () => {
       live = false;
@@ -88,9 +90,9 @@ function Main() {
         native={native}
         preferences={preferences}
         setPreferences={setPreferences}
-        preferenceError={preferenceError}
-        setPreferenceError={setPreferenceError}
+        notify={toast.show}
       />
+      <ToastRegion toasts={toast.toasts} onDismiss={toast.dismiss} />
     </I18nProvider>
   );
 }
@@ -99,14 +101,12 @@ function MainContent({
   native,
   preferences,
   setPreferences,
-  preferenceError,
-  setPreferenceError,
+  notify,
 }: {
   native: boolean;
   preferences: ManagementPreferences | null;
   setPreferences: (preferences: ManagementPreferences) => void;
-  preferenceError: string;
-  setPreferenceError: (error: string) => void;
+  notify: (message: string, kind?: ToastKind) => void;
 }) {
   const { t } = useI18n();
   const [page, setPage] = useState<Page>(() => {
@@ -132,12 +132,20 @@ function MainContent({
     localStorage.setItem('ossia:management:last-page', page);
   }, [page]);
 
+  useEffect(() => {
+    if (!native) notify(t('nonNativeMain'), 'warning');
+  }, [native, notify, t]);
+
+  useEffect(() => {
+    if (state?.error) notify(state.error.message, 'error');
+  }, [notify, state?.error?.message]);
+
   async function loadAgents() {
     if (!native) return;
     try {
       setAgents(await invoke<AgentsSnapshot>('management_agents_state'));
     } catch (caught) {
-      setError(describe(caught));
+      notify(describe(caught), 'error');
     }
   }
 
@@ -146,7 +154,7 @@ function MainContent({
     try {
       setState(await invoke<ManagementSnapshot>('management_status'));
     } catch (caught) {
-      setError(describe(caught));
+      notify(describe(caught), 'error');
     }
   }
 
@@ -159,7 +167,7 @@ function MainContent({
       if (live) void loadAgents();
     }).then((dispose) => disposers.push(dispose));
     void listen<{ message?: string }>('runtime-start-failed', (event) => {
-      if (live) setError(event.payload.message ?? JSON.stringify(event.payload));
+      if (live) notify(event.payload.message ?? JSON.stringify(event.payload), 'error');
     }).then((dispose) => disposers.push(dispose));
     void refreshStatus();
     const timer = window.setInterval(() => void refreshStatus(), 2000);
@@ -184,7 +192,7 @@ function MainContent({
           if (live) setStorageStatus(status);
         })
         .catch((caught) => {
-          if (live) setPreferenceError(`${t('storageLoadFailed')}: ${describe(caught)}`);
+          if (live) notify(`${t('storageLoadFailed')}: ${describe(caught)}`, 'error');
         });
     };
     refresh();
@@ -202,8 +210,14 @@ function MainContent({
     try {
       await invoke(command);
       await refreshStatus();
+      notify(
+        command === 'management_start' ? t('serviceStartedToast') : t('serviceStoppedToast'),
+        'success',
+      );
     } catch (caught) {
-      setError(describe(caught));
+      const message = describe(caught);
+      setError(message);
+      notify(message, 'error');
     } finally {
       setWorking(false);
     }
@@ -216,7 +230,9 @@ function MainContent({
     try {
       await invoke('management_open_data_directory');
     } catch (caught) {
-      setError(describe(caught));
+      const message = describe(caught);
+      setError(message);
+      notify(message, 'error');
     } finally {
       setOpeningDirectory(false);
     }
@@ -225,7 +241,6 @@ function MainContent({
   async function savePreferences(next: ManagementPreferences) {
     if (!native || !preferences || preferencesBusy) return;
     const previous = preferences;
-    setPreferenceError('');
     setPreferencesBusy(true);
     setPreferences(next);
     try {
@@ -242,7 +257,7 @@ function MainContent({
       return true;
     } catch (caught) {
       setPreferences(previous);
-      setPreferenceError(`${t('saveFailed')}: ${describe(caught)}`);
+      notify(`${t('saveFailed')}: ${describe(caught)}`, 'error');
       return false;
     } finally {
       setPreferencesBusy(false);
@@ -272,13 +287,12 @@ function MainContent({
 
   async function setAutostart(enabled: boolean) {
     if (!native || !preferences || preferencesBusy || !preferences.launchAtLoginEditable) return;
-    setPreferenceError('');
     setPreferencesBusy(true);
     try {
       const launchAtLogin = await invoke<boolean>('management_autostart_set', { enabled });
       setPreferences({ ...preferences, launchAtLogin });
     } catch (caught) {
-      setPreferenceError(`${t('startupFailed')}: ${describe(caught)}`);
+      notify(`${t('startupFailed')}: ${describe(caught)}`, 'error');
     } finally {
       setPreferencesBusy(false);
     }
@@ -287,13 +301,20 @@ function MainContent({
   async function cleanStorage() {
     if (!native || !state?.runtime || storageBusy) return;
     setStorageBusy(true);
-    setPreferenceError('');
     try {
       const result = await invoke<StorageCleanupReport>('management_storage_cleanup');
       setStorageResult(result);
       setStorageStatus(await invoke<StorageStatus>('management_storage_status'));
+      notify(
+        t('storageCleanupResult', {
+          size: formatBytes(result.freedBytes),
+          jobs: result.removedJobs,
+          renders: result.removedRenders,
+        }),
+        'success',
+      );
     } catch (caught) {
-      setPreferenceError(`${t('storageCleanupFailed')}: ${describe(caught)}`);
+      notify(`${t('storageCleanupFailed')}: ${describe(caught)}`, 'error');
     } finally {
       setStorageBusy(false);
     }
@@ -312,11 +333,22 @@ function MainContent({
     if (!saved || rank[limit] >= rank[previous] || !native || !state?.runtime) return;
     setStorageBusy(true);
     try {
-      setStorageResult(await invoke<StorageCleanupReport>('management_storage_cleanup'));
+      const result = await invoke<StorageCleanupReport>('management_storage_cleanup');
+      setStorageResult(result);
       setStorageStatus(await invoke<StorageStatus>('management_storage_status'));
+      notify(
+        t('storageCleanupResult', {
+          size: formatBytes(result.freedBytes),
+          jobs: result.removedJobs,
+          renders: result.removedRenders,
+        }),
+        'success',
+      );
     } catch (caught) {
-      if ((caught as { code?: string } | null)?.code !== 'conflict') {
-        setPreferenceError(`${t('storageCleanupFailed')}: ${describe(caught)}`);
+      if ((caught as { code?: string } | null)?.code === 'conflict') {
+        notify(t('storageBusyTasks'), 'warning');
+      } else {
+        notify(`${t('storageCleanupFailed')}: ${describe(caught)}`, 'error');
       }
     } finally {
       setStorageBusy(false);
@@ -331,7 +363,6 @@ function MainContent({
   async function changeAgents(agentIds: string[], enabled: boolean) {
     if (!native || working || agentIds.length === 0) return;
     setWorking(true);
-    setError('');
     setAgentProblems([]);
     setPendingAgents(agentIds);
     try {
@@ -341,10 +372,10 @@ function MainContent({
       setAgents(result.snapshot);
       setAgentProblems(result.problems);
       if (result.problems.length > 0) {
-        setError(result.problems.map((problem) => problem.message).join('; '));
+        notify(result.problems.map((problem) => problem.message).join('; '), 'error');
       }
     } catch (caught) {
-      setError(describe(caught));
+      notify(describe(caught), 'error');
     } finally {
       setWorking(false);
       setPendingAgents([]);
@@ -442,19 +473,6 @@ function MainContent({
         </header>
 
         <div className="page-content">
-          {(error || preferenceError || state?.error) && (
-            <div className="alert error" role="alert">
-              <ShieldAlert aria-hidden="true" />
-              <span>{error || preferenceError || state?.error?.message}</span>
-            </div>
-          )}
-          {!native && (
-            <div className="alert warn" role="alert">
-              <Info aria-hidden="true" />
-              <span>{t('nonNativeMain')}</span>
-            </div>
-          )}
-
           {page === 'agents' && (
             <AgentsPage
               native={native}

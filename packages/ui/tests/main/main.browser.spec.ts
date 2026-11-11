@@ -8,7 +8,7 @@ test('no ticket explains how to open; browser management cannot invoke native co
   await page.goto('/score.html');
   await expect(page.getByRole('alert')).toContainText('ossia_open');
   await page.goto('/main.html');
-  await expect(page.getByRole('alert')).toContainText('桌面应用');
+  await expect(page.locator('.toast-region')).toContainText('桌面应用');
   await page.getByRole('button', { name: '服务未连接' }).click();
   await expect(page.getByRole('dialog', { name: '本地服务' })).toBeVisible();
   await expect(page.getByRole('button', { name: '启动服务' })).toBeDisabled();
@@ -41,7 +41,7 @@ test.describe('English management shell', () => {
     await page.goto('/main.html');
     await expect(page.getByText('Local service connected')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Service not connected' })).toBeVisible();
-    await expect(page.getByRole('alert')).toContainText('Open the management window');
+    await expect(page.locator('.toast-region')).toContainText('Open the management window');
     await page.getByRole('button', { name: 'General' }).click();
     await expect(page.getByRole('heading', { name: 'General' })).toBeVisible();
     await expect(page.getByLabel('Language')).toHaveValue('en-US');
@@ -117,7 +117,14 @@ test('storage settings show usage and run cleanup for the connected runtime', as
   await page.mouse.move(0, 0);
   await page.mouse.up();
   await cleanup.click();
-  await expect(page.getByText('已释放 2.4 MiB；移除 2 条任务和 1 条渲染记录。')).toBeVisible();
+  await expect(page.locator('.toast.is-success')).toContainText(
+    '已释放 2.4 MiB；移除 2 条任务和 1 条渲染记录。',
+  );
+  await expect(page.locator('.toast')).toHaveCount(1);
+  await expect(page.getByText('上次清理已完成，自动清理继续按当前设置执行。')).toBeVisible();
+  await expect(page.locator('.settings-page')).not.toContainText(
+    '已释放 2.4 MiB；移除 2 条任务和 1 条渲染记录。',
+  );
   await page.getByRole('button', { name: '512 MiB' }).click();
   await expect
     .poll(() =>
@@ -129,6 +136,39 @@ test('storage settings show usage and run cleanup for the connected runtime', as
       ),
     )
     .toBeGreaterThan(1);
+});
+
+test('storage failures appear as dismissible error toasts', async ({ page }) => {
+  await mockManagement(page);
+  await page.goto('/main.html');
+  await page.getByRole('button', { name: '服务未连接' }).click();
+  const dialog = page.getByRole('dialog', { name: '本地服务' });
+  await dialog.getByRole('button', { name: '启动服务' }).click();
+  await expect(dialog.getByRole('button', { name: '停止服务', exact: true })).toBeEnabled();
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    const target = window as unknown as Window & {
+      __TAURI_INTERNALS__: {
+        invoke: (command: string, args?: unknown) => Promise<unknown>;
+      };
+    };
+    const original = target.__TAURI_INTERNALS__.invoke;
+    target.__TAURI_INTERNALS__.invoke = async (command, args) => {
+      if (command === 'management_storage_cleanup') {
+        throw { code: 'storage-error', message: 'cache directory is read-only' };
+      }
+      return original(command, args);
+    };
+  });
+  await page.getByRole('button', { name: '常规', exact: true }).click();
+  await page.getByRole('button', { name: '立即清理' }).click();
+  const toast = page.locator('.toast.is-error');
+  await expect(toast).toContainText('无法清理存储');
+  await expect(toast).toContainText('cache directory is read-only');
+  await expect(page.locator('.toast')).toHaveCount(1);
+  await expect(toast).toHaveCSS('align-items', 'center');
+  await toast.getByRole('button', { name: '关闭通知' }).click();
+  await expect(toast).toHaveCount(0);
 });
 
 test('management shows details and target config paths only for connected agents', async ({

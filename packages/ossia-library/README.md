@@ -24,7 +24,7 @@ The default `artifacts/` cache budget is 1 GiB and can be set to 512 MiB,
 3 GiB or 10 GiB. Exceeding the budget evicts the least-recently-used
 non-protected render records and their assets until usage falls to 75% of the
 limit. Version history, public source files and original imports are never
-pruned automatically. A core data directory above 5 GiB produces a warning in
+pruned automatically. A core data directory above 2 GiB produces a warning in
 the management window. Automatic cleanup is enabled by default and can be
 disabled independently from manual cleanup.
 

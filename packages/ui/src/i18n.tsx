@@ -7,6 +7,8 @@ const messages = {
   'en-US': {
     appName: 'Ossia',
     close: 'Close',
+    notifications: 'Notifications',
+    dismissNotification: 'Dismiss notification',
     cancel: 'Cancel',
     confirm: 'Confirm',
     refresh: 'Refresh',
@@ -29,7 +31,7 @@ const messages = {
     storageSummary:
       '{jobs} tasks · {renders} render records / Core {core} · Cache {cache} · Temporary {transient}',
     storageCoreWarning:
-      'Core data exceeds 5 GiB. Scores and versions are never deleted automatically.',
+      'Core data exceeds 2 GiB. Ossia never deletes scores or version history automatically; delete files manually if you need to free space.',
     storageCacheLimit: 'Cache limit',
     storageNeverDelete: 'Scores, imports and version history are always preserved.',
     storageServiceRequired: 'Start the local service to inspect and clean storage.',
@@ -40,6 +42,8 @@ const messages = {
     storageAutoCleanupOff: 'Automatic cleanup is off. You can still clean manually.',
     storageCleanupAction: 'Clean now',
     storageCleanupResult: 'Freed {size}; removed {jobs} tasks and {renders} render records.',
+    storageCleanupCompleted:
+      'Cleanup complete. Automatic cleanup continues with the current setting.',
     storageLoadFailed: 'Could not read storage usage',
     storageCleanupFailed: 'Could not clean storage',
     loading: 'Loading…',
@@ -179,6 +183,8 @@ const messages = {
     agents: 'Agent',
     serviceRunning: 'Service running',
     serviceStopped: 'Service not connected',
+    serviceStartedToast: 'Local service started',
+    serviceStoppedToast: 'Local service stopped',
     startService: 'Start service',
     stopService: 'Stop service',
     stopConfirmTitle: 'Stop the local service?',
@@ -252,6 +258,8 @@ const messages = {
   'zh-CN': {
     appName: 'Ossia',
     close: '关闭',
+    notifications: '通知',
+    dismissNotification: '关闭通知',
     cancel: '取消',
     confirm: '确认',
     refresh: '刷新',
@@ -273,7 +281,8 @@ const messages = {
     storageUsage: '缓存占用',
     storageSummary:
       '{jobs} 条任务 · {renders} 条渲染记录 / 核心 {core} · 缓存 {cache} · 临时 {transient}',
-    storageCoreWarning: '核心数据已超过 5 GiB。Ossia 不会自动删除乐谱或版本历史。',
+    storageCoreWarning:
+      '核心数据已超过 2 GiB。Ossia 不会自动删除乐谱或版本历史，如需释放空间请手动删除。',
     storageCacheLimit: '缓存上限',
     storageNeverDelete: '乐谱、导入原件和版本历史始终保留。',
     storageServiceRequired: '启动本地服务后可查看并清理存储。',
@@ -283,6 +292,7 @@ const messages = {
     storageAutoCleanupOff: '自动清理已关闭，仍可手动清理。',
     storageCleanupAction: '立即清理',
     storageCleanupResult: '已释放 {size}；移除 {jobs} 条任务和 {renders} 条渲染记录。',
+    storageCleanupCompleted: '上次清理已完成，自动清理继续按当前设置执行。',
     storageLoadFailed: '无法读取存储占用',
     storageCleanupFailed: '无法清理存储',
     loading: '正在读取…',
@@ -413,6 +423,8 @@ const messages = {
     agents: 'Agent',
     serviceRunning: '服务运行中',
     serviceStopped: '服务未连接',
+    serviceStartedToast: '本地服务已启动',
+    serviceStoppedToast: '本地服务已停止',
     startService: '启动服务',
     stopService: '停止服务',
     stopConfirmTitle: '停止本地服务？',
