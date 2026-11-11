@@ -255,17 +255,7 @@ function materials(stage, target, entry, sourceArchive) {
   const destination = path.join(stage, 'materials');
   const licenses = path.join(destination, 'licenses');
   fs.mkdirSync(licenses, { recursive: true });
-  fs.copyFileSync(path.join(ROOT, 'LICENSE'), path.join(licenses, 'Ossia-NOTICE.txt'));
-  fs.copyFileSync(
-    path.join(
-      ROOT,
-      'vendor/lilypond',
-      `${entry.version}-${target}`,
-      'licenses',
-      'lilypond-2.26.0.COPYING',
-    ),
-    path.join(licenses, 'Ossia-GPL-3.0-or-later.txt'),
-  );
+  fs.copyFileSync(path.join(ROOT, 'LICENSE'), path.join(licenses, 'Ossia-GPL-3.0-or-later.txt'));
   const engineLicenses = path.join(licenses, 'engine');
   fs.mkdirSync(engineLicenses, { recursive: true });
   fs.cpSync(
