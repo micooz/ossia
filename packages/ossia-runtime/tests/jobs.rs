@@ -14,6 +14,7 @@ async fn queued_snapshots_previews_and_explicit_checks_are_distinct() {
         .runtime
         .check(
             CheckArgs {
+                expect: None,
                 document_id: f.doc.document_id,
                 view_id: f.view,
                 edit_id: None,
@@ -27,6 +28,7 @@ async fn queued_snapshots_previews_and_explicit_checks_are_distinct() {
         .runtime
         .check(
             CheckArgs {
+                expect: None,
                 document_id: f.doc.document_id,
                 view_id: f.view,
                 edit_id: None,
@@ -101,6 +103,7 @@ async fn global_limit_same_document_serialization_and_cancel_cleanup() {
             f.runtime
                 .check(
                     CheckArgs {
+                        expect: None,
                         document_id: doc.document_id,
                         view_id: view,
                         edit_id: None,

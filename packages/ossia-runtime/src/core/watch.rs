@@ -131,6 +131,7 @@ impl Runtime {
         if !pending_match && !running_match && !has_current_render {
             let _ = self.check(
                 CheckArgs {
+                    expect: None,
                     document_id: id,
                     view_id: ViewId::new(),
                     edit_id: None,

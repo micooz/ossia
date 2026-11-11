@@ -51,7 +51,8 @@ fn initialization_schema_and_writer_lock_are_isolated() {
     );
     drop(library);
     let conn = Connection::open(other.path().join(storage::DATABASE)).unwrap();
-    conn.pragma_update(None, "user_version", 2).unwrap();
+    conn.pragma_update(None, "user_version", SCHEMA_VERSION + 1)
+        .unwrap();
     drop(conn);
     assert_eq!(
         Library::open(other.path()).err().unwrap().code,

@@ -67,6 +67,7 @@ pub struct BeginEditRequest<'a> {
 }
 
 pub struct CheckRequest<'a> {
+    pub expect: Option<&'a MusicExpectation>,
     pub document_id: DocumentId,
     pub edit_id: Option<EditId>,
     pub expected_source_hash: &'a ContentHash,

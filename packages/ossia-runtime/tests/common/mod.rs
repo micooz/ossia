@@ -181,6 +181,7 @@ impl Fixture {
         self.runtime
             .check(
                 CheckArgs {
+                    expect: None,
                     document_id: self.doc.document_id,
                     view_id: self.view,
                     edit_id: None,

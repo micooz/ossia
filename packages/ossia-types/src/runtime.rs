@@ -137,6 +137,8 @@ fn default_author() -> String {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CheckArgs {
+    #[serde(default)]
+    pub expect: Option<MusicExpectation>,
     pub document_id: DocumentId,
     pub view_id: ViewId,
     pub edit_id: Option<EditId>,

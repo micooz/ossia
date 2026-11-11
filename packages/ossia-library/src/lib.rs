@@ -4,6 +4,7 @@ mod artifacts;
 pub use artifacts::render_key;
 mod db;
 mod lifecycle;
+mod music;
 mod recovery;
 mod storage;
 #[cfg(test)]
@@ -123,6 +124,7 @@ impl Library {
             || (report.status == ImportStatus::NeedsConfirmation && !report.confirmed)
         {
             return Ok(ImportOutcome {
+                music: None,
                 report,
                 document: None,
                 render: None,
@@ -143,12 +145,21 @@ impl Library {
                 "import report does not match immutable input",
             ));
         }
-        let options = CompileOptions::default();
+        let options = CompileOptions {
+            formats: vec![RenderFormat::Svg, RenderFormat::Midi],
+            point_and_click: true,
+        };
         let render = engine.compile(&snapshot, &options, &self.artifact_root()?, context)?;
         let svg = self.validate_render(engine, &snapshot, &render)?;
         if !svg && request.format != InputFormat::Ly {
             return Err(compile_error(&render));
         }
+        let music = self.music_report(&snapshot, &render)?;
+        let check_result = CheckResult {
+            render: render.clone(),
+            music: music.clone(),
+            verification: ossia_score::verify_music(&music, None),
+        };
         let hash = self.store.put(snapshot.bytes())?;
         self.hit("after-cas")?;
         context.check()?;
@@ -201,7 +212,7 @@ impl Library {
             state: if svg { JobState::Done } else { JobState::Error },
             source_hash: Some(snapshot.source_hash().clone()),
             phase: "finished".into(),
-            result: Some(serde_json::to_value(&render).map_err(storage_error)?),
+            result: Some(serde_json::to_value(&check_result).map_err(storage_error)?),
             error: if svg {
                 None
             } else {
@@ -212,6 +223,7 @@ impl Library {
         tx.commit().map_err(storage_error)?;
         drop(conn);
         Ok(ImportOutcome {
+            music: Some(music),
             report,
             document: Some(self.get_document(id)?),
             render: Some(render),

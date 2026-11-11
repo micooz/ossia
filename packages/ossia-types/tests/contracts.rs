@@ -54,7 +54,7 @@ fn library_contract_examples_keep_ids_metadata_and_error_codes() {
 }
 
 #[test]
-fn runtime_examples_and_omitted_credentials_match_protocol_one() {
+fn runtime_examples_and_omitted_credentials_match_current_protocol() {
     let examples: Value = serde_json::from_str(include_str!(
         "../../../tests/fixtures/contracts/examples.json"
     ))

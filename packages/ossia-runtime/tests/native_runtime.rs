@@ -230,7 +230,8 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
 
         let job_ref:Job=serde_json::from_value(call(&client,"ossia_check",json!({"documentId":doc.document_id,"viewId":open.view_id,"editId":edit.edit_id,"expectedSourceHash":hash})).await).unwrap();
         let checked = job(&client, job_ref.job_id).await;
-        let render: RenderManifest = serde_json::from_value(checked.result.unwrap()).unwrap();
+        let result: CheckResult = serde_json::from_value(checked.result.unwrap()).unwrap();
+        let render = result.render;
         assert_eq!(render.source_hash, hash);
         assert!(!render.pages.is_empty());
         let version:Version=serde_json::from_value(call(&client,"ossia_commit",json!({"documentId":doc.document_id,"viewId":open.view_id,"editId":edit.edit_id,"baseVersionId":initial,"expectedSourceHash":hash,"summary":"native runtime edit"})).await).unwrap();
@@ -338,7 +339,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         .unwrap();
     let _ = endpoint;
     if let Some(path) = std::env::var_os("OSSIA_NATIVE_EVIDENCE") {
-        std::fs::write(path,serde_json::to_vec_pretty(&json!({"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"protocolVersion":1,"tools":14,"concurrentStartup":true,"mcpDisconnectKeepsServe":true,"restart":true,"automaticPreview":true,"engineBuildId":a.1["engineBuildId"],"cases":cases})).unwrap()).unwrap();
+        std::fs::write(path,serde_json::to_vec_pretty(&json!({"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"protocolVersion":PROTOCOL_VERSION,"tools":14,"concurrentStartup":true,"mcpDisconnectKeepsServe":true,"restart":true,"automaticPreview":true,"engineBuildId":a.1["engineBuildId"],"cases":cases})).unwrap()).unwrap();
     }
 }
 

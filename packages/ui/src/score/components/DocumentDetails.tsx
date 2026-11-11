@@ -1,6 +1,7 @@
 import type {
   DocumentState,
   Locator,
+  CheckResult,
   RenderManifest,
   Version,
   ViewSnapshot,
@@ -91,12 +92,23 @@ function Diagnostics({
   stale: boolean;
 }) {
   const { t } = useI18n();
-  const result = doc.lastCheck?.result as RenderManifest | null;
-  const diagnostics = result?.diagnostics ?? (stale ? [] : (render?.manifest.diagnostics ?? []));
+  const result = doc.lastCheck?.result as CheckResult | RenderManifest | null;
+  const manifest = result && 'render' in result ? result.render : result;
+  const differences = result && 'verification' in result ? result.verification.differences : [];
+  const diagnostics = manifest?.diagnostics ?? (stale ? [] : (render?.manifest.diagnostics ?? []));
   const issues = diagnostics.filter((d) => d.severity !== 'info');
   const logs = diagnostics.filter((d) => d.severity === 'info');
   return (
     <>
+      {differences.length > 0 && (
+        <ul>
+          {differences.map((d, i) => (
+            <li key={i}>
+              {d.path}: {d.message}
+            </li>
+          ))}
+        </ul>
+      )}
       {issues.length ? (
         <ul>
           {issues.map((d, i) => (

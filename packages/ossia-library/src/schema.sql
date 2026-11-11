@@ -54,12 +54,14 @@ CREATE TABLE worktree_intents (
     body TEXT NOT NULL
 );
 CREATE TABLE check_receipts (
+    job_id TEXT NOT NULL REFERENCES jobs(job_id),
     edit_id TEXT PRIMARY KEY NOT NULL REFERENCES edits(edit_id),
     source_hash TEXT NOT NULL REFERENCES contents(hash),
     engine_build_id TEXT NOT NULL,
     options_hash TEXT NOT NULL
 );
 CREATE TABLE check_requests (
+    edit_id TEXT REFERENCES edits(edit_id),
     job_id TEXT PRIMARY KEY NOT NULL REFERENCES jobs(job_id),
     parameters TEXT NOT NULL
 );

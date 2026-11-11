@@ -206,6 +206,7 @@ impl Fixture {
             .check(
                 &self.engine,
                 CheckRequest {
+                    expect: None,
                     document_id: self.doc.document_id,
                     edit_id: Some(edit.edit_id),
                     expected_source_hash: hash,

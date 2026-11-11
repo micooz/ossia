@@ -49,6 +49,7 @@ fn edit_example(home: &Path, engine: &Engine) -> Result<Version> {
         .map_err(|e| AppError::new(ErrorCode::StorageError, e.to_string()))?;
     let snapshot = library.source_snapshot(doc.document_id)?;
     library.check(engine, CheckRequest {
+        expect: None,
         document_id: doc.document_id,
         edit_id: Some(edit.edit_id),
         expected_source_hash: snapshot.source_hash(),

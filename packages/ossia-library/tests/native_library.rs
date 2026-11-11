@@ -75,6 +75,7 @@ fn native_import_edit_check_commit_restore_and_reopen() {
             .check(
                 &engine,
                 CheckRequest {
+                    expect: None,
                     document_id: doc.document_id,
                     edit_id: Some(edit.edit_id),
                     expected_source_hash: &hash,
@@ -224,6 +225,7 @@ fn native_import_edit_check_commit_restore_and_reopen() {
         .check(
             &engine,
             CheckRequest {
+                expect: None,
                 document_id: draft.document_id,
                 edit_id: Some(repair.edit_id),
                 expected_source_hash: &hash,
@@ -258,4 +260,128 @@ fn native_import_edit_check_commit_restore_and_reopen() {
         )
         .unwrap();
     }
+}
+
+#[test]
+#[ignore = "requires verified native LilyPond 2.26.0"]
+fn native_scale_expectations_gate_commit_before_export() {
+    let root = PathBuf::from(std::env::var_os("OSSIA_TEST_LILYPOND_ROOT").unwrap());
+    let work = tempfile::tempdir().unwrap();
+    let engine =
+        Engine::verify(&root, &work.path().join("scratch"), &RunContext::default()).unwrap();
+    let library = Library::open(&work.path().join("library")).unwrap();
+    let source="\\version \"2.26.0\"\n\\header { title = \"Scale\" }\nMusic = { \\time 4/4 c4 d e f | g4 a b c' | }\n\\score { \\new Staff \\Music \\layout {} \\midi {} }";
+    let imported = library
+        .import(
+            &engine,
+            ImportRequest {
+                title: "Scale",
+                input: source.as_bytes(),
+                format: InputFormat::Ly,
+                confirmation: None,
+                author: "test",
+            },
+            &RunContext::default(),
+        )
+        .unwrap();
+    let music = imported.music.unwrap();
+    assert_eq!(music.source.measures, Some(2));
+    assert_eq!(
+        music
+            .performance
+            .notes
+            .iter()
+            .map(|n| n.pitch)
+            .collect::<Vec<_>>(),
+        [48, 50, 52, 53, 55, 57, 59, 60]
+    );
+    let doc = imported.document.unwrap();
+    let first = &music.performance.notes[0];
+    let pitches = vec![60, 62, 64, 65, 67, 69, 71, 72];
+    let expect = MusicExpectation {
+        note_count: Some(8),
+        tracks: vec![TrackExpectation {
+            track: first.track,
+            channel: first.channel,
+            pitches: Some(pitches.clone()),
+            notes: Some(
+                pitches
+                    .iter()
+                    .enumerate()
+                    .map(|(i, p)| ExpectedNote {
+                        pitch: *p,
+                        start: QuarterTime::new(i as u64, 1).unwrap(),
+                        duration: QuarterTime::new(1, 1).unwrap(),
+                    })
+                    .collect(),
+            ),
+        }],
+    };
+    let edit = library
+        .begin_edit(BeginEditRequest {
+            document_id: doc.document_id,
+            view_id: ViewId::new(),
+            base_version_id: doc.head_version_id,
+            expected_source_hash: &doc.source_hash,
+            author: "test",
+            adopt_workspace: false,
+        })
+        .unwrap();
+    let options = CompileOptions {
+        formats: vec![RenderFormat::Svg, RenderFormat::Midi],
+        point_and_click: true,
+    };
+    let checked = library
+        .check(
+            &engine,
+            CheckRequest {
+                expect: Some(&expect),
+                document_id: doc.document_id,
+                edit_id: Some(edit.edit_id),
+                expected_source_hash: &doc.source_hash,
+                options: &options,
+            },
+            &RunContext::default(),
+        )
+        .unwrap();
+    let result: CheckResult = serde_json::from_value(checked.job.result.unwrap()).unwrap();
+    assert_eq!(result.verification.status, VerificationStatus::Failed);
+    assert!(library
+        .commit(CommitRequest {
+            edit_id: edit.edit_id,
+            base_version_id: edit.base_version_id,
+            expected_source_hash: &doc.source_hash,
+            summary: "wrong octave"
+        })
+        .is_err());
+    let fixed = source.replace("c4 d e f | g4 a b c'", "c'4 d' e' f' | g'4 a' b' c''");
+    fs::write(&doc.source_path, &fixed).unwrap();
+    let hash = ContentHash::of(fixed.as_bytes());
+    let checked = library
+        .check(
+            &engine,
+            CheckRequest {
+                expect: Some(&expect),
+                document_id: doc.document_id,
+                edit_id: Some(edit.edit_id),
+                expected_source_hash: &hash,
+                options: &options,
+            },
+            &RunContext::default(),
+        )
+        .unwrap();
+    let result: CheckResult = serde_json::from_value(checked.job.result.unwrap()).unwrap();
+    assert_eq!(
+        result.verification.status,
+        VerificationStatus::Passed,
+        "{result:?}"
+    );
+    library
+        .commit(CommitRequest {
+            edit_id: edit.edit_id,
+            base_version_id: edit.base_version_id,
+            expected_source_hash: &hash,
+            summary: "verified scale",
+        })
+        .unwrap();
 }

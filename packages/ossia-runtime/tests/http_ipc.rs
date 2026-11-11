@@ -37,7 +37,10 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         .json()
         .await
         .unwrap();
-    assert_eq!(health, json!({"alive":true,"protocolVersion":1}));
+    assert_eq!(
+        health,
+        json!({"alive":true,"protocolVersion":PROTOCOL_VERSION})
+    );
     assert_eq!(
         client
             .get(format!("{base}/health"))
@@ -229,6 +232,7 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         .post(format!("{api}/documents/{}/check", document.document_id))
         .bearer_auth(&session.token)
         .json(&CheckArgs {
+            expect: None,
             document_id: document.document_id,
             view_id: session.view.view_id,
             edit_id: Some(edit.edit_id),

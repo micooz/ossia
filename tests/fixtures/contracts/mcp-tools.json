@@ -206,6 +206,116 @@
       "$defs": {
         "ContentHash": {
           "type": "string"
+        },
+        "ExpectedNote": {
+          "additionalProperties": false,
+          "description": "Expected MIDI pitch and exact quarter-note timing.",
+          "properties": {
+            "duration": {
+              "$ref": "#/$defs/QuarterTime"
+            },
+            "pitch": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start": {
+              "$ref": "#/$defs/QuarterTime"
+            }
+          },
+          "required": [
+            "pitch",
+            "start",
+            "duration"
+          ],
+          "type": "object"
+        },
+        "MusicExpectation": {
+          "additionalProperties": false,
+          "description": "Only explicitly supplied conditions are checked.",
+          "properties": {
+            "noteCount": {
+              "format": "uint",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "tracks": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TrackExpectation"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "QuarterTime": {
+          "additionalProperties": false,
+          "description": "Exact nonnegative time measured in quarter notes. Denominator must be nonzero.",
+          "properties": {
+            "denominator": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "numerator": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "numerator",
+            "denominator"
+          ],
+          "type": "object"
+        },
+        "TrackExpectation": {
+          "additionalProperties": false,
+          "description": "An exact ordered sequence in one MIDI track/channel; simultaneous pitches sort ascending.",
+          "properties": {
+            "channel": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "notes": {
+              "items": {
+                "$ref": "#/$defs/ExpectedNote"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "pitches": {
+              "items": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "track": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "track",
+            "channel"
+          ],
+          "type": "object"
         }
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -221,6 +331,17 @@
             "string",
             "null"
           ]
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MusicExpectation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "expectedSourceHash": {
           "$ref": "#/$defs/ContentHash"

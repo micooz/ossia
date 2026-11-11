@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 struct CheckParameters {
     edit_id: Option<EditId>,
+    #[serde(default)]
+    expect: Option<MusicExpectation>,
     formats: Vec<RenderFormat>,
     point_and_click: bool,
 }
@@ -107,6 +109,9 @@ impl Library {
 
     /// Persist the exact input before P04 schedules execution; credentials stay out of Job.
     pub fn queue_check(&self, request: CheckRequest<'_>) -> Result<Job> {
+        if let Some(expect) = request.expect {
+            ossia_score::validate_expectation(expect)?;
+        }
         let snapshot = {
             let conn = self.db()?;
             let doc = db::document(&conn, request.document_id)?;
@@ -135,14 +140,26 @@ impl Library {
             error: None,
         };
         db::save_job(&tx, &job)?;
+        if let Some(edit) = request.edit_id {
+            tx.execute(
+                "DELETE FROM check_receipts WHERE edit_id=?1",
+                [edit.to_string()],
+            )
+            .map_err(storage_error)?;
+        }
         let parameters = CheckParameters {
+            expect: request.expect.cloned(),
             edit_id: request.edit_id,
             formats: request.options.formats.clone(),
             point_and_click: request.options.point_and_click,
         };
         tx.execute(
-            "INSERT INTO check_requests(job_id,parameters) VALUES (?1,?2)",
-            params![job.job_id.to_string(), db::encode(&parameters)?],
+            "INSERT INTO check_requests(job_id,parameters,edit_id) VALUES (?1,?2,?3)",
+            params![
+                job.job_id.to_string(),
+                db::encode(&parameters)?,
+                request.edit_id.map(|e| e.to_string())
+            ],
         )
         .map_err(storage_error)?;
         tx.commit().map_err(storage_error)?;
@@ -195,12 +212,13 @@ impl Library {
             None,
             None,
         )?;
-        let compiled: Result<(RenderManifest, bool)> = (|| {
+        let compiled: Result<(RenderManifest, bool, MusicReport)> = (|| {
             let render = engine.compile(&snapshot, &options, &self.artifact_root()?, context)?;
             let svg = self.validate_render(engine, &snapshot, &render)?;
-            Ok((render, svg))
+            let music = self.music_report(&snapshot, &render)?;
+            Ok((render, svg, music))
         })();
-        let (render, svg) = match compiled {
+        let (render, svg, music) = match compiled {
             Ok(result) => result,
             Err(mut error) => {
                 let state = if error.code == ErrorCode::Cancelled {
@@ -220,6 +238,16 @@ impl Library {
                 return Err(error);
             }
         };
+        let verification = ossia_score::verify_music(&music, parameters.expect.as_ref());
+        let eligible = matches!(
+            verification.status,
+            VerificationStatus::NotRequested | VerificationStatus::Passed
+        );
+        let result = CheckResult {
+            render: render.clone(),
+            music,
+            verification,
+        };
         let mut conn = self.db()?;
         let tx = conn.transaction().map_err(storage_error)?;
         let doc = db::document(&tx, snapshot.document_id())?;
@@ -233,9 +261,14 @@ impl Library {
                 db::set_current_render(&tx, doc.id, &render)?;
                 if let Some(id) = parameters.edit_id {
                     let edit = db::edit(&tx, id)?;
-                    if edit.status == EditStatus::Active && edit.base_version_id == doc.head {
-                        tx.execute("INSERT INTO check_receipts(edit_id,source_hash,engine_build_id,options_hash) VALUES (?1,?2,?3,?4) ON CONFLICT(edit_id) DO UPDATE SET source_hash=excluded.source_hash,engine_build_id=excluded.engine_build_id,options_hash=excluded.options_hash",
-                            params![id.to_string(),snapshot.source_hash().to_string(),render.engine_build_id,render.options_hash.to_string()]).map_err(storage_error)?;
+                    let latest: Option<String> = tx.query_row("SELECT job_id FROM check_requests WHERE edit_id=?1 ORDER BY rowid DESC LIMIT 1", [id.to_string()], |r|r.get(0)).optional().map_err(storage_error)?;
+                    if eligible
+                        && latest.as_deref() == Some(&job.job_id.to_string())
+                        && edit.status == EditStatus::Active
+                        && edit.base_version_id == doc.head
+                    {
+                        tx.execute("INSERT INTO check_receipts(edit_id,source_hash,engine_build_id,options_hash,job_id) VALUES (?1,?2,?3,?4,?5) ON CONFLICT(edit_id) DO UPDATE SET source_hash=excluded.source_hash,engine_build_id=excluded.engine_build_id,options_hash=excluded.options_hash,job_id=excluded.job_id",
+                            params![id.to_string(),snapshot.source_hash().to_string(),render.engine_build_id,render.options_hash.to_string(),job.job_id.to_string()]).map_err(storage_error)?;
                     }
                 }
             }
@@ -246,7 +279,7 @@ impl Library {
         }
         job.state = if svg { JobState::Done } else { JobState::Error };
         job.phase = "finished".into();
-        job.result = Some(serde_json::to_value(&render).map_err(storage_error)?);
+        job.result = Some(serde_json::to_value(&result).map_err(storage_error)?);
         job.error = if svg {
             None
         } else {
@@ -275,6 +308,30 @@ impl Library {
             return Err(conflict("edit base does not match commit"));
         }
         let snapshot = self.expect_snapshot(&doc, request.expected_source_hash)?;
+        let latest: Option<String> = tx
+            .query_row(
+                "SELECT job_id FROM check_requests WHERE edit_id=?1 ORDER BY rowid DESC LIMIT 1",
+                [edit.edit_id.to_string()],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if let Some(latest) = latest {
+            let receipt: Option<String> = tx
+                .query_row(
+                    "SELECT job_id FROM check_receipts WHERE edit_id=?1",
+                    [edit.edit_id.to_string()],
+                    |r| r.get(0),
+                )
+                .optional()
+                .map_err(storage_error)?;
+            if receipt.as_ref() != Some(&latest) {
+                return Err(AppError::new(
+                    ErrorCode::CompileFailed,
+                    "latest explicit check has not passed",
+                ));
+            }
+        }
         if let Some(head) = doc.head {
             let version = db::version(&tx, head)?;
             if version.source_hash == *snapshot.source_hash() {

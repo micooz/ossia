@@ -477,6 +477,8 @@ pub struct Job {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportOutcome {
+    #[serde(default)]
+    pub music: Option<MusicReport>,
     pub report: ImportReport,
     pub document: Option<DocumentState>,
     pub render: Option<RenderManifest>,

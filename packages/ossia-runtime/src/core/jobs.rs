@@ -92,10 +92,18 @@ impl Runtime {
         }
         self.observe(args.document_id)?;
         let job = self.library.queue_check(CheckRequest {
+            expect: args.expect.as_ref(),
             document_id: args.document_id,
             edit_id: args.edit_id,
             expected_source_hash: &args.expected_source_hash,
-            options: &CompileOptions::default(),
+            options: &CompileOptions {
+                formats: if preview {
+                    vec![RenderFormat::Svg]
+                } else {
+                    vec![RenderFormat::Svg, RenderFormat::Midi]
+                },
+                point_and_click: true,
+            },
         })?;
         self.enqueue(job, Work::Check, preview)
     }
