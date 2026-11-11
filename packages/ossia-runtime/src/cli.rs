@@ -16,8 +16,6 @@ pub struct Args {
     pub static_dir: Option<PathBuf>,
     #[arg(long, global = true)]
     pub dev_origin: Option<String>,
-    #[arg(long, global = true)]
-    pub integration_root: Option<PathBuf>,
     #[command(subcommand)]
     pub command: Option<Command>,
 }
@@ -90,14 +88,6 @@ impl Args {
         if !engine_root.is_absolute() {
             return Err(invalid("engine root must be absolute"));
         }
-        let integration_root = self
-            .integration_root
-            .clone()
-            .or_else(|| std::env::var_os("OSSIA_INTEGRATION_ROOT").map(PathBuf::from))
-            .unwrap_or_else(|| resources.join("integrations"));
-        if !integration_root.is_absolute() {
-            return Err(invalid("integration root must be absolute"));
-        }
         let static_dir = self
             .static_dir
             .clone()
@@ -108,7 +98,6 @@ impl Args {
             engine_root,
             static_dir,
             dev_origin: self.dev_origin.clone(),
-            integration_root,
         })
     }
 }
@@ -237,12 +226,7 @@ async fn run_integrate(
             static_dir.to_string_lossy().into_owned(),
         );
     }
-    let integrator = ossia_integrations::Integrator::with_paths(
-        &config.home,
-        executable,
-        &config.integration_root,
-        paths,
-    )?;
+    let integrator = ossia_integrations::Integrator::with_paths(&config.home, executable, paths)?;
     let (action_name, json) = match action {
         IntegrateAction::Detect => ("detect", "{}".to_string()),
         IntegrateAction::Plan { json } => ("plan", json),

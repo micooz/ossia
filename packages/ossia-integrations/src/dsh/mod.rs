@@ -1,4 +1,5 @@
 use crate::files::{json_file, records_from_plan, zero_hash, FilePlan};
+use crate::resources::Resource;
 use crate::*;
 use ossia_types::*;
 use serde_json::{json, Value};
@@ -343,15 +344,10 @@ fn plugin_files(
     enable_browser: bool,
 ) -> Result<Vec<FilePlan>, AppError> {
     let root = bundle_dir(integrator, IntegrationMode::Plugin);
-    let client = fs::read(integrator.resources().join("dsh/client.js")).map_err(|error| {
-        AppError::new(
-            ErrorCode::UnsupportedSource,
-            format!("integration resource dsh/client.js is unavailable: {error}"),
-        )
-    })?;
+    let client = integrator.read_resource(Resource::DshClient)?;
     let icon = integrator.icon()?;
-    let locale_en = fs::read(integrator.resources().join("dsh/locale/en.json")).map_err(storage)?;
-    let locale_zh = fs::read(integrator.resources().join("dsh/locale/zh.json")).map_err(storage)?;
+    let locale_en = integrator.read_resource(Resource::DshLocaleEn)?;
+    let locale_zh = integrator.read_resource(Resource::DshLocaleZh)?;
     let skill_loader = format!(
         "export const inject = ['skills']\nexport function apply(ctx) {{\n  ctx.effect(() => ctx.skills.register({{ name: 'ossia', description: 'Work with a local Ossia score library through its MCP tools and public LilyPond files.', content: {} }}), 'ossia-skill')\n}}\n",
         serde_json::to_string(skill).expect("skill serialization")

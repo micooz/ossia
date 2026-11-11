@@ -26,7 +26,7 @@ fn codex_plugin_skill_mcp_and_remove_round_trip() {
         dsh_bin: None,
         launch_env: BTreeMap::new(),
     };
-    let integrator = Integrator::with_paths(
+    let integrator = Integrator::with_resource_dir(
         work.path().join("中文 library"),
         executable(),
         resources(),
@@ -90,7 +90,7 @@ fn dsh_plugin_skill_mcp_and_remove_round_trip() {
         dsh_bin: None,
         launch_env: BTreeMap::new(),
     };
-    let integrator = Integrator::with_paths(
+    let integrator = Integrator::with_resource_dir(
         work.path().join("中文 library"),
         executable(),
         resources(),

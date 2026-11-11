@@ -4,9 +4,11 @@ mod dsh;
 mod files;
 mod planning;
 mod record;
+mod resources;
 
 pub(crate) use planning::*;
 pub use record::{ManagedEntry, ManagedRecord, TEMPLATE_VERSION};
+use resources::{Resource, ResourceSource};
 
 use ossia_types::*;
 use serde_json::Value;
@@ -64,28 +66,48 @@ impl HostPaths {
 pub struct Integrator {
     home: PathBuf,
     executable: PathBuf,
-    resources: PathBuf,
+    resources: ResourceSource,
     paths: HostPaths,
 }
 
 impl Integrator {
-    pub fn new(
-        home: impl AsRef<Path>,
-        executable: impl AsRef<Path>,
-        resources: impl AsRef<Path>,
-    ) -> Result<Self, AppError> {
-        Self::with_paths(home, executable, resources, HostPaths::detected())
+    /// Creates an integrator with host paths detected from the environment.
+    pub fn new(home: impl AsRef<Path>, executable: impl AsRef<Path>) -> Result<Self, AppError> {
+        Self::with_paths(home, executable, HostPaths::detected())
     }
 
+    /// Creates an integrator with explicit host paths and embedded resources.
     pub fn with_paths(
+        home: impl AsRef<Path>,
+        executable: impl AsRef<Path>,
+        paths: HostPaths,
+    ) -> Result<Self, AppError> {
+        Self::build(home, executable, ResourceSource::Bundled, paths)
+    }
+
+    /// Creates an integrator that reads resources from an explicit directory.
+    pub fn with_resource_dir(
         home: impl AsRef<Path>,
         executable: impl AsRef<Path>,
         resources: impl AsRef<Path>,
         paths: HostPaths,
     ) -> Result<Self, AppError> {
+        Self::build(
+            home,
+            executable,
+            ResourceSource::directory(resources.as_ref())?,
+            paths,
+        )
+    }
+
+    fn build(
+        home: impl AsRef<Path>,
+        executable: impl AsRef<Path>,
+        resources: ResourceSource,
+        paths: HostPaths,
+    ) -> Result<Self, AppError> {
         let home = absolute_path(home.as_ref(), "integration home")?;
         let executable = absolute_path(executable.as_ref(), "integration executable")?;
-        let resources = absolute_path(resources.as_ref(), "integration resources")?;
         Ok(Self {
             home,
             executable,
@@ -100,10 +122,6 @@ impl Integrator {
 
     pub fn executable(&self) -> &Path {
         &self.executable
-    }
-
-    pub fn resources(&self) -> &Path {
-        &self.resources
     }
 
     pub fn detection(&self) -> Result<IntegrationDetection, AppError> {
@@ -348,11 +366,15 @@ impl Integrator {
     }
 
     pub(crate) fn skill(&self) -> Result<String, AppError> {
-        read_resource(&self.resources, "skill/ossia/SKILL.md")
+        self.resources.read_text(Resource::Skill)
     }
 
     pub(crate) fn icon(&self) -> Result<Vec<u8>, AppError> {
-        read_resource_bytes(&self.resources, "assets/ossia.svg")
+        self.resources.read(Resource::Icon)
+    }
+
+    pub(crate) fn read_resource(&self, resource: Resource) -> Result<Vec<u8>, AppError> {
+        self.resources.read(resource)
     }
 
     pub(crate) fn mcp_command(&self) -> Vec<String> {

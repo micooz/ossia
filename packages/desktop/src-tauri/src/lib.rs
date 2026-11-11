@@ -40,12 +40,7 @@ fn integrator(config: &server::Config) -> Result<ossia_integrations::Integrator>
             static_dir.to_string_lossy().into_owned(),
         );
     }
-    ossia_integrations::Integrator::with_paths(
-        &config.home,
-        executable,
-        &config.integration_root,
-        paths,
-    )
+    ossia_integrations::Integrator::with_paths(&config.home, executable, paths)
 }
 
 fn integration<T: serde::de::DeserializeOwned>(

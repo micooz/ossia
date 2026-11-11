@@ -10,8 +10,8 @@ fn fixture() -> (tempfile::TempDir, Integrator) {
         dsh_bin: None,
         launch_env: BTreeMap::new(),
     };
-    let resources = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../integrations");
-    let integrator = Integrator::with_paths(
+    let resources = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources");
+    let integrator = Integrator::with_resource_dir(
         root.path().join("library"),
         std::env::current_exe().unwrap(),
         resources,

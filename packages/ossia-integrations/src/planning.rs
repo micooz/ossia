@@ -172,19 +172,6 @@ pub(crate) fn serialize(value: impl Serialize) -> Result<Value, AppError> {
     serde_json::to_value(value).map_err(storage)
 }
 
-pub(crate) fn read_resource(root: &Path, name: &str) -> Result<String, AppError> {
-    read_resource_bytes(root, name).map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
-}
-
-pub(crate) fn read_resource_bytes(root: &Path, name: &str) -> Result<Vec<u8>, AppError> {
-    fs::read(root.join(name)).map_err(|error| {
-        AppError::new(
-            ErrorCode::UnsupportedSource,
-            format!("integration resource {name} is unavailable: {error}"),
-        )
-    })
-}
-
 pub(crate) fn zero_plan_hash() -> ContentHash {
     serde_json::from_value(Value::String("0".repeat(64))).expect("valid zero hash")
 }

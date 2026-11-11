@@ -19,7 +19,8 @@ browser score page; Tauri owns the management window.
   independent of the runtime's HTTP/IPC implementation.
 - `packages/ui`: score SPA (`index.html`) and separate management entry
   (`admin.html`); it owns display and interaction, not parsing or version state.
-- `integrations/`: Skill, Codex plugin and DSH plugin resources.
+- `packages/ossia-integrations/resources`: Skill, Codex plugin and DSH plugin
+  templates embedded into the installer.
 
 Allowed dependency direction:
 `ossia-types` → `ossia-score` → `ossia-engine` → `ossia-library` →

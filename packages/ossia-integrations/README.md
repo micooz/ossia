@@ -22,7 +22,7 @@ ossia integrate repair '{"host":"codex","profile":"default","mode":"plugin"}'
 ossia integrate remove '{"host":"codex","profile":"default"}'
 ```
 
-Host locations follow `CODEX_HOME`, `DSH_HOME`, and `AGENTS_HOME`; explicit `OSSIA_CODEX_BIN` and `OSSIA_DSH_BIN` override executable discovery. Installation resources come from `OSSIA_INTEGRATION_ROOT` or the executable's `resources/integrations` directory. The MCP command always uses the current executable's absolute path and an explicit absolute Ossia home.
+Host locations follow `CODEX_HOME`, `DSH_HOME`, and `AGENTS_HOME`; explicit `OSSIA_CODEX_BIN` and `OSSIA_DSH_BIN` override executable discovery. Installation templates are embedded in the executable from `resources/`, so the binary and its Skill, locale, client entry and icon always carry the same version. The MCP command always uses the current executable's absolute path and an explicit absolute Ossia home.
 
 Owned files and host entries are recorded in `<Ossia home>/integrations/managed.json`. A foreign entry with the same name, a changed owned file, or a moved plugin source is a conflict and is never overwritten.
 
@@ -37,7 +37,7 @@ cargo test -p ossia-integrations
 The native host tests are ignored unless the real tools are supplied:
 
 ```sh
-OSSIA_TEST_INTEGRATION_ROOT="$PWD/integrations" \
+OSSIA_TEST_INTEGRATION_ROOT="$PWD/packages/ossia-integrations/resources" \
 OSSIA_TEST_OSSIA_BIN="$PWD/target/debug/ossia-desktop" \
 OSSIA_TEST_DSH_TEMPLATE="$HOME/.dsh/profiles/desktop" \
 cargo test -p ossia-integrations --test native_hosts -- --ignored

@@ -342,14 +342,12 @@ function overlay(stage, target, entry) {
   const spec = specFor(target);
   const engine = path.join(ROOT, 'vendor/lilypond', `${entry.version}-${target}`);
   const ui = path.join(ROOT, 'packages/ui/dist');
-  const integrations = path.join(ROOT, 'integrations');
   const licenses = path.join(stage, 'materials/licenses');
   const config = {
     bundle: {
       resources: {
         [`${engine}${path.sep}`]: 'engine',
         [`${ui}${path.sep}`]: 'ui',
-        [`${integrations}${path.sep}`]: 'integrations',
         [`${licenses}${path.sep}`]: 'licenses',
       },
     },
