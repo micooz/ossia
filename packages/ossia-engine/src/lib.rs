@@ -3,6 +3,7 @@ mod cache;
 mod compile;
 mod diagnostics;
 mod process;
+mod raster;
 mod resources;
 mod source;
 

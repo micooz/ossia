@@ -91,6 +91,10 @@ impl Runtime {
                 web_base_url,
                 capabilities: vec![
                     "documents".into(),
+                    "write-source".into(),
+                    "draft-artifacts".into(),
+                    "music-analysis".into(),
+                    "music-expectations".into(),
                     "views".into(),
                     "jobs".into(),
                     "events".into(),
@@ -201,6 +205,14 @@ impl Runtime {
         payload: Value,
     ) {
         self.emit_locked(&mut self.state(), kind, None, document, hash, payload);
+    }
+
+    pub fn write_source(&self, args: WriteSourceArgs) -> Result<WriteSourceOutcome> {
+        self.available()?;
+        self.document_in_view(args.view_id, args.document_id)?;
+        let result = self.library.write_source(&args)?;
+        self.observe(args.document_id)?;
+        Ok(result)
     }
 
     pub fn status(&self) -> Result<StatusSnapshot> {

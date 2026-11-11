@@ -249,6 +249,8 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
             }
             value(runtime.import(args, bytes)?)
         }
+        "write_source" => value(runtime.write_source(decode(params)?)?),
+        "artifact" => value(runtime.artifact(decode(params)?)?),
         "edit" => runtime.edit(decode(params)?, true),
         "check" => value(runtime.check(decode(params)?, false)?),
         "commit" => value(runtime.commit(decode(params)?)?),

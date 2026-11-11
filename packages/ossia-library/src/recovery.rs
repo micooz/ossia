@@ -17,6 +17,58 @@ struct Intent {
 }
 
 impl Library {
+    /// Write an owned edit through the same durable replacement journal as restore.
+    pub fn write_source(&self, args: &WriteSourceArgs) -> Result<WriteSourceOutcome> {
+        if args.text.len() > 1024 * 1024 {
+            return Err(AppError::invalid("source exceeds 1 MiB"));
+        }
+        let snapshot = SourceSnapshot::new(args.document_id, args.text.as_bytes().to_vec())?;
+        let intent = {
+            let mut conn = self.db()?;
+            let tx = conn.transaction().map_err(storage_error)?;
+            let doc = db::document(&tx, args.document_id)?;
+            self.no_intent(&tx, doc.id)?;
+            let edit = db::edit(&tx, args.edit_id)?;
+            if edit.document_id != doc.id
+                || edit.owner_view_id != args.view_id
+                || edit.status != EditStatus::Active
+            {
+                return Err(AppError::new(
+                    ErrorCode::Forbidden,
+                    "source write requires the active owned edit",
+                ));
+            }
+            self.expect_head(&doc, edit.base_version_id)?;
+            self.expect_snapshot(&doc, &args.expected_source_hash)?;
+            self.store.put(snapshot.bytes())?;
+            db::record_content(&tx, snapshot.source_hash(), snapshot.bytes().len())?;
+            let intent = Intent {
+                document_id: doc.id,
+                old_hash: args.expected_source_hash.clone(),
+                target_hash: snapshot.source_hash().clone(),
+                base_version_id: doc.head,
+                version: None,
+                end_edit: None,
+            };
+            save_intent(&tx, &intent)?;
+            tx.execute(
+                "DELETE FROM check_receipts WHERE edit_id=?1",
+                [edit.edit_id.to_string()],
+            )
+            .map_err(storage_error)?;
+            tx.commit().map_err(storage_error)?;
+            intent
+        };
+        self.execute_intent(&intent)?;
+        let doc = self.get_document(args.document_id)?;
+        Ok(WriteSourceOutcome {
+            document_id: doc.document_id,
+            source_hash: doc.source_hash,
+            source_path: doc.source_path,
+            dirty: doc.dirty,
+        })
+    }
+
     pub fn discard(
         &self,
         document: DocumentId,

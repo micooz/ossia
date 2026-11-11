@@ -355,8 +355,29 @@ fn native_scale_expectations_gate_commit_before_export() {
         })
         .is_err());
     let fixed = source.replace("c4 d e f | g4 a b c'", "c'4 d' e' f' | g'4 a' b' c''");
-    fs::write(&doc.source_path, &fixed).unwrap();
-    let hash = ContentHash::of(fixed.as_bytes());
+    let original_job = imported.job.unwrap().job_id;
+    let original_svg = library
+        .draft_artifact(
+            &engine,
+            &ArtifactArgs {
+                job_id: original_job,
+                format: DraftFormat::Svg,
+                page: None,
+                width: None,
+            },
+            &RunContext::default(),
+        )
+        .unwrap();
+    let written = library
+        .write_source(&WriteSourceArgs {
+            document_id: doc.document_id,
+            view_id: edit.owner_view_id,
+            edit_id: edit.edit_id,
+            expected_source_hash: doc.source_hash.clone(),
+            text: fixed,
+        })
+        .unwrap();
+    let hash = written.source_hash;
     let checked = library
         .check(
             &engine,
@@ -370,6 +391,58 @@ fn native_scale_expectations_gate_commit_before_export() {
             &RunContext::default(),
         )
         .unwrap();
+    for format in [
+        DraftFormat::Svg,
+        DraftFormat::Midi,
+        DraftFormat::Pdf,
+        DraftFormat::Png,
+    ] {
+        let artifact = library
+            .draft_artifact(
+                &engine,
+                &ArtifactArgs {
+                    job_id: checked.job.job_id,
+                    format,
+                    page: None,
+                    width: None,
+                },
+                &RunContext::default(),
+            )
+            .unwrap();
+        assert!(Path::new(&artifact.path).is_file());
+        assert_eq!(artifact.source_hash, hash);
+        if format == DraftFormat::Png {
+            let bytes = fs::read(&artifact.path).unwrap();
+            assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
+            assert_eq!(u32::from_be_bytes(bytes[16..20].try_into().unwrap()), 1600);
+        }
+    }
+    let old_svg = library
+        .draft_artifact(
+            &engine,
+            &ArtifactArgs {
+                job_id: original_job,
+                format: DraftFormat::Svg,
+                page: None,
+                width: None,
+            },
+            &RunContext::default(),
+        )
+        .unwrap();
+    assert_eq!(old_svg.sha256, original_svg.sha256);
+    assert_ne!(old_svg.source_hash, hash);
+    assert!(library
+        .draft_artifact(
+            &engine,
+            &ArtifactArgs {
+                job_id: checked.job.job_id,
+                format: DraftFormat::Png,
+                page: None,
+                width: Some(4097)
+            },
+            &RunContext::default()
+        )
+        .is_err());
     let result: CheckResult = serde_json::from_value(checked.job.result.unwrap()).unwrap();
     assert_eq!(
         result.verification.status,

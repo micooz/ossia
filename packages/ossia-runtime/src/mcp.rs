@@ -35,6 +35,8 @@ pub fn tools() -> Vec<Tool> {
     tool::<OpenArgs>("ossia_open","Create an isolated view and a one-use local browser link."),
     tool::<ContextArgs>("ossia_context","Read this explicit view's document, selection, source spans and event cursor."),
     tool::<EditArgs>("ossia_edit","Explicitly begin, resume, end, discard or acknowledge recovery; keep editId private."),
+    tool::<WriteSourceArgs>("ossia_write_source","Atomically replace the active owned edit source and return its computed hash."),
+    tool::<ArtifactArgs>("ossia_artifact","Queue a verified SVG, PNG, MIDI or PDF from a completed import/check snapshot."),
     tool::<CheckArgs>("ossia_check","Queue a check of exact expectedSourceHash; editId binds successful checks to commit."),
     tool::<CommitArgs>("ossia_commit","Commit the exact checked source and base version; no human acceptance step."),
     tool::<HistoryArgs>("ossia_history","List distinct version nodes in order."),

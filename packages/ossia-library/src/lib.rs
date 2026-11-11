@@ -3,6 +3,7 @@ mod api;
 mod artifacts;
 pub use artifacts::render_key;
 mod db;
+mod drafts;
 mod lifecycle;
 mod music;
 mod recovery;

@@ -10,6 +10,7 @@ use std::{
 
 pub(super) enum Work {
     Check,
+    Artifact(ArtifactArgs),
     VersionRender(DocumentId, VersionId),
     Import { args: ImportArgs, bytes: Vec<u8> },
     Restore(RestoreArgs),
@@ -106,6 +107,19 @@ impl Runtime {
             },
         })?;
         self.enqueue(job, Work::Check, preview)
+    }
+
+    pub fn artifact(&self, args: ArtifactArgs) -> Result<Job> {
+        self.available()?;
+        let (source, _) = self.library.checked_job(args.job_id)?;
+        let snapshot = self
+            .library
+            .job_snapshot(source.job_id)?
+            .ok_or_else(|| invalid("source job has no snapshot"))?;
+        let job = self
+            .library
+            .create_job("artifact", source.document_id, Some(&snapshot))?;
+        self.enqueue(job, Work::Artifact(args), false)
     }
 
     pub fn import(&self, args: ImportArgs, bytes: Vec<u8>) -> Result<Job> {
@@ -316,6 +330,11 @@ impl Runtime {
             task.context.check()?;
             match task.work {
                 Work::Check => unreachable!(),
+                Work::Artifact(args) => value(self.library.draft_artifact(
+                    self.engine.as_ref(),
+                    &args,
+                    &task.context,
+                )?),
                 Work::VersionRender(document, version) => value(self.library.render_version(
                     self.engine.as_ref(),
                     document,

@@ -5,6 +5,19 @@ use std::path::Path;
 
 /// Native Engine is the production adapter; deterministic adapters exercise failure/race paths.
 pub trait EngineBackend: Send + Sync {
+    /// Produce a content-addressed PNG when supported by this engine backend.
+    fn rasterize_svg(
+        &self,
+        _svg: &[u8],
+        _width: u32,
+        _root: &Path,
+        _context: &RunContext,
+    ) -> Result<ArtifactRef> {
+        Err(AppError::unsupported(
+            "PNG unavailable in this engine backend",
+        ))
+    }
+
     fn build_id(&self) -> &str;
     fn convert(
         &self,
@@ -23,6 +36,16 @@ pub trait EngineBackend: Send + Sync {
 }
 
 impl EngineBackend for Engine {
+    fn rasterize_svg(
+        &self,
+        svg: &[u8],
+        width: u32,
+        root: &Path,
+        context: &RunContext,
+    ) -> Result<ArtifactRef> {
+        self.rasterize_svg(svg, width, root, context)
+    }
+
     fn build_id(&self) -> &str {
         self.build_id()
     }

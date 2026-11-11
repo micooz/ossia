@@ -37,3 +37,15 @@ invalidated, while documents, versions and job history are preserved.
 Library/runtime/type tests, Clippy, frontend checks and generated contract checks
 pass. A native LilyPond 2.26.0 macOS ARM64 test confirms the C3–C4 mismatch blocks
 commit and corrected C4–C5 with quarter-note durations passes.
+
+## Source and draft artifacts
+
+`write_source` uses the existing durable worktree journal and ownership/hash
+checks. It returns the computed hash without creating a version. Recovery tests
+cover failed writes after replacement and preserve the original version history.
+
+`artifact` queues outputs from completed import/check snapshots. PNG rendering
+uses resvg 0.49.0, bounds allocations, disables external image reads, and keys its
+cache by SVG, dimensions, renderer and font metadata. Library/runtime/engine tests
+and Clippy pass. Native macOS ARM64 evidence covers SVG/MIDI/PDF/PNG before commit,
+1600px PNG output, old-snapshot isolation and oversized preview rejection.

@@ -38,12 +38,15 @@ response, inspect current state before retrying through another transport.
    source hash, and source path. Do not use another session's recent selection.
 5. Call `ossia_edit` with action `begin`, the current `baseVersionId`, and the
    exact `expectedSourceHash`. Keep `editId` private.
-6. Edit the returned library `sourcePath` using your file tools. Do not write a
-   second copy or bypass a host filesystem permission refusal.
-7. Call `ossia_check` with the exact new source hash and the same `editId`. Poll
-   `ossia_job` until it reaches a terminal state, then inspect diagnostics and
-   the SVG browser preview. Repeat write/check within the same edit for drafts;
-   do not re-import each draft.
+6. Use `ossia_write_source` with `documentId`, `viewId`, `editId`, the current
+   `expectedSourceHash` and complete `text`. Keep the returned new `sourceHash`.
+   Direct source-file editing remains supported; never bypass an explicit host
+   permission refusal by changing transports.
+7. Call `ossia_check` with the returned source hash and the same `editId`. Add
+   `expect` when musical intent is known. Poll `ossia_job`, inspect the music
+   report and verification, then inspect a preview. Repeat write/check within the
+   same edit; do not re-import drafts. A done job means the check ran: declared
+   expectations must also have verification status `passed` before commit.
 8. Call `ossia_commit` when ready with `editId`, `baseVersionId`,
    `expectedSourceHash` and `summary`. If it conflicts, reread context and do not
    overwrite another task. Auto-preview does not authorize commit.
@@ -96,3 +99,43 @@ operations instead of private engine binaries.
 
 Locations use UTF-8 byte spans, one-based pages/measures, zero-based staves and
 SVG user units.
+
+## Musical checks
+
+Explicit import/check produces SVG, source evidence and MIDI evidence when
+available. Automatic previews produce SVG only. Written note tokens and performed
+MIDI note-ons are different counts: repeats, ties and unused definitions matter.
+`music.source` and `music.performance` report coverage separately. Unknown counts
+are null, not a verified zero. MIDI time uses `{numerator, denominator}` fractions
+of a quarter note; duration is key-release time and excludes pedal acoustics.
+
+For example, check an eight-note ascending scale with:
+
+```json
+{"expect":{"noteCount":8,"tracks":[{"track":1,"channel":0,"pitches":[60,62,64,65,67,69,71,72]}]}}
+```
+
+Read actual track/channel identifiers from the report. Track expectations also
+accept `notes` with `pitch`, `start` and `duration` fractions. Simultaneous notes
+sort by pitch. Missing timing, SMPTE and format-2 cannot pass timing conditions.
+Empty expectations and zero denominators are invalid.
+
+A check result contains `render`, `music`, and `verification`. Compilation success
+and intent verification are independent. A failed/unavailable expectation keeps
+preview evidence but authorizes no commit. The latest explicit check supersedes
+older checks; automatic previews never authorize a commit. Do not drop an
+expectation just to make a check pass. Legacy jobs have no recorded music report;
+check again instead of treating missing evidence as success.
+
+## Draft artifacts
+
+Call `ossia_artifact` with a completed import/check `jobId` and `format` (`svg`,
+`png`, `midi`, `pdf`), then poll its returned job. The result contains a verified
+absolute `path`, media type, hash and source provenance. Read that file with the
+host's file/image tool. No external conversion tools or artifact-directory search
+are needed. This does not create a version or export to a user-selected path.
+
+SVG/PNG accept one-based `page` (default 1). PNG defaults to a white 1600-pixel-wide
+page; optional `width` is 1..4096 and output is limited to 16 million pixels.
+Artifacts always refer to the source job's captured snapshot, even after edits or
+commit. Generate missing artifacts with the same engine build or re-check first.

@@ -35,6 +35,12 @@ pub enum Command {
         action: IntegrateAction,
     },
     /// Each operation accepts the same JSON object as its MCP tool.
+    WriteSource {
+        json: String,
+    },
+    Artifact {
+        json: String,
+    },
     Import {
         json: String,
     },
@@ -194,6 +200,8 @@ pub async fn run(args: Args) -> Result<Option<serde_json::Value>> {
             let (method, args) = match command {
                 Command::Status => ("status", "{}".into()),
                 Command::List => ("list", "{}".into()),
+                Command::WriteSource { json } => ("write_source", json),
+                Command::Artifact { json } => ("artifact", json),
                 Command::Import { json } => ("import", json),
                 Command::Open { json } => ("open", json),
                 Command::Context { json } => ("context", json),

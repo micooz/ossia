@@ -159,7 +159,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         .await
         .unwrap();
     let tools = client.list_all_tools().await.unwrap();
-    assert_eq!(tools.len(), 14);
+    assert_eq!(tools.len(), mcp::tools().len());
     assert!(tools.iter().all(|t| t.input_schema["type"] == "object"));
     assert!(call(&client, "ossia_guide", json!({}))
         .await
@@ -339,7 +339,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         .unwrap();
     let _ = endpoint;
     if let Some(path) = std::env::var_os("OSSIA_NATIVE_EVIDENCE") {
-        std::fs::write(path,serde_json::to_vec_pretty(&json!({"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"protocolVersion":PROTOCOL_VERSION,"tools":14,"concurrentStartup":true,"mcpDisconnectKeepsServe":true,"restart":true,"automaticPreview":true,"engineBuildId":a.1["engineBuildId"],"cases":cases})).unwrap()).unwrap();
+        std::fs::write(path,serde_json::to_vec_pretty(&json!({"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"protocolVersion":PROTOCOL_VERSION,"tools":mcp::tools().len(),"concurrentStartup":true,"mcpDisconnectKeepsServe":true,"restart":true,"automaticPreview":true,"engineBuildId":a.1["engineBuildId"],"cases":cases})).unwrap()).unwrap();
     }
 }
 

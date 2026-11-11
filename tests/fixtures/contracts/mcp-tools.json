@@ -200,6 +200,101 @@
     }
   },
   {
+    "name": "ossia_write_source",
+    "description": "Atomically replace the active owned edit source and return its computed hash.",
+    "inputSchema": {
+      "$defs": {
+        "ContentHash": {
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Replace only the active edit's source; the runtime computes the new hash.",
+      "properties": {
+        "documentId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "editId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "expectedSourceHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "text": {
+          "type": "string"
+        },
+        "viewId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "documentId",
+        "viewId",
+        "editId",
+        "expectedSourceHash",
+        "text"
+      ],
+      "title": "WriteSourceArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_artifact",
+    "description": "Queue a verified SVG, PNG, MIDI or PDF from a completed import/check snapshot.",
+    "inputSchema": {
+      "$defs": {
+        "DraftFormat": {
+          "description": "A draft artifact format, independent of versioned exports.",
+          "enum": [
+            "svg",
+            "midi",
+            "pdf",
+            "png"
+          ],
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Prepare an artifact from a finished import/check, never from the latest mutable file.",
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/DraftFormat"
+        },
+        "jobId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "page": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "width": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "jobId",
+        "format"
+      ],
+      "title": "ArtifactArgs",
+      "type": "object"
+    }
+  },
+  {
     "name": "ossia_check",
     "description": "Queue a check of exact expectedSourceHash; editId binds successful checks to commit.",
     "inputSchema": {

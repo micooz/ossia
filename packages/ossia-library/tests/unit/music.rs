@@ -77,3 +77,43 @@ fn existing_schema_adds_check_binding_without_trusting_old_receipts() {
     );
     assert!(library.list_documents().unwrap().is_empty());
 }
+
+#[test]
+fn source_writes_require_owned_edit_hash_and_recover_after_replacement() {
+    let f = Fixture::new();
+    let edit = f.begin();
+    let mut args = WriteSourceArgs {
+        document_id: f.doc.document_id,
+        view_id: edit.owner_view_id,
+        edit_id: edit.edit_id,
+        expected_source_hash: f.doc.source_hash.clone(),
+        text: "new c'1".into(),
+    };
+    args.view_id = ViewId::new();
+    assert_eq!(
+        f.library.write_source(&args).unwrap_err().code,
+        ErrorCode::Forbidden
+    );
+    args.view_id = edit.owner_view_id;
+    args.expected_source_hash = ContentHash::of(b"stale");
+    assert_eq!(
+        f.library.write_source(&args).unwrap_err().code,
+        ErrorCode::Conflict
+    );
+    args.expected_source_hash = f.doc.source_hash.clone();
+    let state = f.library.write_source(&args).unwrap();
+    assert_eq!(state.source_hash, ContentHash::of(args.text.as_bytes()));
+    assert!(state.dirty);
+    args.expected_source_hash = state.source_hash;
+    args.text = "after crash c'1".into();
+    f.hook("after-replace", |_| Err(storage_error("interrupted write")));
+    assert!(f.library.write_source(&args).is_err());
+    let home = f.library.home().to_owned();
+    drop(f.library);
+    let library = Library::open(&home).unwrap();
+    assert_eq!(
+        library.source_snapshot(args.document_id).unwrap().source(),
+        args.text
+    );
+    assert_eq!(library.history(args.document_id).unwrap().len(), 1);
+}
