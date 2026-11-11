@@ -29,6 +29,7 @@ operations. The entry is published in the data directory when Ossia starts.
 - Score preview and selection context: `ossia_open`, `ossia_context`.
 - Editing, validation, and version creation: `ossia_edit`, `ossia_write_source`, `ossia_check`, `ossia_commit`.
 - Draft previews and outputs: `ossia_artifact`.
+- Fixed-snapshot musical evidence: `ossia_analysis`.
 - Version history and restoration: `ossia_history`, `ossia_restore`.
 - Versioned output: `ossia_export`.
 - Background job status and cancellation: `ossia_job`.

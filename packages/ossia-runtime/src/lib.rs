@@ -1,3 +1,4 @@
+mod agent;
 mod browser;
 pub mod cli;
 mod core;

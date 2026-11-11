@@ -26,7 +26,10 @@ pub enum Command {
     Serve,
     Mcp,
     Doctor,
-    Status,
+    Status {
+        #[arg(default_value = "{}")]
+        json: String,
+    },
     Stop,
     Guide,
     List,
@@ -36,6 +39,9 @@ pub enum Command {
     },
     /// Each operation accepts the same JSON object as its MCP tool.
     WriteSource {
+        json: String,
+    },
+    Analysis {
         json: String,
     },
     Artifact {
@@ -198,9 +204,10 @@ pub async fn run(args: Args) -> Result<Option<serde_json::Value>> {
                 return Ok(None);
             }
             let (method, args) = match command {
-                Command::Status => ("status", "{}".into()),
+                Command::Status { json } => ("status", json),
                 Command::List => ("list", "{}".into()),
                 Command::WriteSource { json } => ("write_source", json),
+                Command::Analysis { json } => ("analysis", json),
                 Command::Artifact { json } => ("artifact", json),
                 Command::Import { json } => ("import", json),
                 Command::Open { json } => ("open", json),

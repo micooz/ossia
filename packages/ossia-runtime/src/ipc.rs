@@ -217,7 +217,9 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
             let _: EmptyArgs = decode(params)?;
             value(GUIDE)
         }
-        "status" | "doctor" => {
+        "status" => runtime.agent_status(decode(params)?),
+        "analysis" => value(runtime.analysis(decode(params)?)?),
+        "doctor" => {
             let _: EmptyArgs = decode(params)?;
             value(runtime.status()?)
         }
@@ -226,7 +228,7 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
             value(runtime.library.list_documents()?)
         }
         "open" => value(runtime.open_view(decode::<OpenArgs>(params)?.document_id)?),
-        "context" => value(runtime.context(decode::<ContextArgs>(params)?.view_id)?),
+        "context" => runtime.agent_context(decode(params)?),
         "import" => {
             let args: ImportArgs = decode(params)?;
             let path = Path::new(&args.path);
@@ -263,9 +265,14 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
         "export" => value(runtime.export(decode(params)?)?),
         "job" => {
             let args: JobArgs = decode(params)?;
-            value(match args.action {
+            let job = match args.action {
                 JobAction::Get => runtime.library.get_job(args.job_id)?,
                 JobAction::Cancel => runtime.cancel(args.job_id)?,
+            };
+            value(if args.detail == DetailLevel::Full {
+                job
+            } else {
+                crate::agent::summarize_job(job)
             })
         }
         "stop" => {

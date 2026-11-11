@@ -23,9 +23,26 @@
     "name": "ossia_status",
     "description": "Inspect runtime, engine, library and durable jobs.",
     "inputSchema": {
+      "$defs": {
+        "DetailLevel": {
+          "description": "Agent responses are compact unless the caller explicitly requests full evidence.",
+          "enum": [
+            "summary",
+            "full"
+          ],
+          "type": "string"
+        }
+      },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
-      "title": "EmptyArgs",
+      "description": "Runtime status projection for Agent transports.",
+      "properties": {
+        "detail": {
+          "$ref": "#/$defs/DetailLevel",
+          "default": "summary"
+        }
+      },
+      "title": "StatusArgs",
       "type": "object"
     }
   },
@@ -115,9 +132,23 @@
     "name": "ossia_context",
     "description": "Read this explicit view's document, selection, source spans and event cursor.",
     "inputSchema": {
+      "$defs": {
+        "DetailLevel": {
+          "description": "Agent responses are compact unless the caller explicitly requests full evidence.",
+          "enum": [
+            "summary",
+            "full"
+          ],
+          "type": "string"
+        }
+      },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
       "properties": {
+        "detail": {
+          "$ref": "#/$defs/DetailLevel",
+          "default": "summary"
+        },
         "viewId": {
           "format": "uuid",
           "type": "string"
@@ -239,6 +270,55 @@
         "text"
       ],
       "title": "WriteSourceArgs",
+      "type": "object"
+    }
+  },
+  {
+    "name": "ossia_analysis",
+    "description": "Read paginated notes, written pitch events or verification differences from a fixed check.",
+    "inputSchema": {
+      "$defs": {
+        "AnalysisSection": {
+          "description": "Which immutable evidence to page through.",
+          "enum": [
+            "performance",
+            "source",
+            "differences"
+          ],
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Read bounded evidence from a completed import/check job.",
+      "properties": {
+        "jobId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "limit": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "default": 0,
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "section": {
+          "$ref": "#/$defs/AnalysisSection",
+          "default": "performance"
+        }
+      },
+      "required": [
+        "jobId"
+      ],
+      "title": "AnalysisArgs",
       "type": "object"
     }
   },
@@ -620,6 +700,14 @@
     "description": "Query or cancel a durable job; terminal states are immutable.",
     "inputSchema": {
       "$defs": {
+        "DetailLevel": {
+          "description": "Agent responses are compact unless the caller explicitly requests full evidence.",
+          "enum": [
+            "summary",
+            "full"
+          ],
+          "type": "string"
+        },
         "JobAction": {
           "enum": [
             "get",
@@ -633,6 +721,10 @@
       "properties": {
         "action": {
           "$ref": "#/$defs/JobAction"
+        },
+        "detail": {
+          "$ref": "#/$defs/DetailLevel",
+          "default": "summary"
         },
         "jobId": {
           "format": "uuid",

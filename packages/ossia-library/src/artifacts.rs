@@ -64,6 +64,15 @@ impl Library {
         })
     }
 
+    /// Count library records without loading mutable source files or render history.
+    pub fn document_count(&self) -> Result<usize> {
+        let count: i64 = self
+            .db()?
+            .query_row("SELECT count(*) FROM documents", [], |r| r.get(0))
+            .map_err(storage_error)?;
+        usize::try_from(count).map_err(storage_error)
+    }
+
     pub fn list_jobs(&self) -> Result<Vec<Job>> {
         let conn = self.db()?;
         let mut statement = conn

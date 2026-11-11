@@ -210,7 +210,12 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         let preview_start = Instant::now();
         loop {
             let context: ViewSnapshot = serde_json::from_value(
-                call(&client, "ossia_context", json!({"viewId":open.view_id})).await,
+                call(
+                    &client,
+                    "ossia_context",
+                    json!({"viewId":open.view_id,"detail":"full"}),
+                )
+                .await,
             )
             .unwrap();
             if context
@@ -237,7 +242,12 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         let version:Version=serde_json::from_value(call(&client,"ossia_commit",json!({"documentId":doc.document_id,"viewId":open.view_id,"editId":edit.edit_id,"baseVersionId":initial,"expectedSourceHash":hash,"summary":"native runtime edit"})).await).unwrap();
         assert_eq!(version.seq, 2);
         let context: ViewSnapshot = serde_json::from_value(
-            call(&client, "ossia_context", json!({"viewId":open.view_id})).await,
+            call(
+                &client,
+                "ossia_context",
+                json!({"viewId":open.view_id,"detail":"full"}),
+            )
+            .await,
         )
         .unwrap();
         let key = context.render.unwrap().render_key;

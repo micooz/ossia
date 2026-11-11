@@ -103,6 +103,8 @@ pub struct OpenArgs {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ContextArgs {
+    #[serde(default)]
+    pub detail: DetailLevel,
     pub view_id: ViewId,
 }
 
@@ -204,6 +206,8 @@ pub enum JobAction {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct JobArgs {
+    #[serde(default)]
+    pub detail: DetailLevel,
     pub job_id: JobId,
     pub action: JobAction,
 }

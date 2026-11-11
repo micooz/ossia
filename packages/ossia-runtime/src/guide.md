@@ -112,7 +112,12 @@ of a quarter note; duration is key-release time and excludes pedal acoustics.
 For example, check an eight-note ascending scale with:
 
 ```json
-{"expect":{"noteCount":8,"tracks":[{"track":1,"channel":0,"pitches":[60,62,64,65,67,69,71,72]}]}}
+{
+  "expect": {
+    "noteCount": 8,
+    "tracks": [{ "track": 1, "channel": 0, "pitches": [60, 62, 64, 65, 67, 69, 71, 72] }]
+  }
+}
 ```
 
 Read actual track/channel identifiers from the report. Track expectations also
@@ -139,3 +144,17 @@ SVG/PNG accept one-based `page` (default 1). PNG defaults to a white 1600-pixel-
 page; optional `width` is 1..4096 and output is limited to 16 million pixels.
 Artifacts always refer to the source job's captured snapshot, even after edits or
 commit. Generate missing artifacts with the same engine build or re-check first.
+
+## Compact Agent responses
+
+CLI/MCP `status`, `context` and `job` default to summaries. Pass `detail: "full"`
+for the complete persisted result. Status lists active jobs only; context includes
+one render identity rather than duplicated manifests. Check summaries omit info
+logs and show at most 64 performed notes, written events and differences, with
+`notesTotal`/`notesTruncated`, `eventsTotal`/`eventsTruncated`, or the corresponding
+difference fields. Missing legacy reports remain unavailable.
+
+Use `ossia_analysis` with `jobId`, `section` (`performance`, `source`,
+`differences`), zero-based `offset` and optional `limit` (1..512, default 64) to
+read complete evidence. Follow `nextOffset` until null. Browser HTTP state remains
+complete and is not affected by Agent summary defaults.

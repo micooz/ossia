@@ -49,3 +49,12 @@ uses resvg 0.49.0, bounds allocations, disables external image reads, and keys i
 cache by SVG, dimensions, renderer and font metadata. Library/runtime/engine tests
 and Clippy pass. Native macOS ARM64 evidence covers SVG/MIDI/PDF/PNG before commit,
 1600px PNG output, old-snapshot isolation and oversized preview rejection.
+
+## Agent response projections
+
+Agent status omits terminal task history, and context omits duplicate render
+manifests. Full results remain available with `detail: "full"`. Check summaries
+bound event/difference arrays at 64 and expose explicit totals/truncation flags.
+`analysis` reads immutable evidence in pages of at most 512. HTTP browser state
+keeps its full DTO. Runtime tests and Clippy verify compact responses, bounded
+paging, full projections and explicit legacy-evidence errors.
