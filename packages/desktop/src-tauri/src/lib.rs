@@ -1,9 +1,10 @@
 #![cfg(feature = "gui")]
 use ossia_runtime::{
-    ipc, server, AppError, DoctorReport, IntegrationAction, IntegrationDetection, IntegrationPlan,
-    IntegrationRequest, IntegrationStatus, ManagementSnapshot, Result,
+    ipc, server, AgentsChange, AgentsMutation, AgentsSnapshot, AppError, DoctorReport,
+    ManagementSnapshot, Result,
 };
 use serde_json::json;
+use tauri::{Emitter, Manager};
 
 struct Management {
     config: Result<server::Config>,
@@ -43,17 +44,6 @@ fn integrator(config: &server::Config) -> Result<ossia_integrations::Integrator>
     ossia_integrations::Integrator::with_paths(&config.home, executable, paths)
 }
 
-fn integration<T: serde::de::DeserializeOwned>(
-    request: IntegrationRequest,
-    config: &server::Config,
-) -> Result<T> {
-    serde_json::from_value(integrator(config)?.execute(request)?).map_err(|error| {
-        AppError::new(
-            ossia_runtime::ErrorCode::StorageError,
-            format!("invalid integration response: {error}"),
-        )
-    })
-}
 #[tauri::command]
 async fn management_status(state: tauri::State<'_, Management>) -> Result<ManagementSnapshot> {
     Ok(snapshot(&config(&state)?).await)
@@ -79,77 +69,42 @@ async fn management_doctor(state: tauri::State<'_, Management>) -> Result<Doctor
 }
 
 #[tauri::command]
-async fn management_integration_detect(
-    state: tauri::State<'_, Management>,
-) -> Result<IntegrationDetection> {
-    integrator(&config(&state)?)?.detection()
+async fn management_agents_state(state: tauri::State<'_, Management>) -> Result<AgentsSnapshot> {
+    integrator(&config(&state)?)?.agents()
 }
 
 #[tauri::command]
-async fn management_integration_plan(
+async fn management_agents_change(
     state: tauri::State<'_, Management>,
-    mut request: IntegrationRequest,
-) -> Result<IntegrationPlan> {
-    let config = config(&state)?;
-    request.action = IntegrationAction::Plan;
-    integration(request, &config)
-}
-
-#[tauri::command]
-async fn management_integration_status(
-    state: tauri::State<'_, Management>,
-    mut request: IntegrationRequest,
-) -> Result<IntegrationStatus> {
-    let config = config(&state)?;
-    request.action = IntegrationAction::Status;
-    integration(request, &config)
-}
-
-#[tauri::command]
-async fn management_integration_apply(
-    state: tauri::State<'_, Management>,
-    mut request: IntegrationRequest,
-) -> Result<IntegrationStatus> {
-    let config = config(&state)?;
-    request.action = IntegrationAction::Apply;
-    integration(request, &config)
-}
-
-#[tauri::command]
-async fn management_integration_repair(
-    state: tauri::State<'_, Management>,
-    mut request: IntegrationRequest,
-) -> Result<IntegrationStatus> {
-    let config = config(&state)?;
-    request.action = IntegrationAction::Repair;
-    integration(request, &config)
-}
-
-#[tauri::command]
-async fn management_integration_remove(
-    state: tauri::State<'_, Management>,
-    mut request: IntegrationRequest,
-) -> Result<IntegrationStatus> {
-    let config = config(&state)?;
-    request.action = IntegrationAction::Remove;
-    integration(request, &config)
+    change: AgentsChange,
+) -> Result<AgentsMutation> {
+    integrator(&config(&state)?)?.set_agents(change)
 }
 
 pub fn run(config: Result<server::Config>) {
     tauri::Builder::default()
         .manage(Management { config })
+        .setup(|app| {
+            let config = app.state::<Management>().config.clone();
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                if let Ok(config) = config {
+                    if let Ok(integrator) = integrator(&config) {
+                        let _ = integrator.sync_managed();
+                    }
+                }
+                let _ = handle.emit("agents-updated", ());
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             management_status,
             management_start,
             management_stop,
             management_doctor,
-            management_integration_detect,
-            management_integration_plan,
-            management_integration_status,
-            management_integration_apply,
-            management_integration_repair,
-            management_integration_remove
+            management_agents_state,
+            management_agents_change
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Ossia management window");
+        .expect("error while running ossia management window");
 }

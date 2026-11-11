@@ -350,8 +350,8 @@ function overlay(stage, target, entry) {
 function findApp(target) {
   const triple = specFor(target).triple;
   const candidates = [
-    path.join(ROOT, 'target', triple, 'release/bundle/macos/Ossia.app'),
-    path.join(ROOT, 'target/release/bundle/macos/Ossia.app'),
+    path.join(ROOT, 'target', triple, 'release/bundle/macos/ossia.app'),
+    path.join(ROOT, 'target/release/bundle/macos/ossia.app'),
   ];
   const app = candidates.find((candidate) => fs.existsSync(candidate));
   if (!app) throw new Error(`built app not found for ${target}`);
@@ -472,12 +472,12 @@ function dmg(root, app, destination) {
   try {
     fs.rmSync(staging, { recursive: true, force: true });
     fs.mkdirSync(staging, { recursive: true });
-    run('ditto', [app, path.join(staging, 'Ossia.app')]);
+    run('ditto', [app, path.join(staging, 'ossia.app')]);
     fs.symlinkSync('/Applications', path.join(staging, 'Applications'));
     run('hdiutil', [
       'create',
       '-volname',
-      'Ossia',
+      'ossia',
       '-srcfolder',
       staging,
       '-ov',
@@ -494,7 +494,7 @@ async function verifyDmg(dmgPath, home) {
   const mount = fs.mkdtempSync(path.join(os.tmpdir(), 'ossia-dmg-'));
   try {
     run('hdiutil', ['attach', '-nobrowse', '-readonly', '-mountpoint', mount, dmgPath]);
-    await verifyApp(path.join(mount, 'Ossia.app'), home);
+    await verifyApp(path.join(mount, 'ossia.app'), home);
   } finally {
     try {
       run('hdiutil', ['detach', mount, '-quiet', '-force']);
@@ -646,7 +646,7 @@ export async function packageTarget(target, options = {}) {
   if (spec.platform === 'macos') {
     const app = findApp(target);
     await normalizeEngine(app, target, entry);
-    const installed = path.join(artifactDir, 'Ossia.app');
+    const installed = path.join(artifactDir, 'ossia.app');
     run('ditto', [app, installed]);
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ossia-package-home-'));
     try {
@@ -654,10 +654,10 @@ export async function packageTarget(target, options = {}) {
     } finally {
       fs.rmSync(home, { recursive: true, force: true });
     }
-    const zip = path.join(artifactDir, `Ossia_${APP_VERSION}_${spec.triple}.app.zip`);
+    const zip = path.join(artifactDir, `ossia_${APP_VERSION}_${spec.triple}.app.zip`);
     run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', installed, zip]);
     files.push(zip);
-    const disk = path.join(artifactDir, `Ossia_${APP_VERSION}_${spec.triple}.dmg`);
+    const disk = path.join(artifactDir, `ossia_${APP_VERSION}_${spec.triple}.dmg`);
     dmg(artifactDir, installed, disk);
     const verifyHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ossia-dmg-home-'));
     try {

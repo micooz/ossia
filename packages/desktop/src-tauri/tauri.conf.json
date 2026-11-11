@@ -1,6 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Ossia",
+  "productName": "ossia",
+  "mainBinaryName": "ossia",
   "version": "0.1.0",
   "identifier": "dev.ossia.desktop",
   "build": {
@@ -12,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "Ossia 管理",
+        "title": "ossia 管理",
         "width": 920,
         "height": 760,
         "minWidth": 520,

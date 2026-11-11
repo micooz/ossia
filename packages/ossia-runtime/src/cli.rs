@@ -69,11 +69,10 @@ pub enum Command {
 #[derive(Subcommand)]
 pub enum IntegrateAction {
     Detect,
-    Plan { json: String },
-    Apply { json: String },
-    Status { json: String },
-    Repair { json: String },
-    Remove { json: String },
+    Status,
+    Install { agent: String },
+    Remove { agent: String },
+    Sync,
 }
 impl Args {
     pub fn config(&self) -> Result<server::Config> {
@@ -227,20 +226,27 @@ async fn run_integrate(
         );
     }
     let integrator = ossia_integrations::Integrator::with_paths(&config.home, executable, paths)?;
-    let (action_name, json) = match action {
-        IntegrateAction::Detect => ("detect", "{}".to_string()),
-        IntegrateAction::Plan { json } => ("plan", json),
-        IntegrateAction::Apply { json } => ("apply", json),
-        IntegrateAction::Status { json } => ("status", json),
-        IntegrateAction::Repair { json } => ("repair", json),
-        IntegrateAction::Remove { json } => ("remove", json),
+    let value = match action {
+        IntegrateAction::Detect | IntegrateAction::Status => {
+            serde_json::to_value(integrator.agents()?).map_err(storage)?
+        }
+        IntegrateAction::Install { agent } => {
+            serde_json::to_value(integrator.set_agents(ossia_types::AgentsChange {
+                agent_ids: vec![agent],
+                enabled: true,
+            })?)
+            .map_err(storage)?
+        }
+        IntegrateAction::Remove { agent } => {
+            serde_json::to_value(integrator.set_agents(ossia_types::AgentsChange {
+                agent_ids: vec![agent],
+                enabled: false,
+            })?)
+            .map_err(storage)?
+        }
+        IntegrateAction::Sync => {
+            serde_json::to_value(integrator.sync_managed()?).map_err(storage)?
+        }
     };
-    let mut value: serde_json::Value =
-        serde_json::from_str(&json).map_err(|error| invalid(error.to_string()))?;
-    if !value.is_object() {
-        return Err(invalid("integration arguments must be a JSON object"));
-    }
-    value["action"] = json!(action_name);
-    let request: IntegrationRequest = decode(value)?;
-    Ok(Some(integrator.execute(request)?))
+    Ok(Some(value))
 }

@@ -1,22 +1,38 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { describe } from './api.ts';
+import codexIcon from './assets/agents/codex.svg';
+import dshIcon from './assets/agents/dsh.svg';
 import type {
+  AgentIntegration,
+  AgentProblem,
+  AgentState,
+  AgentsMutation,
+  AgentsSnapshot,
   DoctorReport,
-  HostDetection,
-  HostKind,
-  IntegrationAction,
-  IntegrationDetection,
-  IntegrationMode,
-  IntegrationPlan,
-  IntegrationRequest,
-  IntegrationStatus,
   ManagementSnapshot,
 } from './generated/protocol.ts';
 
 import './styles.css';
+
+const stateLabels: Record<AgentState, string> = {
+  available: '未接入',
+  installed: '已接入',
+  disabled: '已禁用',
+  broken: '需修复',
+  conflict: '冲突',
+  unavailable: '不可用',
+  'update-required': '需更新',
+};
+
+function agentIcon(agent: AgentIntegration) {
+  if (agent.icon === 'codex') return codexIcon;
+  if (agent.icon === 'dsh') return dshIcon;
+  return null;
+}
 
 function Admin() {
   const [state, setState] = useState<ManagementSnapshot | null>(null);
@@ -24,36 +40,43 @@ function Admin() {
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
   const [confirm, setConfirm] = useState(false);
-  const [integrations, setIntegrations] = useState<HostDetection[]>([]);
-  const [modes, setModes] = useState<Record<HostKind, IntegrationMode>>({
-    codex: 'skill-mcp',
-    dsh: 'plugin',
-  });
-  const [profiles, setProfiles] = useState<Record<HostKind, string>>({
-    codex: 'default',
-    dsh: 'desktop',
-  });
-  const [plans, setPlans] = useState<Partial<Record<HostKind, IntegrationPlan>>>({});
-  const [statuses, setStatuses] = useState<Partial<Record<HostKind, IntegrationStatus>>>({});
+  const [agents, setAgents] = useState<AgentsSnapshot | null>(null);
+  const [agentProblems, setAgentProblems] = useState<AgentProblem[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
   const native = '__TAURI_INTERNALS__' in window;
+
+  async function loadAgents() {
+    try {
+      setAgents(await invoke<AgentsSnapshot>('management_agents_state'));
+    } catch (caught) {
+      setError(describe(caught));
+    }
+  }
+
   useEffect(() => {
     if (!native) return;
-    void detectIntegrations().catch((e) => setError(describe(e)));
+    void loadAgents();
     let live = true;
+    let unlisten: (() => void) | undefined;
+    void listen('agents-updated', () => {
+      if (live) void loadAgents();
+    }).then((dispose) => {
+      unlisten = dispose;
+    });
     const refresh = async () => {
       try {
         const data = await invoke<ManagementSnapshot>('management_status');
         if (live) setState(data);
-      } catch (e) {
-        if (live) setError(describe(e));
+      } catch (caught) {
+        if (live) setError(describe(caught));
       }
     };
     void invoke<ManagementSnapshot>('management_start')
       .then((data) => {
         if (live) setState(data);
       })
-      .catch((e) => {
-        if (live) setError(describe(e));
+      .catch((caught) => {
+        if (live) setError(describe(caught));
       })
       .finally(() => {
         void refresh();
@@ -61,83 +84,11 @@ function Admin() {
     const timer = setInterval(() => void refresh(), 2000);
     return () => {
       live = false;
+      unlisten?.();
       clearInterval(timer);
     };
   }, [native]);
-  async function detectIntegrations() {
-    const detection = await invoke<IntegrationDetection>('management_integration_detect');
-    setIntegrations(detection.hosts);
-    const nextProfiles = { ...profiles };
-    for (const host of detection.hosts) {
-      if (!nextProfiles[host.host]) {
-        nextProfiles[host.host] = host.profiles[0] ?? (host.host === 'dsh' ? 'desktop' : 'default');
-      }
-    }
-    setProfiles(nextProfiles);
-    for (const host of detection.hosts) {
-      try {
-        const status = await integrationCall<IntegrationStatus>('management_integration_status', {
-          action: 'status',
-          host: host.host,
-          profile: nextProfiles[host.host],
-          mode: modes[host.host],
-          planHash: null,
-        });
-        setStatuses((current) => ({ ...current, [host.host]: status }));
-      } catch {
-        // Detection remains the source of truth when no ownership record exists.
-      }
-    }
-  }
-  function integrationRequest(
-    host: HostKind,
-    action: IntegrationAction,
-    planHash: string | null = null,
-  ): IntegrationRequest {
-    return {
-      action,
-      host,
-      profile: profiles[host],
-      mode: modes[host],
-      planHash,
-    };
-  }
-  async function integrationCall<T>(command: string, request: IntegrationRequest): Promise<T> {
-    return invoke<T>(command, { request });
-  }
-  async function integrationAction(host: HostKind, action: IntegrationAction) {
-    setWorking(true);
-    setError('');
-    try {
-      if (action === 'plan' || action === 'apply') {
-        const plan = await integrationCall<IntegrationPlan>(
-          'management_integration_plan',
-          integrationRequest(host, 'plan'),
-        );
-        setPlans((current) => ({ ...current, [host]: plan }));
-        if (action === 'plan') return;
-        const status = await integrationCall<IntegrationStatus>(
-          'management_integration_apply',
-          integrationRequest(host, 'apply', plan.planHash),
-        );
-        setStatuses((current) => ({ ...current, [host]: status }));
-        setPlans((current) => ({ ...current, [host]: plan }));
-      } else {
-        const actionCommand =
-          action === 'repair' ? 'management_integration_repair' : 'management_integration_remove';
-        const status = await integrationCall<IntegrationStatus>(
-          actionCommand,
-          integrationRequest(host, action),
-        );
-        setStatuses((current) => ({ ...current, [host]: status }));
-        setPlans((current) => ({ ...current, [host]: undefined }));
-      }
-    } catch (e) {
-      setError(describe(e));
-    } finally {
-      setWorking(false);
-    }
-  }
+
   async function action(command: string) {
     setWorking(true);
     setError('');
@@ -145,21 +96,63 @@ function Admin() {
       if (command === 'management_doctor') setDoctor(await invoke<DoctorReport>(command));
       else await invoke(command);
       setState(await invoke<ManagementSnapshot>('management_status'));
-    } catch (e) {
-      setError(describe(e));
+    } catch (caught) {
+      setError(describe(caught));
     } finally {
       setWorking(false);
     }
   }
+
+  async function changeAgents(agentIds: string[], enabled: boolean) {
+    if (!native || working || agentIds.length === 0) return;
+    setWorking(true);
+    setError('');
+    setAgentProblems([]);
+    try {
+      const result = await invoke<AgentsMutation>('management_agents_change', {
+        change: { agentIds, enabled },
+      });
+      setAgents(result.snapshot);
+      setAgentProblems(result.problems);
+      if (result.problems.length > 0) {
+        setError(result.problems.map((problem) => problem.message).join('；'));
+      }
+    } catch (caught) {
+      setError(describe(caught));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function toggleAgent(agent: AgentIntegration) {
+    if (agent.state === 'conflict' || agent.state === 'unavailable') {
+      setSelected((current) => (current === agent.id ? null : agent.id));
+      return;
+    }
+    if (agent.state === 'update-required') {
+      void changeAgents([agent.id], true);
+      return;
+    }
+    void changeAgents([agent.id], !(agent.installed && agent.enabled));
+  }
+
+  const list = agents?.agents ?? [];
+  const eligible = list.filter(
+    (agent) => agent.state !== 'conflict' && agent.state !== 'unavailable',
+  );
+  const everyOn =
+    eligible.length > 0 && eligible.every((agent) => agent.installed && agent.enabled);
+  const busy = working || !!agents?.syncing;
+
   return (
     <main className="admin">
       <header>
-        <h1>Ossia 管理</h1>
+        <h1>ossia 管理</h1>
         <span role="status">{state?.runtime ? '服务运行中' : '服务未连接'}</span>
       </header>
       {!native && (
         <p className="error" role="alert">
-          请在 Ossia 桌面应用中打开管理窗口。浏览器谱面无需桌面桥接。
+          请在 ossia 桌面应用中打开管理窗口。浏览器谱面无需桌面桥接。
         </p>
       )}
       {error && (
@@ -252,123 +245,136 @@ function Admin() {
           </div>
         )}
       </section>
-      <section>
-        <h2>宿主集成</h2>
-        {integrations.length === 0 && (
-          <p className="hint">尚未检测宿主。请在桌面应用中刷新状态。</p>
+      <section className="agent-card">
+        <div className="agent-card-heading">
+          <div className="agent-card-copy">
+            <h2>Agent 接入</h2>
+            <p className="hint">
+              通过本地插件把 Ossia 接入支持的 Agent；插件包含 Skill 与 MCP，安装后由宿主加载。
+            </p>
+          </div>
+          <div className="agent-strip" aria-label="支持的 Agent">
+            <button
+              className={`agent-chip agent-chip-all${everyOn ? ' is-on' : ''}`}
+              disabled={!native || busy || eligible.length === 0}
+              type="button"
+              aria-pressed={everyOn}
+              onClick={() =>
+                void changeAgents(
+                  eligible.map((agent) => agent.id),
+                  !everyOn,
+                )
+              }
+            >
+              全部
+            </button>
+            {list.map((agent) => {
+              const icon = agentIcon(agent);
+              const on = agent.installed && agent.enabled;
+              return (
+                <button
+                  key={agent.id}
+                  className={[
+                    'agent-chip',
+                    on ? 'is-on' : '',
+                    `is-${agent.state}`,
+                    agent.conflicts.length > 0 ? 'has-conflict' : '',
+                    selected === agent.id ? 'is-selected' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  disabled={!native || busy}
+                  type="button"
+                  aria-pressed={on}
+                  aria-label={`${on ? '移除' : '安装'} ${agent.name} 插件`}
+                  title={
+                    agent.conflicts[0]?.message ?? `${agent.name} · ${stateLabels[agent.state]}`
+                  }
+                  onClick={() => toggleAgent(agent)}
+                >
+                  <span className="agent-chip-icon" aria-hidden="true">
+                    {icon ? <img src={icon} alt="" draggable={false} /> : agent.name.slice(0, 1)}
+                  </span>
+                  <span className="agent-chip-name">{agent.name}</span>
+                  <span className="agent-chip-state">{stateLabels[agent.state]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {agents?.syncing && <p className="hint">正在后台同步已接入的 Agent…</p>}
+        {agents?.error && <p className="error">{agents.error.message}</p>}
+        {list.length === 0 && (
+          <p className="hint">
+            未检测到可接入的 Agent。如果已经安装 Codex 或 DSH，可设置 <code>OSSIA_CODEX_BIN</code> /{' '}
+            <code>OSSIA_DSH_BIN</code> 后重新打开管理窗口。
+          </p>
         )}
-        {integrations.map((host) => {
-          const status = statuses[host.host];
-          const plan = plans[host.host];
-          return (
-            <article className="integration-card" key={host.host}>
-              <header>
-                <div>
-                  <h3>{host.host === 'codex' ? 'Codex' : 'DeepSeek Harness'}</h3>
-                  <p className="hint">
-                    {host.installed
-                      ? `${host.version ?? '版本未知'} · ${host.executable}`
-                      : (host.problem?.message ?? '未安装')}
-                  </p>
+        {agentProblems.length > 0 && (
+          <div className="agent-problems" role="alert">
+            {agentProblems.map((problem) => (
+              <p key={`${problem.agentId}:${problem.message}`}>
+                {problem.agentId}: {problem.message}
+              </p>
+            ))}
+          </div>
+        )}
+        {list.length > 0 && (
+          <details className="agent-details" open>
+            <summary>接入详情</summary>
+            {list.map((agent) => (
+              <div
+                className={`agent-detail${selected === agent.id ? ' is-selected' : ''}`}
+                key={agent.id}
+              >
+                <div className="agent-detail-head">
+                  <strong>{agent.name}</strong>
+                  <span>{stateLabels[agent.state]}</span>
                 </div>
-                <span className={status?.state === 'installed' ? 'ok' : 'warn'}>
-                  {status?.state ?? (host.installed ? 'available' : 'unavailable')}
-                </span>
-              </header>
-              <dl>
-                <dt>配置根</dt>
-                <dd>{host.configRoot}</dd>
-                <dt>目标 profile</dt>
-                <dd>
-                  <select
-                    disabled={!native || working}
-                    value={profiles[host.host]}
-                    onChange={(event) =>
-                      setProfiles((current) => ({ ...current, [host.host]: event.target.value }))
-                    }
-                  >
-                    {(host.profiles.length ? host.profiles : [profiles[host.host]]).map(
-                      (profile) => (
-                        <option key={profile} value={profile}>
-                          {profile}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </dd>
-                <dt>接入模式</dt>
-                <dd>
-                  <select
-                    disabled={!native || working}
-                    value={modes[host.host]}
-                    onChange={(event) =>
-                      setModes((current) => ({
-                        ...current,
-                        [host.host]: event.target.value as IntegrationMode,
-                      }))
-                    }
-                  >
-                    <option value="skill-mcp">Skill + MCP</option>
-                    <option value="plugin">本地插件</option>
-                  </select>
-                </dd>
-              </dl>
-              {status?.message && <p className="warn">{status.message}</p>}
-              {status?.conflicts.map((item) => (
-                <p className="error" key={`${item.target}:${item.kind}`}>
-                  {item.target}: {item.message}
-                </p>
-              ))}
-              <div className="row">
-                <button
-                  disabled={!native || working || !host.installed}
-                  type="button"
-                  onClick={() => void integrationAction(host.host, 'plan')}
-                >
-                  生成计划
-                </button>
-                <button
-                  disabled={!native || working || !plan || plan.conflicts.length > 0}
-                  type="button"
-                  onClick={() => void integrationAction(host.host, 'apply')}
-                >
-                  应用计划
-                </button>
-                <button
-                  disabled={!native || working || !status?.management}
-                  type="button"
-                  onClick={() => void integrationAction(host.host, 'repair')}
-                >
-                  修复
-                </button>
-                <button
-                  disabled={!native || working || !status?.management}
-                  type="button"
-                  onClick={() => void integrationAction(host.host, 'remove')}
-                >
-                  移除
-                </button>
+                <dl>
+                  <dt>接入方式</dt>
+                  <dd>
+                    {agent.method === 'plugin'
+                      ? '本地插件'
+                      : agent.method === 'skill'
+                        ? 'Skill'
+                        : 'MCP'}
+                  </dd>
+                  <dt>宿主版本</dt>
+                  <dd>{agent.version ?? '不可用'}</dd>
+                  <dt>配置根</dt>
+                  <dd>{agent.configRoot}</dd>
+                  {agent.profile && (
+                    <>
+                      <dt>Profile</dt>
+                      <dd>{agent.profile}</dd>
+                    </>
+                  )}
+                  {agent.path && (
+                    <>
+                      <dt>插件位置</dt>
+                      <dd>
+                        <code>{agent.path}</code>
+                      </dd>
+                    </>
+                  )}
+                </dl>
+                {agent.message && <p className="warn">{agent.message}</p>}
+                {agent.conflicts.map((item) => (
+                  <p className="error" key={`${item.target}:${item.kind}`}>
+                    {item.target}: {item.message}
+                  </p>
+                ))}
+                {agent.reloadHint && <p className="hint">{agent.reloadHint}</p>}
               </div>
-              {plan && (
-                <details>
-                  <summary>
-                    计划 {plan.planHash.slice(0, 12)} · {plan.entries.length} 项
-                  </summary>
-                  {plan.warnings.map((warning) => (
-                    <p className="warn" key={warning}>
-                      {warning}
-                    </p>
-                  ))}
-                  <pre>{JSON.stringify(plan, null, 2)}</pre>
-                </details>
-              )}
-            </article>
-          );
-        })}
+            ))}
+          </details>
+        )}
       </section>
     </main>
   );
 }
+
 const root = document.getElementById('root');
 if (!root) throw new Error('missing #root');
 createRoot(root).render(<Admin />);

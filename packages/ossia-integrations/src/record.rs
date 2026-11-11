@@ -1,5 +1,6 @@
-use ossia_types::{AppError, ContentHash, ErrorCode, HostKind, IntegrationMode};
+use ossia_types::{AppError, ContentHash, ErrorCode, InstallMethod};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::{
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
@@ -8,7 +9,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub const TEMPLATE_VERSION: u32 = 1;
+pub const TEMPLATE_VERSION: u32 = 2;
+const SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,13 +25,22 @@ pub struct ManagedEntry {
 #[serde(rename_all = "camelCase")]
 pub struct ManagedRecord {
     pub management_id: String,
-    pub host: HostKind,
+    pub agent_id: String,
+    pub method: InstallMethod,
     pub profile: String,
-    pub mode: IntegrationMode,
     pub template_version: u32,
     pub home: String,
     pub executable: String,
+    pub shared_root: String,
     pub updated_at: String,
+    pub entries: Vec<ManagedEntry>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LegacyRecord {
+    pub agent_id: String,
+    pub profile: String,
+    pub mode: String,
     pub entries: Vec<ManagedEntry>,
 }
 
@@ -44,10 +55,16 @@ pub struct ManagedStore {
 impl Default for ManagedStore {
     fn default() -> Self {
         Self {
-            schema_version: 1,
+            schema_version: SCHEMA_VERSION,
             records: BTreeMap::new(),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct LoadedStore {
+    pub store: ManagedStore,
+    pub legacy: Vec<LegacyRecord>,
 }
 
 pub fn integration_root(home: &Path) -> PathBuf {
@@ -58,58 +75,122 @@ pub fn store_path(home: &Path) -> PathBuf {
     integration_root(home).join("managed.json")
 }
 
-pub fn management_id(host: HostKind, profile: &str) -> String {
-    format!(
-        "ossia:{}:{profile}",
-        match host {
-            HostKind::Codex => "codex",
-            HostKind::Dsh => "dsh",
-        }
-    )
+pub fn management_id(agent_id: &str, profile: &str) -> String {
+    format!("ossia:{agent_id}:{profile}")
 }
 
-pub fn load(home: &Path) -> Result<ManagedStore, AppError> {
+pub fn load(home: &Path) -> Result<LoadedStore, AppError> {
     let path = store_path(home);
     if !path.exists() {
-        return Ok(ManagedStore::default());
+        return Ok(LoadedStore {
+            store: ManagedStore::default(),
+            legacy: Vec::new(),
+        });
     }
     let bytes = fs::read(&path).map_err(storage)?;
-    let store: ManagedStore = serde_json::from_slice(&bytes).map_err(|error| {
+    let value: Value = serde_json::from_slice(&bytes).map_err(|error| {
         AppError::new(
             ErrorCode::StorageError,
             format!("invalid managed integration record: {error}"),
         )
     })?;
-    if store.schema_version != 1 {
-        return Err(AppError::new(
+    let schema = value
+        .get("schemaVersion")
+        .and_then(Value::as_u64)
+        .unwrap_or(1);
+    match schema {
+        2 => {
+            let store: ManagedStore = serde_json::from_value(value).map_err(|error| {
+                AppError::new(
+                    ErrorCode::StorageError,
+                    format!("invalid managed integration record: {error}"),
+                )
+            })?;
+            Ok(LoadedStore {
+                store,
+                legacy: Vec::new(),
+            })
+        }
+        1 => Ok(LoadedStore {
+            store: ManagedStore::default(),
+            legacy: legacy_records(&value)?,
+        }),
+        version => Err(AppError::new(
             ErrorCode::RuntimeIncompatible,
-            format!(
-                "integration record schema {} is not supported",
-                store.schema_version
-            ),
-        ));
+            format!("integration record schema {version} is not supported"),
+        )),
     }
-    Ok(store)
+}
+
+fn legacy_records(value: &Value) -> Result<Vec<LegacyRecord>, AppError> {
+    let mut records = Vec::new();
+    let Some(items) = value.get("records").and_then(Value::as_object) else {
+        return Ok(records);
+    };
+    for record in items.values() {
+        let Some(object) = record.as_object() else {
+            continue;
+        };
+        let agent_id = match object.get("host").and_then(Value::as_str) {
+            Some("codex") => "codex",
+            Some("dsh") => "dsh",
+            _ => continue,
+        };
+        let profile = object
+            .get("profile")
+            .and_then(Value::as_str)
+            .unwrap_or("default");
+        let mode = object
+            .get("mode")
+            .and_then(Value::as_str)
+            .unwrap_or("plugin");
+        let entries = object
+            .get("entries")
+            .cloned()
+            .map(serde_json::from_value::<Vec<ManagedEntry>>)
+            .transpose()
+            .map_err(|error| {
+                AppError::new(
+                    ErrorCode::StorageError,
+                    format!("invalid legacy integration entries: {error}"),
+                )
+            })?
+            .unwrap_or_default();
+        records.push(LegacyRecord {
+            agent_id: agent_id.into(),
+            profile: profile.into(),
+            mode: mode.into(),
+            entries,
+        });
+    }
+    Ok(records)
 }
 
 pub fn write(home: &Path, store: &ManagedStore) -> Result<(), AppError> {
     let root = integration_root(home);
     create_private_dir(&root)?;
-    let path = store_path(home);
     let bytes = serde_json::to_vec_pretty(store).map_err(storage)?;
-    atomic_write(&path, &bytes)
+    atomic_write(&store_path(home), &bytes)
 }
 
 pub fn lock(home: &Path) -> Result<File, AppError> {
-    let root = integration_root(home);
-    create_private_dir(&root)?;
-    let path = root.join(".lock");
+    lock_file(&integration_root(home).join(".lock"))
+}
+
+pub fn shared_lock(shared_root: &Path) -> Result<File, AppError> {
+    lock_file(&shared_root.join(".lock"))
+}
+
+fn lock_file(path: &Path) -> Result<File, AppError> {
+    if let Some(parent) = path.parent() {
+        create_private_dir(parent)?;
+    }
     let file = OpenOptions::new()
         .create(true)
         .truncate(false)
         .read(true)
         .write(true)
-        .open(&path)
+        .open(path)
         .map_err(storage)?;
     fs2::FileExt::lock_exclusive(&file).map_err(storage)?;
     Ok(file)
@@ -149,3 +230,6 @@ pub fn create_private_dir(path: &Path) -> Result<(), AppError> {
 pub fn storage(error: impl std::fmt::Display) -> AppError {
     AppError::new(ErrorCode::StorageError, error.to_string())
 }
+
+#[cfg(test)]
+mod tests;

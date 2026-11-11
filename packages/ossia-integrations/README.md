@@ -1,32 +1,43 @@
 # ossia-integrations
 
-Host integration planning and ownership for the local Ossia runtime.
+Agent integration planning and ownership for the local Ossia runtime.
 
-The crate detects Codex and DeepSeek Harness, produces a deterministic plan, applies only that plan, verifies the resulting host configuration, and records hashes for files it owns. It does not open the Ossia library or write score data.
+The crate detects supported Agents, exposes one adapter per Agent, installs the
+resources that Agent needs, and records ownership hashes for every file Ossia
+writes. It does not open the Ossia library or write score data.
 
-## Modes
+The adapter registry currently contains:
 
-- `skill-mcp` installs the public `ossia` Skill and registers a local stdio MCP server.
-- `plugin` installs a thin host plugin containing the Skill and MCP configuration. Codex uses a local marketplace; DSH uses a prebuilt profile bundle with Host and Client entries.
+- Codex: a local marketplace plugin that bundles the Ossia Skill and a stdio MCP server.
+- DeepSeek Harness: a local desktop-profile plugin bundle that bundles the Skill and MCP server.
 
-Only one mode may be active for a host/profile. Switching modes removes the old managed entries before installing the new ones.
+Future Agents can use a plugin, a standalone Skill, or an MCP server by
+implementing `AgentAdapter` and registering it in `src/registry.rs`.
 
-## Commands
+## Paths
 
-```sh
-ossia integrate detect
-ossia integrate plan '{"host":"codex","profile":"default","mode":"plugin"}'
-ossia integrate apply '{"host":"codex","profile":"default","mode":"plugin","planHash":"..."}'
-ossia integrate status '{"host":"codex","profile":"default"}'
-ossia integrate repair '{"host":"codex","profile":"default","mode":"plugin"}'
-ossia integrate remove '{"host":"codex","profile":"default"}'
-```
+Host plugin files are shared by ossia and ossia-dev:
 
-Host locations follow `CODEX_HOME`, `DSH_HOME`, and `AGENTS_HOME`; explicit `OSSIA_CODEX_BIN` and `OSSIA_DSH_BIN` override executable discovery. Installation templates are embedded in the executable from `resources/`, so the binary and its Skill, locale, client entry and icon always carry the same version. The MCP command always uses the current executable's absolute path and an explicit absolute Ossia home.
+- `OSSIA_HOST_INTEGRATION_ROOT` or `~/.ossia/integrations/hosts`
+- Codex marketplace: `<root>/codex/marketplace`
+- DSH bundle: `<root>/dsh/ossia-dsh-plugin`
 
-Owned files and host entries are recorded in `<Ossia home>/integrations/managed.json`. A foreign entry with the same name, a changed owned file, or a moved plugin source is a conflict and is never overwritten.
+Ownership records remain instance-local at `<Ossia home>/integrations/managed.json`
+so dev and production data directories keep separate state.
 
-Apply validates the plan hash and rolls back on failure. Status checks the ownership record, file hashes, host CLI output, plugin source, and executable path. Remove preserves unrelated host services and all score data.
+## Lifecycle
+
+`Integrator::agents()` detects hosts and reads live state. `set_agents()` installs
+or removes the selected Agents. `sync_managed()` runs in the background on app
+start and refreshes only integrations that are already managed and still present
+in the host.
+
+Codex copies local plugins into `~/.codex/plugins/cache`, so sync reruns
+`codex plugin add` to refresh the cache. DSH links local bundles with pnpm
+`link:`, so rewriting the shared bundle is enough.
+
+Conflicts are never overwritten. Removal deletes only hash-matching owned files
+and the matching host entries.
 
 ## Tests
 
@@ -34,13 +45,15 @@ Apply validates the plan hash and rolls back on failure. Status checks the owner
 cargo test -p ossia-integrations
 ```
 
-The native host tests are ignored unless the real tools are supplied:
+Native host tests are ignored unless real CLIs are supplied:
 
 ```sh
 OSSIA_TEST_INTEGRATION_ROOT="$PWD/packages/ossia-integrations/resources" \
-OSSIA_TEST_OSSIA_BIN="$PWD/target/debug/ossia-desktop" \
-OSSIA_TEST_DSH_TEMPLATE="$HOME/.dsh/profiles/desktop" \
+OSSIA_TEST_OSSIA_BIN="$PWD/target/debug/ossia" \
+OSSIA_TEST_CODEX_BIN="$(command -v codex)" \
+OSSIA_TEST_DSH_BIN="$(command -v dsh)" \
 cargo test -p ossia-integrations --test native_hosts -- --ignored
 ```
 
-They use temporary host homes and profiles. They do not prove that a desktop host has loaded the plugin into a model session or rendered the browser panel.
+They use temporary host homes and shared roots. They do not prove that a running
+host session reloads a plugin; use a new session or restart the host for that.

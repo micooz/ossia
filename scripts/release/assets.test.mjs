@@ -8,7 +8,9 @@ import { assetName, collectRelease, INSTALL_ASSETS } from './assets.mjs';
 
 void test('Tauri output names map to the public asset contract', () => {
   assert.equal(assetName('Ossia_0.1.0_aarch64-apple-darwin.dmg'), 'ossia-darwin-arm64.dmg');
+  assert.equal(assetName('ossia_0.1.0_aarch64-apple-darwin.dmg'), 'ossia-darwin-arm64.dmg');
   assert.equal(assetName('Ossia_0.1.0_x86_64-apple-darwin.app.zip'), 'ossia-darwin-amd64.zip');
+  assert.equal(assetName('ossia_0.1.0_x86_64-apple-darwin.app.zip'), 'ossia-darwin-amd64.zip');
   assert.equal(assetName('Ossia_0.1.0_x64-setup.exe'), 'ossia-windows-amd64.exe');
   assert.equal(assetName('Ossia_0.1.0_amd64.deb'), 'ossia-linux-amd64.deb');
   assert.equal(assetName('Ossia-0.1.0-1.x86_64.rpm'), 'ossia-linux-amd64.rpm');

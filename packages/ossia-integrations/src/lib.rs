@@ -1,47 +1,42 @@
+mod agent;
 mod codex;
 mod command;
 mod dsh;
 mod files;
-mod planning;
 mod record;
+mod registry;
 mod resources;
+mod scan;
 
-pub(crate) use planning::*;
 pub use record::{ManagedEntry, ManagedRecord, TEMPLATE_VERSION};
 use resources::{Resource, ResourceSource};
 
+use agent::{AgentAdapter, AgentContext, AgentInspection};
+use files::*;
 use ossia_types::*;
-use serde_json::Value;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
+    sync::atomic::{AtomicBool, Ordering},
 };
+
+static SYNCING: AtomicBool = AtomicBool::new(false);
+
+pub(crate) use agent::DetectedAgent;
+pub(crate) use record::LegacyRecord;
 
 #[derive(Debug, Clone)]
 pub struct HostPaths {
     pub codex_home: PathBuf,
-    pub agents_home: PathBuf,
     pub dsh_home: PathBuf,
     pub codex_bin: Option<PathBuf>,
     pub dsh_bin: Option<PathBuf>,
     pub launch_env: BTreeMap<String, String>,
 }
 
-pub(crate) type HostStatus = (
-    IntegrationState,
-    Vec<IntegrationObservation>,
-    Vec<IntegrationConflict>,
-    Option<String>,
-);
-
 impl HostPaths {
     pub fn detected() -> Self {
         let user = dirs::home_dir().unwrap_or_default();
-        let codex_home = absolute_env("CODEX_HOME").unwrap_or_else(|| user.join(".codex"));
-        let dsh_home = absolute_env("DSH_HOME").unwrap_or_else(|| user.join(".dsh"));
-        let agents_home = absolute_env("AGENTS_HOME").unwrap_or_else(|| user.join(".agents"));
-        let codex_bin = absolute_env("OSSIA_CODEX_BIN");
-        let dsh_bin = absolute_env("OSSIA_DSH_BIN");
         let mut launch_env = BTreeMap::new();
         for key in ["OSSIA_ENGINE_ROOT", "OSSIA_STATIC_DIR"] {
             if let Some(value) = std::env::var_os(key) {
@@ -52,11 +47,10 @@ impl HostPaths {
             }
         }
         Self {
-            codex_home,
-            agents_home,
-            dsh_home,
-            codex_bin,
-            dsh_bin,
+            codex_home: absolute_env("CODEX_HOME").unwrap_or_else(|| user.join(".codex")),
+            dsh_home: absolute_env("DSH_HOME").unwrap_or_else(|| user.join(".dsh")),
+            codex_bin: absolute_env("OSSIA_CODEX_BIN"),
+            dsh_bin: absolute_env("OSSIA_DSH_BIN"),
             launch_env,
         }
     }
@@ -66,26 +60,30 @@ impl HostPaths {
 pub struct Integrator {
     home: PathBuf,
     executable: PathBuf,
+    shared_root: PathBuf,
     resources: ResourceSource,
     paths: HostPaths,
 }
 
 impl Integrator {
-    /// Creates an integrator with host paths detected from the environment.
     pub fn new(home: impl AsRef<Path>, executable: impl AsRef<Path>) -> Result<Self, AppError> {
         Self::with_paths(home, executable, HostPaths::detected())
     }
 
-    /// Creates an integrator with explicit host paths and embedded resources.
     pub fn with_paths(
         home: impl AsRef<Path>,
         executable: impl AsRef<Path>,
         paths: HostPaths,
     ) -> Result<Self, AppError> {
-        Self::build(home, executable, ResourceSource::Bundled, paths)
+        Self::build(
+            home,
+            executable,
+            ResourceSource::Bundled,
+            paths,
+            default_shared_root()?,
+        )
     }
 
-    /// Creates an integrator that reads resources from an explicit directory.
     pub fn with_resource_dir(
         home: impl AsRef<Path>,
         executable: impl AsRef<Path>,
@@ -97,7 +95,13 @@ impl Integrator {
             executable,
             ResourceSource::directory(resources.as_ref())?,
             paths,
+            default_shared_root()?,
         )
+    }
+
+    pub fn with_shared_root(mut self, root: impl AsRef<Path>) -> Result<Self, AppError> {
+        self.shared_root = absolute_path(root.as_ref(), "shared integration root")?;
+        Ok(self)
     }
 
     fn build(
@@ -105,12 +109,12 @@ impl Integrator {
         executable: impl AsRef<Path>,
         resources: ResourceSource,
         paths: HostPaths,
+        shared_root: PathBuf,
     ) -> Result<Self, AppError> {
-        let home = absolute_path(home.as_ref(), "integration home")?;
-        let executable = absolute_path(executable.as_ref(), "integration executable")?;
         Ok(Self {
-            home,
-            executable,
+            home: absolute_path(home.as_ref(), "integration home")?,
+            executable: absolute_path(executable.as_ref(), "integration executable")?,
+            shared_root: absolute_path(&shared_root, "shared integration root")?,
             resources,
             paths,
         })
@@ -120,249 +124,238 @@ impl Integrator {
         &self.home
     }
 
+    pub fn shared_root(&self) -> &Path {
+        &self.shared_root
+    }
+
     pub fn executable(&self) -> &Path {
         &self.executable
     }
 
-    pub fn detection(&self) -> Result<IntegrationDetection, AppError> {
-        Ok(IntegrationDetection {
-            hosts: vec![codex::detect(self), dsh::detect(self)],
-        })
-    }
-
-    pub fn execute(&self, request: IntegrationRequest) -> Result<Value, AppError> {
-        match request.action {
-            IntegrationAction::Detect => serialize(self.detection()?),
-            IntegrationAction::Plan => {
-                let host = request.host.ok_or_else(|| missing("host"))?;
-                let mode = request.mode.ok_or_else(|| missing("mode"))?;
-                serialize(self.plan(host, request.profile.as_deref(), mode)?)
-            }
-            IntegrationAction::Apply => {
-                let host = request.host.ok_or_else(|| missing("host"))?;
-                let mode = request.mode.ok_or_else(|| missing("mode"))?;
-                let hash = request.plan_hash.ok_or_else(|| missing("planHash"))?;
-                serialize(self.apply(host, request.profile.as_deref(), mode, &hash)?)
-            }
-            IntegrationAction::Status => {
-                let host = request.host.ok_or_else(|| missing("host"))?;
-                serialize(self.status(host, request.profile.as_deref(), request.mode)?)
-            }
-            IntegrationAction::Repair => {
-                let host = request.host.ok_or_else(|| missing("host"))?;
-                let mode = request.mode.ok_or_else(|| missing("mode"))?;
-                serialize(self.apply(host, request.profile.as_deref(), mode, &zero_plan_hash())?)
-            }
-            IntegrationAction::Remove => {
-                let host = request.host.ok_or_else(|| missing("host"))?;
-                serialize(self.remove(host, request.profile.as_deref(), request.mode)?)
-            }
-        }
-    }
-
-    pub fn plan(
-        &self,
-        host: HostKind,
-        profile: Option<&str>,
-        mode: IntegrationMode,
-    ) -> Result<IntegrationPlan, AppError> {
-        let store = record::load(&self.home)?;
-        let profile = profile_for(host, profile);
-        let management_id = record::management_id(host, &profile);
-        let previous = store.records.get(&management_id);
-        let mut plan = match host {
-            HostKind::Codex => codex::plan(self, &profile, mode, previous)?,
-            HostKind::Dsh => dsh::plan(self, &profile, mode, previous)?,
-        };
-        if let Some(previous) = previous {
-            if previous.mode != mode {
-                plan.warnings.push(format!(
-                    "switches this host/profile from {} to {}",
-                    mode_name(previous.mode),
-                    mode_name(mode)
-                ));
-            }
-        }
-        plan.plan_hash = plan_hash(&plan)?;
-        Ok(plan)
-    }
-
-    pub fn apply(
-        &self,
-        host: HostKind,
-        profile: Option<&str>,
-        mode: IntegrationMode,
-        requested_hash: &ContentHash,
-    ) -> Result<IntegrationStatus, AppError> {
-        let _guard = record::lock(&self.home)?;
-        let store = record::load(&self.home)?;
-        let profile = profile_for(host, profile);
-        let management_id = record::management_id(host, &profile);
-        let previous = store.records.get(&management_id).cloned();
-        let plan = self.plan(host, Some(&profile), mode)?;
-        if !plan.conflicts.is_empty() {
-            return Err(AppError::new(
-                ErrorCode::Conflict,
-                plan.conflicts
-                    .iter()
-                    .map(|item| item.message.as_str())
-                    .collect::<Vec<_>>()
-                    .join("; "),
-            ));
-        }
-        if !requested_hash.as_str().chars().all(|value| value == '0')
-            && requested_hash != &plan.plan_hash
-        {
-            return Err(AppError::new(
-                ErrorCode::Conflict,
-                "integration plan changed; run plan again",
-            ));
-        }
-        let old_plan = previous
-            .as_ref()
-            .filter(|record| record.mode != mode)
-            .map(|record| match host {
-                HostKind::Codex => codex::plan_for(self, &profile, record.mode, Some(record)),
-                HostKind::Dsh => dsh::plan_for(self, &profile, record.mode, Some(record)),
-            })
-            .transpose()?;
-        if let (Some(record), Some(_)) = (&previous, &old_plan) {
-            host_remove(self, host, record)?;
-        }
-        let applied = host_apply(self, host, &plan);
-        let entries = match applied {
-            Ok(entries) => entries,
-            Err(error) => {
-                let pending = managed_from_plan(&plan);
-                let _ = host_remove_for_entries(self, host, &profile, mode, &pending);
-                if let (Some(_record), Some(old_plan)) = (&previous, &old_plan) {
-                    let _ = host_apply(self, host, old_plan);
-                    let _ = record::write(&self.home, &store);
-                }
-                return Err(error);
-            }
-        };
-        let mut next = store.clone();
-        next.records.insert(
-            management_id.clone(),
-            ManagedRecord {
-                management_id,
-                host,
-                profile: profile.clone(),
-                mode,
-                template_version: TEMPLATE_VERSION,
-                home: self.home.to_string_lossy().into_owned(),
-                executable: self.executable.to_string_lossy().into_owned(),
-                updated_at: record::now(),
-                entries: entries.clone(),
-            },
-        );
-        if let Err(error) = record::write(&self.home, &next) {
-            let _ = host_remove_for_entries(self, host, &profile, mode, &entries);
-            return Err(error);
-        }
-        let status = self.status(host, Some(&profile), Some(mode))?;
-        if matches!(
-            status.state,
-            IntegrationState::Conflict | IntegrationState::Broken | IntegrationState::Unavailable
-        ) {
-            host_remove_for_entries(self, host, &profile, mode, &entries)?;
-            record::write(&self.home, &store)?;
-            if let (Some(_record), Some(old_plan)) = (&previous, &old_plan) {
-                let _ = host_apply(self, host, old_plan);
-            }
-            let message = if status.conflicts.is_empty() {
-                status.message.clone()
-            } else {
-                Some(
-                    status
-                        .conflicts
-                        .iter()
-                        .map(|item| item.message.as_str())
-                        .collect::<Vec<_>>()
-                        .join("; "),
-                )
-            };
-            return Err(AppError::new(
-                ErrorCode::Conflict,
-                message.unwrap_or_else(|| "host configuration did not verify after apply".into()),
-            ));
-        }
-        Ok(status)
-    }
-
-    pub fn status(
-        &self,
-        host: HostKind,
-        profile: Option<&str>,
-        requested_mode: Option<IntegrationMode>,
-    ) -> Result<IntegrationStatus, AppError> {
-        let store = record::load(&self.home)?;
-        let profile = profile_for(host, profile);
-        let management_id = record::management_id(host, &profile);
-        let record = store.records.get(&management_id);
-        let mode = requested_mode.or(record.map(|value| value.mode));
-        let detection = match host {
-            HostKind::Codex => codex::detect(self),
-            HostKind::Dsh => dsh::detect(self),
-        };
-        if !detection.installed {
-            return Ok(IntegrationStatus {
-                detection,
-                state: IntegrationState::Unavailable,
-                mode,
-                management: record.map(record_view),
-                observations: vec![],
-                conflicts: vec![],
-                message: Some("host is not installed or did not pass capability detection".into()),
-            });
-        }
-        let (state, observations, conflicts, message) = match host {
-            HostKind::Codex => codex::status(self, &profile, mode, record)?,
-            HostKind::Dsh => dsh::status(self, &profile, mode, record)?,
-        };
-        Ok(IntegrationStatus {
-            detection,
-            state,
-            mode,
-            management: record.map(record_view),
-            observations,
-            conflicts,
-            message,
-        })
-    }
-
-    pub fn remove(
-        &self,
-        host: HostKind,
-        profile: Option<&str>,
-        requested_mode: Option<IntegrationMode>,
-    ) -> Result<IntegrationStatus, AppError> {
-        let _guard = record::lock(&self.home)?;
-        let profile = profile_for(host, profile);
-        let management_id = record::management_id(host, &profile);
-        let mut store = record::load(&self.home)?;
-        let Some(record) = store.records.get(&management_id).cloned() else {
-            return self.status(host, Some(&profile), requested_mode);
-        };
-        if requested_mode.is_some_and(|mode| mode != record.mode) {
-            return Err(AppError::new(
-                ErrorCode::Conflict,
-                "managed integration uses a different mode",
-            ));
-        }
-        host_remove(self, host, &record)?;
-        store.records.remove(&management_id);
-        record::write(&self.home, &store)?;
-        self.status(host, Some(&profile), requested_mode)
-    }
-
-    pub(crate) fn paths(&self) -> &HostPaths {
+    pub fn paths(&self) -> &HostPaths {
         &self.paths
     }
 
-    pub(crate) fn host_env(&self) -> BTreeMap<String, String> {
-        self.paths.launch_env.clone()
+    pub fn agents(&self) -> Result<AgentsSnapshot, AppError> {
+        let loaded = record::load(&self.home)?;
+        let mut agents = Vec::new();
+        for adapter in registry::adapters() {
+            let management_id = record::management_id(adapter.id(), adapter.profile());
+            let record = loaded.store.records.get(&management_id);
+            let legacy = loaded
+                .legacy
+                .iter()
+                .find(|value| value.agent_id == adapter.id() && value.profile == adapter.profile());
+            let detected = adapter.detect(&self.paths);
+            if detected.is_none() && record.is_none() && legacy.is_none() {
+                continue;
+            }
+            let inspection = match (&detected, record, legacy) {
+                (Some(detected), Some(record), _) => {
+                    let ctx = AgentContext {
+                        integrator: self,
+                        detected,
+                    };
+                    adapter.status(&ctx, Some(record))?
+                }
+                (Some(_), None, Some(_)) => AgentInspection {
+                    state: AgentState::UpdateRequired,
+                    installed: false,
+                    enabled: true,
+                    managed: true,
+                    path: None,
+                    message: Some("legacy integration needs one-click reinstall".into()),
+                    conflicts: Vec::new(),
+                },
+                (Some(detected), None, None) => {
+                    let ctx = AgentContext {
+                        integrator: self,
+                        detected,
+                    };
+                    adapter.status(&ctx, None)?
+                }
+                (None, Some(record), _) => AgentInspection {
+                    state: AgentState::Unavailable,
+                    installed: false,
+                    enabled: false,
+                    managed: true,
+                    path: Some(record.shared_root.clone()),
+                    message: Some("host executable is unavailable".into()),
+                    conflicts: Vec::new(),
+                },
+                (None, None, Some(_)) => AgentInspection {
+                    state: AgentState::UpdateRequired,
+                    installed: false,
+                    enabled: false,
+                    managed: true,
+                    path: None,
+                    message: Some("legacy integration host is unavailable".into()),
+                    conflicts: Vec::new(),
+                },
+                (None, None, None) => unreachable!(),
+            };
+            let config_root = detected
+                .as_ref()
+                .map(|value| value.config_root.to_string_lossy().into_owned())
+                .unwrap_or_else(|| default_config_root(adapter.id(), &self.paths));
+            agents.push(AgentIntegration {
+                id: adapter.id().into(),
+                name: adapter.name().into(),
+                icon: adapter.icon().into(),
+                method: adapter.method(),
+                state: inspection.state,
+                installed: inspection.installed,
+                enabled: inspection.enabled,
+                managed: inspection.managed,
+                version: detected.as_ref().map(|value| value.version.clone()),
+                executable: detected
+                    .as_ref()
+                    .map(|value| value.executable.to_string_lossy().into_owned()),
+                config_root,
+                profile: Some(adapter.profile().into()),
+                path: inspection.path,
+                reload_hint: Some(adapter.reload_hint().into()),
+                message: inspection.message,
+                conflicts: inspection.conflicts,
+            });
+        }
+        Ok(AgentsSnapshot {
+            agents,
+            syncing: SYNCING.load(Ordering::Relaxed),
+            error: None,
+        })
+    }
+
+    pub fn set_agents(&self, change: AgentsChange) -> Result<AgentsMutation, AppError> {
+        let _shared = record::shared_lock(&self.shared_root)?;
+        let _record = record::lock(&self.home)?;
+        let loaded = record::load(&self.home)?;
+        let mut store = loaded.store.clone();
+        self.cleanup_legacy(&loaded.legacy)?;
+        let mut problems = Vec::new();
+        for id in &change.agent_ids {
+            let Some(adapter) = registry::find(id) else {
+                problems.push(AgentProblem {
+                    agent_id: id.clone(),
+                    message: "unknown Agent".into(),
+                });
+                continue;
+            };
+            let Some(detected) = adapter.detect(&self.paths) else {
+                problems.push(AgentProblem {
+                    agent_id: id.clone(),
+                    message: format!("{} is unavailable", adapter.name()),
+                });
+                continue;
+            };
+            let ctx = AgentContext {
+                integrator: self,
+                detected: &detected,
+            };
+            let management_id = record::management_id(adapter.id(), adapter.profile());
+            let previous = store.records.get(&management_id).cloned();
+            let result = if change.enabled {
+                adapter.install(&ctx, previous.as_ref()).map(|entries| {
+                    store.records.insert(
+                        management_id.clone(),
+                        ManagedRecord {
+                            management_id,
+                            agent_id: adapter.id().into(),
+                            method: adapter.method(),
+                            profile: adapter.profile().into(),
+                            template_version: TEMPLATE_VERSION,
+                            home: self.home.to_string_lossy().into_owned(),
+                            executable: self.executable.to_string_lossy().into_owned(),
+                            shared_root: self.shared_root.to_string_lossy().into_owned(),
+                            updated_at: record::now(),
+                            entries,
+                        },
+                    );
+                })
+            } else if let Some(previous) = previous.as_ref() {
+                adapter.remove(&ctx, previous).map(|()| {
+                    store.records.remove(&management_id);
+                })
+            } else {
+                Ok(())
+            };
+            if let Err(error) = result {
+                problems.push(AgentProblem {
+                    agent_id: id.clone(),
+                    message: error.message,
+                });
+            }
+        }
+        record::write(&self.home, &store)?;
+        drop(_record);
+        drop(_shared);
+        Ok(AgentsMutation {
+            snapshot: self.agents()?,
+            problems,
+        })
+    }
+
+    pub fn sync_managed(&self) -> Result<AgentsSnapshot, AppError> {
+        struct Guard;
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                SYNCING.store(false, Ordering::Relaxed);
+            }
+        }
+        SYNCING.store(true, Ordering::Relaxed);
+        let _guard = Guard;
+        let result = (|| {
+            let _shared = record::shared_lock(&self.shared_root)?;
+            let _record = record::lock(&self.home)?;
+            let loaded = record::load(&self.home)?;
+            let mut store = loaded.store.clone();
+            for current in store.records.values_mut() {
+                let Some(adapter) = registry::find(&current.agent_id) else {
+                    continue;
+                };
+                let Some(detected) = adapter.detect(&self.paths) else {
+                    continue;
+                };
+                let ctx = AgentContext {
+                    integrator: self,
+                    detected: &detected,
+                };
+                if let Ok(Some(entries)) = adapter.sync(&ctx, current) {
+                    current.entries = entries;
+                    current.updated_at = record::now();
+                    current.template_version = TEMPLATE_VERSION;
+                    current.executable = self.executable.to_string_lossy().into_owned();
+                    current.shared_root = self.shared_root.to_string_lossy().into_owned();
+                }
+            }
+            record::write(&self.home, &store)
+        })();
+        drop(_guard);
+        result?;
+        self.agents()
+    }
+
+    fn cleanup_legacy(&self, legacy: &[record::LegacyRecord]) -> Result<(), AppError> {
+        for item in legacy {
+            let Some(adapter) = registry::find(&item.agent_id) else {
+                continue;
+            };
+            let Some(detected) = adapter.detect(&self.paths) else {
+                return Err(AppError::new(
+                    ErrorCode::Conflict,
+                    format!(
+                        "cannot clean legacy {} integration while the host is unavailable",
+                        adapter.name()
+                    ),
+                ));
+            };
+            let ctx = AgentContext {
+                integrator: self,
+                detected: &detected,
+            };
+            adapter.remove_legacy(&ctx, item)?;
+        }
+        Ok(())
     }
 
     pub(crate) fn skill(&self) -> Result<String, AppError> {
@@ -386,37 +379,20 @@ impl Integrator {
     }
 }
 
-fn host_apply(
-    integrator: &Integrator,
-    host: HostKind,
-    plan: &IntegrationPlan,
-) -> Result<Vec<ManagedEntry>, AppError> {
-    match host {
-        HostKind::Codex => codex::apply(integrator, plan),
-        HostKind::Dsh => dsh::apply(integrator, plan),
-    }
+fn default_shared_root() -> Result<PathBuf, AppError> {
+    let home = dirs::home_dir()
+        .ok_or_else(|| AppError::new(ErrorCode::StorageError, "cannot determine home directory"))?;
+    absolute_path(
+        &absolute_env("OSSIA_HOST_INTEGRATION_ROOT")
+            .unwrap_or_else(|| home.join(".ossia/integrations/hosts")),
+        "shared integration root",
+    )
 }
 
-fn host_remove(
-    integrator: &Integrator,
-    host: HostKind,
-    record: &ManagedRecord,
-) -> Result<(), AppError> {
-    match host {
-        HostKind::Codex => codex::remove(integrator, record),
-        HostKind::Dsh => dsh::remove(integrator, record),
-    }
-}
-
-fn host_remove_for_entries(
-    integrator: &Integrator,
-    host: HostKind,
-    profile: &str,
-    mode: IntegrationMode,
-    entries: &[ManagedEntry],
-) -> Result<(), AppError> {
-    match host {
-        HostKind::Codex => codex::remove_entries(integrator, profile, mode, entries),
-        HostKind::Dsh => dsh::remove_entries(integrator, profile, mode, entries),
+fn default_config_root(agent_id: &str, paths: &HostPaths) -> String {
+    match agent_id {
+        "codex" => paths.codex_home.to_string_lossy().into_owned(),
+        "dsh" => paths.dsh_home.to_string_lossy().into_owned(),
+        _ => String::new(),
     }
 }

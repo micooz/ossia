@@ -11,6 +11,8 @@ const child = spawn(
   path.join(desktop, 'node_modules/.bin', windows ? 'tauri.cmd' : 'tauri'),
   [
     'dev',
+    '--config',
+    'src-tauri/tauri.dev.conf.json',
     '--',
     '--',
     '--home',

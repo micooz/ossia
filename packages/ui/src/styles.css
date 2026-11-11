@@ -334,28 +334,162 @@ dialog::backdrop {
   background: var(--paper);
   font-size: 0.85rem;
 }
-.integration-card {
+.agent-card {
   margin-block: 1rem;
   padding: 1rem;
   border: 1px solid var(--rule);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--paper) 88%, var(--ink) 12%);
+  border-radius: 12px;
+  background: var(--paper);
 }
-.integration-card header {
+.agent-card-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.25rem;
 }
-.integration-card h3 {
+.agent-card-copy {
+  min-width: 0;
+  flex: 1;
+}
+.agent-card-copy h2 {
   margin: 0 0 0.35rem;
 }
-.integration-card select {
-  max-inline-size: 100%;
+.agent-strip {
+  display: flex;
+  max-width: 58%;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
 }
-.integration-card .ok {
-  color: #2f6d49;
+.agent-chip {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+.agent-chip:hover:not(:disabled),
+.agent-chip:focus-visible {
+  background: color-mix(in srgb, var(--paper) 82%, var(--ink) 18%);
+}
+.agent-chip:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+.agent-chip-all {
+  min-width: 3rem;
+  justify-content: center;
+  color: var(--muted);
+}
+.agent-chip.is-on {
+  border-color: color-mix(in srgb, var(--accent, #7a5c3e) 55%, var(--rule));
+  background: color-mix(in srgb, var(--accent, #7a5c3e) 12%, var(--paper));
+}
+.agent-chip.has-conflict {
+  border-color: #b06b20;
+  border-style: dashed;
+}
+.agent-chip.is-disabled {
+  border-color: #b06b20;
+  border-style: dashed;
+}
+.agent-chip.is-broken,
+.agent-chip.is-update-required {
+  border-color: #b06b20;
+}
+.agent-chip.is-unavailable {
+  opacity: 0.65;
+}
+.agent-chip.is-selected {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #7a5c3e) 45%, transparent);
+}
+.agent-chip-icon {
+  display: grid;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  overflow: hidden;
+}
+.agent-chip-icon img {
+  width: 1rem;
+  height: 1rem;
+  object-fit: contain;
+}
+.agent-chip-name {
   font-weight: 600;
+}
+.agent-chip-state {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.agent-details {
+  margin-top: 0.85rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 0.75rem;
+}
+.agent-details summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.agent-detail {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--paper) 92%, var(--ink) 8%);
+}
+.agent-detail.is-selected {
+  border-color: color-mix(in srgb, var(--accent, #7a5c3e) 55%, var(--rule));
+}
+.agent-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.agent-detail-head span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.agent-detail dl {
+  margin-top: 0.5rem;
+}
+.agent-detail code {
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+.agent-problems {
+  margin-top: 0.75rem;
+  color: var(--warn);
+  font-size: 0.8rem;
+}
+.agent-problems p {
+  margin: 0.2rem 0;
+}
+@media (max-width: 720px) {
+  .agent-card-heading {
+    flex-direction: column;
+  }
+  .agent-strip {
+    max-width: 100%;
+    justify-content: flex-start;
+  }
 }
 @media (max-width: 1100px) {
   .workspace {

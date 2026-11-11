@@ -1,155 +1,168 @@
 use super::*;
 
-pub fn apply(
-    integrator: &Integrator,
-    plan: &IntegrationPlan,
+pub(super) fn install(
+    ctx: &AgentContext,
+    previous: Option<&ManagedRecord>,
 ) -> Result<Vec<ManagedEntry>, AppError> {
-    let detection = detect(integrator);
-    let Some(host) = host(integrator, &detection) else {
-        return Err(AppError::new(ErrorCode::NotFound, "Codex CLI disappeared"));
-    };
-    let files = match plan.mode {
-        IntegrationMode::SkillMcp => vec![FilePlan {
-            path: integrator.paths().agents_home.join("skills/ossia/SKILL.md"),
-            bytes: integrator.skill()?.into_bytes(),
-            kind: "skill",
-        }],
-        IntegrationMode::Plugin => plugin_files(integrator)?,
-    };
-    for file in &files {
-        record::atomic_write(&file.path, &file.bytes)?;
-    }
-    match plan.mode {
-        IntegrationMode::SkillMcp => {
-            let desired = desired_mcp(integrator);
-            let current = mcp_entries(&host)?;
-            if let Some(entry) = current.iter().find(|entry| entry.name == "ossia") {
-                if !mcp_matches(entry, &desired) {
-                    codex(&host, &command::arguments(&["mcp", "remove", "ossia"]))?;
-                }
-            }
-            if !mcp_entries(&host)?
-                .iter()
-                .any(|entry| entry.name == "ossia" && mcp_matches(entry, &desired))
-            {
-                let mut args = command::arguments(&["mcp", "add", "ossia"]);
-                for (key, value) in &desired.env {
-                    args.push("--env".into());
-                    args.push(format!("{key}={value}"));
-                }
-                args.push("--".into());
-                args.push(integrator.executable().to_string_lossy().into_owned());
-                args.extend(desired.args.iter().cloned());
-                codex(&host, &args)?;
-            }
-        }
-        IntegrationMode::Plugin => {
-            let marketplaces = marketplace_entries(&host)?;
-            if !marketplaces.iter().any(|entry| {
-                entry.name == MARKETPLACE
-                    && entry
-                        .root
-                        .as_ref()
-                        .is_some_and(|root| same_path(root, &plugin_root(integrator)))
-            }) {
-                codex(
-                    &host,
-                    &[
-                        "plugin".into(),
-                        "marketplace".into(),
-                        "add".into(),
-                        plugin_root(integrator).to_string_lossy().into_owned(),
-                    ],
-                )?;
-            }
-            let plugins = plugin_entries(&host)?;
-            if !plugins.iter().any(|entry| entry.id == PLUGIN_ID) {
-                codex(&host, &["plugin".into(), "add".into(), PLUGIN_ID.into()])?;
-            }
+    let files = plugin_files(ctx)?;
+    let mut conflicts = file_conflicts(&files, previous);
+    let expected_marketplace = marketplace_root(ctx.shared_root());
+    let expected_plugin = plugin_dir(ctx.shared_root());
+    if let Some(marketplace) = marketplace_entry(ctx)? {
+        if !marketplace
+            .get("root")
+            .and_then(Value::as_str)
+            .is_some_and(|path| same_path(path, &expected_marketplace))
+        {
+            conflicts.push(conflict(
+                "codex:marketplace:ossia-local",
+                "user-config",
+                "the local marketplace name belongs to another source",
+            ));
         }
     }
-    Ok(records_from_plan(plan, &files))
+    if let Some(plugin) = plugin_entry(ctx)? {
+        if !plugin
+            .get("source")
+            .and_then(|value| value.get("path"))
+            .and_then(Value::as_str)
+            .is_some_and(|path| same_path(path, &expected_plugin))
+        {
+            conflicts.push(conflict(
+                PLUGIN_ID,
+                "user-config",
+                "the installed plugin source no longer matches the managed marketplace",
+            ));
+        } else if previous.is_none() {
+            conflicts.push(conflict(
+                PLUGIN_ID,
+                "unmanaged",
+                "the plugin exists without an ownership record",
+            ));
+        }
+    }
+    if !conflicts.is_empty() {
+        return Err(conflict_error(&conflicts));
+    }
+    let snapshot = snapshot_files(&files);
+    if let Err(error) = write_files(&files)
+        .and_then(|()| ensure_marketplace(ctx))
+        .and_then(|()| run(ctx, &["plugin", "add", PLUGIN_ID]).map(|_| ()))
+    {
+        let _ = restore_files(&snapshot);
+        return Err(error);
+    }
+    Ok(records_from_files(&files))
 }
 
-pub fn remove(integrator: &Integrator, record: &ManagedRecord) -> Result<(), AppError> {
-    remove_entries(integrator, &record.profile, record.mode, &record.entries)
+pub(super) fn sync(
+    ctx: &AgentContext,
+    _record: &ManagedRecord,
+) -> Result<Option<Vec<ManagedEntry>>, AppError> {
+    let Some(plugin) = plugin_entry(ctx)? else {
+        return Ok(None);
+    };
+    if !plugin
+        .get("enabled")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return Ok(None);
+    }
+    let expected_marketplace = marketplace_root(ctx.shared_root());
+    let expected_plugin = plugin_dir(ctx.shared_root());
+    if !plugin
+        .get("source")
+        .and_then(|value| value.get("path"))
+        .and_then(Value::as_str)
+        .is_some_and(|path| same_path(path, &expected_plugin))
+    {
+        return Ok(None);
+    }
+    if !marketplace_entry(ctx)?.is_some_and(|marketplace| {
+        marketplace
+            .get("root")
+            .and_then(Value::as_str)
+            .is_some_and(|path| same_path(path, &expected_marketplace))
+    }) {
+        return Ok(None);
+    }
+    let files = plugin_files(ctx)?;
+    let snapshot = snapshot_files(&files);
+    if let Err(error) =
+        write_files(&files).and_then(|()| run(ctx, &["plugin", "add", PLUGIN_ID]).map(|_| ()))
+    {
+        let _ = restore_files(&snapshot);
+        return Err(error);
+    }
+    Ok(Some(records_from_files(&files)))
 }
 
-pub fn remove_entries(
-    integrator: &Integrator,
-    _profile: &str,
-    mode: IntegrationMode,
-    entries: &[ManagedEntry],
-) -> Result<(), AppError> {
-    verify_owned_files(entries)?;
-    let detection = detect(integrator);
-    let host = host(integrator, &detection);
-    if entries.iter().any(|entry| entry.kind == "host-entry") && host.is_none() {
-        return Err(AppError::new(
-            ErrorCode::RuntimeUnavailable,
-            "Codex CLI is unavailable; the managed files were left unchanged",
-        ));
+pub(super) fn remove(ctx: &AgentContext, record: &ManagedRecord) -> Result<(), AppError> {
+    if let Some(plugin) = plugin_entry(ctx)? {
+        let expected_plugin = plugin_dir(ctx.shared_root());
+        if !plugin
+            .get("source")
+            .and_then(|value| value.get("path"))
+            .and_then(Value::as_str)
+            .is_some_and(|path| same_path(path, &expected_plugin))
+        {
+            return Err(AppError::new(
+                ErrorCode::Conflict,
+                "the installed plugin source no longer matches the managed marketplace",
+            ));
+        }
+        run(ctx, &["plugin", "remove", PLUGIN_ID])?;
     }
-    if let Some(host) = host.as_ref() {
-        if mode == IntegrationMode::Plugin {
-            let plugins = plugin_entries(host)?;
-            if let Some(entry) = plugins.iter().find(|entry| entry.id == PLUGIN_ID) {
-                if entry
-                    .source
-                    .as_ref()
-                    .and_then(|source| source.path.as_ref())
-                    .is_none_or(|path| !same_path(path, &plugin_dir(integrator)))
-                {
-                    return Err(AppError::new(
-                        ErrorCode::Conflict,
-                        "the installed plugin source no longer matches the managed marketplace",
-                    ));
-                }
-                codex(host, &["plugin".into(), "remove".into(), PLUGIN_ID.into()])?;
-            }
-            let markets = marketplace_entries(host)?;
-            if markets.iter().any(|entry| {
-                entry.name == MARKETPLACE
-                    && entry
-                        .root
-                        .as_ref()
-                        .is_some_and(|root| same_path(root, &plugin_root(integrator)))
-            }) {
-                codex(
-                    host,
-                    &[
-                        "plugin".into(),
-                        "marketplace".into(),
-                        "remove".into(),
-                        MARKETPLACE.into(),
-                    ],
-                )?;
-            }
-        } else {
-            let desired = desired_mcp(integrator);
-            let current = mcp_entries(host)?;
-            if let Some(entry) = current.iter().find(|entry| entry.name == "ossia") {
-                if mcp_matches(entry, &desired) {
-                    codex(host, &command::arguments(&["mcp", "remove", "ossia"]))?;
-                } else {
-                    return Err(AppError::new(
-                        ErrorCode::Conflict,
-                        "ossia MCP configuration was modified; remove it manually",
-                    ));
-                }
-            }
+    if let Some(marketplace) = marketplace_entry(ctx)? {
+        if marketplace
+            .get("root")
+            .and_then(Value::as_str)
+            .is_some_and(|path| same_path(path, &marketplace_root(ctx.shared_root())))
+        {
+            run(ctx, &["plugin", "marketplace", "remove", MARKETPLACE])?;
         }
     }
-    for entry in entries.iter().filter(|entry| entry.sha256.is_some()) {
-        if let Some(hash) = entry.sha256.as_ref() {
-            delete_owned(Path::new(&entry.path), hash)?;
-        }
-    }
-    if mode == IntegrationMode::Plugin {
-        let _ = fs::remove_dir_all(plugin_root(integrator));
-    } else {
-        let skill_dir = integrator.paths().agents_home.join("skills/ossia");
-        let _ = fs::remove_dir(&skill_dir);
-    }
+    delete_entries(&record.entries)?;
+    cleanup_shared_dir(ctx.shared_root());
     Ok(())
+}
+
+pub(super) fn remove_legacy(ctx: &AgentContext, record: &LegacyRecord) -> Result<(), AppError> {
+    if record.mode == "plugin" {
+        if plugin_entry(ctx)?.is_some() {
+            run(ctx, &["plugin", "remove", PLUGIN_ID])?;
+        }
+        if marketplace_entry(ctx)?.is_some() {
+            run(ctx, &["plugin", "marketplace", "remove", MARKETPLACE])?;
+        }
+    } else if mcp_entry_exists(ctx)? {
+        run(ctx, &["mcp", "remove", "ossia"])?;
+    }
+    delete_entries(&record.entries)?;
+    cleanup_shared_dir(ctx.shared_root());
+    Ok(())
+}
+
+fn ensure_marketplace(ctx: &AgentContext) -> Result<(), AppError> {
+    let expected = marketplace_root(ctx.shared_root());
+    match marketplace_entry(ctx)? {
+        Some(marketplace)
+            if marketplace
+                .get("root")
+                .and_then(Value::as_str)
+                .is_some_and(|path| same_path(path, &expected)) =>
+        {
+            Ok(())
+        }
+        Some(_) => Err(AppError::new(
+            ErrorCode::Conflict,
+            "the local marketplace name belongs to another source",
+        )),
+        None => run(
+            ctx,
+            &["plugin", "marketplace", "add", &expected.to_string_lossy()],
+        )
+        .map(|_| ()),
+    }
 }

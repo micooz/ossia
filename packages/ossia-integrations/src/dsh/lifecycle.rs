@@ -1,117 +1,165 @@
 use super::*;
 
-pub fn apply(
-    integrator: &Integrator,
-    plan: &IntegrationPlan,
+pub(super) fn install(
+    ctx: &AgentContext,
+    previous: Option<&ManagedRecord>,
 ) -> Result<Vec<ManagedEntry>, AppError> {
-    let detection = detect(integrator);
-    let Some(host) = host(integrator, &detection) else {
-        return Err(AppError::new(ErrorCode::NotFound, "DSH CLI disappeared"));
-    };
-    let profile = &plan.profile;
-    let package_name = package_name(plan.mode);
-    let skill = integrator.skill()?;
-    let browser = browser_enabled(&host.executable, &host.env, profile);
-    let files = match plan.mode {
-        IntegrationMode::SkillMcp => vec![
-            FilePlan {
-                path: integrator.paths().dsh_home.join("skills/ossia/SKILL.md"),
-                bytes: skill.clone().into_bytes(),
-                kind: "skill",
-            },
-            json_file(
-                bundle_dir(integrator, plan.mode).join("package.json"),
-                skill_mcp_manifest(integrator),
-                "bundle-manifest",
-            ),
-            FilePlan {
-                path: bundle_dir(integrator, plan.mode).join("cordis.patch.yml"),
-                bytes: skill_mcp_patch(integrator).into_bytes(),
-                kind: "bundle-patch",
-            },
-        ],
-        IntegrationMode::Plugin => plugin_files(integrator, &skill, browser == Some(false))?,
-    };
-    for file in &files {
-        record::atomic_write(&file.path, &file.bytes)?;
-    }
-    let profile_value = read_json(
-        &profile_package(&integrator.paths().dsh_home, profile),
-        "DSH profile manifest",
-    )?;
-    if !installed_bundles(&profile_value)?
-        .iter()
-        .any(|bundle| bundle == package_name)
-    {
-        dsh(
-            &host,
-            &[
-                "plugin".into(),
-                "--profile".into(),
-                profile.clone(),
-                "add".into(),
-                bundle_dir(integrator, plan.mode)
-                    .to_string_lossy()
-                    .into_owned(),
-            ],
-        )?;
-    }
-    Ok(records_from_plan(plan, &files))
-}
-
-pub fn remove(integrator: &Integrator, record: &ManagedRecord) -> Result<(), AppError> {
-    remove_entries(integrator, &record.profile, record.mode, &record.entries)
-}
-
-pub fn remove_entries(
-    integrator: &Integrator,
-    profile: &str,
-    mode: IntegrationMode,
-    entries: &[ManagedEntry],
-) -> Result<(), AppError> {
-    verify_owned_files(entries)?;
-    let detection = detect(integrator);
-    if entries.iter().any(|entry| entry.kind == "host-entry") && detection.executable.is_none() {
-        return Err(AppError::new(
-            ErrorCode::RuntimeUnavailable,
-            "DSH CLI is unavailable; the managed files were left unchanged",
-        ));
-    }
-    if let Some(host) = host(integrator, &detection) {
-        let package_name = package_name(mode);
-        if entries
+    let files = plugin_files(ctx)?;
+    let mut conflicts = file_conflicts(&files, previous);
+    let expected = bundle_dir(ctx);
+    let base = profile_path(ctx)
+        .parent()
+        .unwrap_or(&expected)
+        .to_path_buf();
+    let profile = read_profile(ctx)?;
+    let (listed, linked) = if let Some(profile) = profile.as_ref() {
+        let listed = installed_bundles(profile)
             .iter()
-            .any(|entry| entry.path == format!("dsh:bundle:{package_name}"))
+            .any(|value| value == PLUGIN);
+        let linked =
+            dependency(profile).is_some_and(|value| dependency_matches(value, &expected, &base));
+        if let Some(value) = dependency(profile) {
+            if !dependency_matches(value, &expected, &base) {
+                conflicts.push(conflict(
+                    PLUGIN,
+                    "user-config",
+                    "the managed DSH bundle link points to another location",
+                ));
+            }
+        }
+        if listed && previous.is_none() {
+            conflicts.push(conflict(
+                PLUGIN,
+                "unmanaged",
+                "the DSH bundle exists without an ownership record",
+            ));
+        }
+        (listed, linked)
+    } else {
+        (false, false)
+    };
+    if !conflicts.is_empty() {
+        return Err(conflict_error(&conflicts));
+    }
+    let snapshot = snapshot_files(&files);
+    if let Err(error) = write_files(&files) {
+        let _ = restore_files(&snapshot);
+        return Err(error);
+    }
+    if !listed || !linked {
+        if let Err(error) = run(
+            ctx,
+            &[
+                "plugin",
+                "--profile",
+                ctx.detected.profile,
+                "add",
+                &expected.to_string_lossy(),
+            ],
+        ) {
+            let _ = restore_files(&snapshot);
+            return Err(error);
+        }
+    }
+    Ok(records_from_files(&files))
+}
+
+pub(super) fn sync(
+    ctx: &AgentContext,
+    _record: &ManagedRecord,
+) -> Result<Option<Vec<ManagedEntry>>, AppError> {
+    let Some(profile) = read_profile(ctx)? else {
+        return Ok(None);
+    };
+    let expected = bundle_dir(ctx);
+    let base = profile_path(ctx)
+        .parent()
+        .unwrap_or(&expected)
+        .to_path_buf();
+    if !installed_bundles(&profile)
+        .iter()
+        .any(|value| value == PLUGIN)
+    {
+        return Ok(None);
+    }
+    if !dependency(&profile).is_some_and(|value| dependency_matches(value, &expected, &base)) {
+        return Ok(None);
+    }
+    let files = plugin_files(ctx)?;
+    let snapshot = snapshot_files(&files);
+    if let Err(error) = write_files(&files) {
+        let _ = restore_files(&snapshot);
+        return Err(error);
+    }
+    Ok(Some(records_from_files(&files)))
+}
+
+pub(super) fn remove(ctx: &AgentContext, record: &ManagedRecord) -> Result<(), AppError> {
+    if let Some(profile) = read_profile(ctx)? {
+        if installed_bundles(&profile)
+            .iter()
+            .any(|value| value == PLUGIN)
         {
-            let profile_path = profile_package(&integrator.paths().dsh_home, profile);
-            let installed = profile_path.exists()
-                && read_json(&profile_path, "DSH profile manifest")
-                    .ok()
-                    .is_some_and(|value| {
-                        installed_bundles(&value).is_ok_and(|bundles| {
-                            bundles.iter().any(|bundle| bundle == package_name)
-                        })
-                    });
-            if installed {
-                dsh(
-                    &host,
+            let expected = bundle_dir(ctx);
+            let base = profile_path(ctx)
+                .parent()
+                .unwrap_or(&expected)
+                .to_path_buf();
+            if dependency(&profile)
+                .is_some_and(|value| !dependency_matches(value, &expected, &base))
+            {
+                return Err(AppError::new(
+                    ErrorCode::Conflict,
+                    "the managed DSH bundle link points to another location",
+                ));
+            }
+            run(
+                ctx,
+                &[
+                    "plugin",
+                    "--profile",
+                    ctx.detected.profile,
+                    "remove",
+                    PLUGIN,
+                ],
+            )?;
+        }
+    }
+    delete_entries(&record.entries)?;
+    cleanup_shared_dir(ctx.shared_root());
+    Ok(())
+}
+
+pub(super) fn remove_legacy(ctx: &AgentContext, record: &LegacyRecord) -> Result<(), AppError> {
+    for entry in record
+        .entries
+        .iter()
+        .filter(|entry| entry.path.starts_with("dsh:bundle:"))
+    {
+        let package = entry.path.trim_start_matches("dsh:bundle:");
+        if package.is_empty() {
+            continue;
+        }
+        if let Some(profile) = read_profile(ctx)? {
+            if installed_bundles(&profile)
+                .iter()
+                .any(|value| value == package)
+            {
+                run(
+                    ctx,
                     &[
-                        "plugin".into(),
-                        "--profile".into(),
-                        profile.into(),
-                        "remove".into(),
-                        package_name.into(),
+                        "plugin",
+                        "--profile",
+                        ctx.detected.profile,
+                        "remove",
+                        package,
                     ],
                 )?;
             }
         }
     }
-    for entry in entries.iter().filter(|entry| entry.sha256.is_some()) {
-        if let Some(hash) = entry.sha256.as_ref() {
-            delete_owned(Path::new(&entry.path), hash)?;
-        }
-    }
-    let _ = fs::remove_dir_all(bundle_dir(integrator, mode));
-    let _ = fs::remove_dir(integrator.paths().dsh_home.join("skills/ossia"));
+    delete_entries(&record.entries)?;
+    let _ = fs::remove_dir(ctx.integrator.paths().dsh_home.join("skills/ossia"));
+    cleanup_shared_dir(ctx.shared_root());
     Ok(())
 }

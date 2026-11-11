@@ -79,6 +79,21 @@ pub fn find_program(name: &str, explicit: Option<&Path>) -> Option<PathBuf> {
     None
 }
 
+/// Find an explicit override, then a `PATH` entry, then known installation paths.
+pub fn find_program_with_candidates(
+    name: &str,
+    explicit: Option<&Path>,
+    candidates: impl IntoIterator<Item = PathBuf>,
+) -> Option<PathBuf> {
+    if let Some(path) = explicit {
+        return executable(path).then(|| path.to_path_buf());
+    }
+    if let Some(path) = find_program(name, None) {
+        return Some(path);
+    }
+    candidates.into_iter().find(|path| executable(path))
+}
+
 fn candidates(directory: &Path, name: &str) -> Vec<PathBuf> {
     #[cfg(windows)]
     {

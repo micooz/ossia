@@ -1,6 +1,6 @@
 use ossia_integrations::{HostPaths, Integrator};
-use ossia_types::{HostKind, IntegrationMode, IntegrationState};
-use std::{collections::BTreeMap, fs, path::PathBuf};
+use ossia_types::{AgentState, AgentsChange};
+use std::{collections::BTreeMap, path::PathBuf};
 
 fn resources() -> PathBuf {
     PathBuf::from(
@@ -12,122 +12,105 @@ fn executable() -> PathBuf {
     PathBuf::from(std::env::var_os("OSSIA_TEST_OSSIA_BIN").expect("set OSSIA_TEST_OSSIA_BIN"))
 }
 
-#[test]
-#[ignore = "requires OSSIA_TEST_INTEGRATION_ROOT, OSSIA_TEST_OSSIA_BIN, and the Codex CLI"]
-fn codex_plugin_skill_mcp_and_remove_round_trip() {
-    let work = tempfile::tempdir().unwrap();
-    let codex_home = work.path().join("codex home");
-    fs::create_dir_all(&codex_home).unwrap();
-    let paths = HostPaths {
-        codex_home,
-        agents_home: work.path().join("agents home"),
+fn paths(work: &tempfile::TempDir) -> HostPaths {
+    HostPaths {
+        codex_home: work.path().join("codex home"),
         dsh_home: work.path().join("dsh"),
-        codex_bin: None,
-        dsh_bin: None,
+        codex_bin: std::env::var_os("OSSIA_TEST_CODEX_BIN").map(PathBuf::from),
+        dsh_bin: std::env::var_os("OSSIA_TEST_DSH_BIN").map(PathBuf::from),
         launch_env: BTreeMap::new(),
-    };
-    let integrator = Integrator::with_resource_dir(
+    }
+}
+
+fn integrator(work: &tempfile::TempDir) -> Integrator {
+    Integrator::with_resource_dir(
         work.path().join("中文 library"),
         executable(),
         resources(),
-        paths,
+        paths(work),
     )
-    .unwrap();
-
-    let plugin = integrator
-        .plan(HostKind::Codex, None, IntegrationMode::Plugin)
-        .unwrap();
-    assert!(plugin.conflicts.is_empty());
-    let status = integrator
-        .apply(
-            HostKind::Codex,
-            None,
-            IntegrationMode::Plugin,
-            &plugin.plan_hash,
-        )
-        .unwrap();
-    assert_eq!(status.state, IntegrationState::PendingHost);
-
-    let skill = integrator
-        .plan(HostKind::Codex, None, IntegrationMode::SkillMcp)
-        .unwrap();
-    assert!(skill.conflicts.is_empty(), "{:?}", skill.conflicts);
-    let status = integrator
-        .apply(
-            HostKind::Codex,
-            None,
-            IntegrationMode::SkillMcp,
-            &skill.plan_hash,
-        )
-        .unwrap();
-    assert_eq!(status.state, IntegrationState::Installed);
-
-    let status = integrator.remove(HostKind::Codex, None, None).unwrap();
-    assert_eq!(status.state, IntegrationState::Available);
-    assert!(status.management.is_none());
+    .unwrap()
+    .with_shared_root(work.path().join("shared"))
+    .unwrap()
 }
 
 #[test]
-#[ignore = "requires OSSIA_TEST_INTEGRATION_ROOT, OSSIA_TEST_OSSIA_BIN, OSSIA_TEST_DSH_TEMPLATE and the DSH CLI"]
-fn dsh_plugin_skill_mcp_and_remove_round_trip() {
+#[ignore = "requires OSSIA_TEST_INTEGRATION_ROOT, OSSIA_TEST_OSSIA_BIN, and the Codex CLI"]
+fn codex_plugin_install_and_remove_round_trip() {
     let work = tempfile::tempdir().unwrap();
-    let template = PathBuf::from(
-        std::env::var_os("OSSIA_TEST_DSH_TEMPLATE").expect("set OSSIA_TEST_DSH_TEMPLATE"),
-    );
-    let profile = work.path().join("profiles/desktop");
-    fs::create_dir_all(&profile).unwrap();
-    for name in ["package.json", "cordis.yml", "cordis.patch.yml"] {
-        let source = template.join(name);
-        if source.exists() {
-            fs::copy(source, profile.join(name)).unwrap();
-        }
-    }
-    let paths = HostPaths {
-        codex_home: work.path().join("codex"),
-        agents_home: work.path().join("agents"),
-        dsh_home: work.path().to_path_buf(),
-        codex_bin: None,
-        dsh_bin: None,
-        launch_env: BTreeMap::new(),
-    };
-    let integrator = Integrator::with_resource_dir(
-        work.path().join("中文 library"),
-        executable(),
-        resources(),
-        paths,
-    )
-    .unwrap();
+    let integrator = integrator(&work);
+    let before = integrator.agents().unwrap();
+    assert!(before.agents.iter().any(|agent| agent.id == "codex"));
 
-    let plugin = integrator
-        .plan(HostKind::Dsh, Some("desktop"), IntegrationMode::Plugin)
+    let installed = integrator
+        .set_agents(AgentsChange {
+            agent_ids: vec!["codex".into()],
+            enabled: true,
+        })
         .unwrap();
-    assert!(plugin.conflicts.is_empty(), "{:?}", plugin.conflicts);
-    let status = integrator
-        .apply(
-            HostKind::Dsh,
-            Some("desktop"),
-            IntegrationMode::Plugin,
-            &plugin.plan_hash,
-        )
+    assert!(installed.problems.is_empty(), "{:?}", installed.problems);
+    let codex = installed
+        .snapshot
+        .agents
+        .iter()
+        .find(|agent| agent.id == "codex")
         .unwrap();
-    assert_ne!(status.state, IntegrationState::Conflict);
+    assert!(matches!(
+        codex.state,
+        AgentState::Installed | AgentState::Disabled
+    ));
 
-    let skill = integrator
-        .plan(HostKind::Dsh, Some("desktop"), IntegrationMode::SkillMcp)
+    let removed = integrator
+        .set_agents(AgentsChange {
+            agent_ids: vec!["codex".into()],
+            enabled: false,
+        })
         .unwrap();
-    assert!(skill.conflicts.is_empty(), "{:?}", skill.conflicts);
-    let status = integrator
-        .apply(
-            HostKind::Dsh,
-            Some("desktop"),
-            IntegrationMode::SkillMcp,
-            &skill.plan_hash,
-        )
+    assert!(removed.problems.is_empty(), "{:?}", removed.problems);
+    let codex = removed
+        .snapshot
+        .agents
+        .iter()
+        .find(|agent| agent.id == "codex")
         .unwrap();
-    assert_eq!(status.state, IntegrationState::Installed);
+    assert!(!codex.installed);
+}
 
-    let status = integrator
-        .remove(HostKind::Dsh, Some("desktop"), None)
+#[test]
+#[ignore = "requires OSSIA_TEST_INTEGRATION_ROOT, OSSIA_TEST_OSSIA_BIN, and the DSH CLI"]
+fn dsh_plugin_install_and_remove_round_trip() {
+    let work = tempfile::tempdir().unwrap();
+    let integrator = integrator(&work);
+    let before = integrator.agents().unwrap();
+    assert!(before.agents.iter().any(|agent| agent.id == "dsh"));
+
+    let installed = integrator
+        .set_agents(AgentsChange {
+            agent_ids: vec!["dsh".into()],
+            enabled: true,
+        })
         .unwrap();
-    assert_eq!(status.state, IntegrationState::Available);
+    assert!(installed.problems.is_empty(), "{:?}", installed.problems);
+    let dsh = installed
+        .snapshot
+        .agents
+        .iter()
+        .find(|agent| agent.id == "dsh")
+        .unwrap();
+    assert_eq!(dsh.state, AgentState::Installed);
+
+    let removed = integrator
+        .set_agents(AgentsChange {
+            agent_ids: vec!["dsh".into()],
+            enabled: false,
+        })
+        .unwrap();
+    assert!(removed.problems.is_empty(), "{:?}", removed.problems);
+    let dsh = removed
+        .snapshot
+        .agents
+        .iter()
+        .find(|agent| agent.id == "dsh")
+        .unwrap();
+    assert!(!dsh.installed);
 }

@@ -1,5 +1,19 @@
 // Generated from ossia-types by pnpm generate:types. Do not edit.
 
+export type AgentConflict = { target: string, kind: string, message: string, };
+
+export type AgentIntegration = { id: string, name: string, icon: string, method: InstallMethod, state: AgentState, installed: boolean, enabled: boolean, managed: boolean, version: string | null, executable: string | null, configRoot: string, profile: string | null, path: string | null, reloadHint: string | null, message: string | null, conflicts: Array<AgentConflict>, };
+
+export type AgentProblem = { agentId: string, message: string, };
+
+export type AgentState = "available" | "installed" | "disabled" | "broken" | "conflict" | "unavailable" | "update-required";
+
+export type AgentsChange = { agentIds: Array<string>, enabled: boolean, };
+
+export type AgentsMutation = { snapshot: AgentsSnapshot, problems: Array<AgentProblem>, };
+
+export type AgentsSnapshot = { agents: Array<AgentIntegration>, syncing: boolean, error: AppError | null, };
+
 export type AppError = { code: ErrorCode, message: string, detail?: JsonValue, };
 
 export type ArtifactRef = {
@@ -76,10 +90,6 @@ export type GeometryRegion = { locator: Locator, systemIndex: number, bounds: Ge
 
 export type HistoryArgs = { documentId: DocumentId, };
 
-export type HostDetection = { host: HostKind, installed: boolean, version: string | null, executable: string | null, configRoot: string, skillRoot: string | null, profiles: Array<string>, capabilities: Array<string>, problem: AppError | null, };
-
-export type HostKind = "codex" | "dsh";
-
 export type ImportArgs = { title: string, format: InputFormat, path: string, confirmation: ContentHash | null, author: string, };
 
 export type ImportOutcome = { report: ImportReport, document: DocumentState | null, render: RenderManifest | null, job: Job | null, };
@@ -90,29 +100,7 @@ export type ImportStatus = "clean" | "needs-confirmation" | "refused";
 
 export type InputFormat = "ly" | "music-xml" | "midi";
 
-export type IntegrationAction = "detect" | "plan" | "apply" | "status" | "repair" | "remove";
-
-export type IntegrationConflict = { target: string, kind: string, message: string, };
-
-export type IntegrationDetection = { hosts: Array<HostDetection>, };
-
-export type IntegrationEntry = { operation: IntegrationOperation, ownershipId: string, path: string, kind: string, sha256: ContentHash | null, };
-
-export type IntegrationMode = "skill-mcp" | "plugin";
-
-export type IntegrationObservation = { target: string, kind: string, state: IntegrationState, message: string | null, };
-
-export type IntegrationOperation = "create" | "replace" | "remove";
-
-export type IntegrationPlan = { planHash: ContentHash, managementId: string, host: HostKind, profile: string, mode: IntegrationMode, home: string, executable: string, hostVersion: string | null, entries: Array<IntegrationEntry>, conflicts: Array<IntegrationConflict>, warnings: Array<string>, requiresHostCompletion: boolean, };
-
-export type IntegrationRecordView = { managementId: string, mode: IntegrationMode, executable: string, home: string, templateVersion: number, updatedAt: string, entries: Array<IntegrationEntry>, };
-
-export type IntegrationRequest = { action: IntegrationAction, host: HostKind | null, profile: string | null, mode: IntegrationMode | null, planHash: ContentHash | null, };
-
-export type IntegrationState = "unavailable" | "available" | "planned" | "pending-host" | "installed" | "conflict" | "broken" | "unsupported";
-
-export type IntegrationStatus = { detection: HostDetection, state: IntegrationState, mode: IntegrationMode | null, management: IntegrationRecordView | null, observations: Array<IntegrationObservation>, conflicts: Array<IntegrationConflict>, message: string | null, };
+export type InstallMethod = "plugin" | "skill" | "mcp";
 
 export type Job = { jobId: JobId, documentId: DocumentId | null, kind: string, state: JobState, sourceHash: ContentHash | null, phase: string, result: JsonValue | null, error: AppError | null, };
 

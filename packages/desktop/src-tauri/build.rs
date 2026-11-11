@@ -6,12 +6,8 @@ fn main() {
             "management_start",
             "management_stop",
             "management_doctor",
-            "management_integration_detect",
-            "management_integration_plan",
-            "management_integration_status",
-            "management_integration_apply",
-            "management_integration_repair",
-            "management_integration_remove",
+            "management_agents_state",
+            "management_agents_change",
         ]),
     ))
     .expect("build Tauri management permissions");

@@ -7,11 +7,7 @@
     "allow-management-start",
     "allow-management-stop",
     "allow-management-doctor",
-    "allow-management-integration-detect",
-    "allow-management-integration-plan",
-    "allow-management-integration-status",
-    "allow-management-integration-apply",
-    "allow-management-integration-repair",
-    "allow-management-integration-remove"
+    "allow-management-agents-state",
+    "allow-management-agents-change"
   ]
 }

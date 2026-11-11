@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ossia-dev",
+  "mainBinaryName": "ossia-dev",
+  "identifier": "dev.ossia.desktop.dev",
+  "app": {
+    "windows": [
+      {
+        "title": "ossia-dev 管理",
+        "width": 920,
+        "height": 760,
+        "minWidth": 520,
+        "minHeight": 480,
+        "resizable": true,
+        "fullscreen": false,
+        "label": "management",
+        "url": "admin.html"
+      }
+    ]
+  }
+}

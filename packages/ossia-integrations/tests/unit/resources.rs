@@ -34,13 +34,14 @@ fn default_integrator_reads_embedded_resources() {
         std::env::current_exe().unwrap(),
         HostPaths {
             codex_home: root.path().join("codex"),
-            agents_home: root.path().join("agents"),
             dsh_home: root.path().join("dsh"),
             codex_bin: None,
             dsh_bin: None,
             launch_env: BTreeMap::new(),
         },
     )
+    .unwrap()
+    .with_shared_root(root.path().join("shared"))
     .unwrap();
 
     assert!(integrator.skill().unwrap().contains("# Ossia"));
