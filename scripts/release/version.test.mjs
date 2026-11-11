@@ -52,7 +52,7 @@ void test('version injection updates every manifest and can be checked', async (
     fs.writeFileSync(path.join(root, 'packages/desktop/package.json'), '{"version":"0.1.0"}\n');
     fs.writeFileSync(
       path.join(root, 'packages/desktop/src-tauri/tauri.conf.json'),
-      '{"version":"0.1.0"}\n',
+      '{\n  "productName": "Ossia",\n  "version": "0.1.0",\n  "bundle": {\n    "targets": ["app"]\n  }\n}\n',
     );
 
     await setVersion(root, 'v0.1.0-beta.1', { refreshLock: false });
@@ -60,6 +60,10 @@ void test('version injection updates every manifest and can be checked', async (
     assert.match(
       fs.readFileSync(path.join(root, 'Cargo.toml'), 'utf8'),
       /version = "0\.1\.0-beta\.1"/,
+    );
+    assert.equal(
+      fs.readFileSync(path.join(root, 'packages/desktop/src-tauri/tauri.conf.json'), 'utf8'),
+      '{\n  "productName": "Ossia",\n  "version": "0.1.0-beta.1",\n  "bundle": {\n    "targets": ["app"]\n  }\n}\n',
     );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

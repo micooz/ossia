@@ -94,8 +94,11 @@ async function readJson(path, label) {
   return value;
 }
 
-async function writeJson(path, value) {
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
+async function replaceJsonVersion(path, version) {
+  const text = await readFile(path, 'utf8');
+  const pattern = /("version"\s*:\s*")[^"]*(")/;
+  if (!pattern.test(text)) throw new Error(`${path} has no JSON version`);
+  await writeFile(path, text.replace(pattern, `$1${version}$2`));
 }
 
 export async function readVersions(root) {
@@ -125,14 +128,10 @@ export async function setVersion(root, tag, options = {}) {
   const tauriPath = join(root, 'packages/desktop/src-tauri/tauri.conf.json');
 
   const cargo = await readFile(cargoPath, 'utf8');
-  const packageJson = await readJson(packagePath, 'package.json');
-  const desktopPackage = await readJson(desktopPath, 'packages/desktop/package.json');
-  const tauriConfig = await readJson(tauriPath, 'tauri.conf.json');
-
   await writeFile(cargoPath, replaceSectionVersion(cargo, 'workspace.package', version));
-  await writeJson(packagePath, { ...packageJson, version });
-  await writeJson(desktopPath, { ...desktopPackage, version });
-  await writeJson(tauriPath, { ...tauriConfig, version });
+  await replaceJsonVersion(packagePath, version);
+  await replaceJsonVersion(desktopPath, version);
+  await replaceJsonVersion(tauriPath, version);
 
   if (options.refreshLock !== false) {
     execFileSync('cargo', ['metadata', '--format-version', '1'], {

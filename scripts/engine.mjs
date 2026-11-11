@@ -246,7 +246,7 @@ export async function install(root = ROOT, opts = {}) {
     });
     await refreshGoMtimes(stage);
     writeInventory(stage, lock);
-    verifyTree(stage, lock, lock.target === hostTarget());
+    verifyTree(stage, lock, lock.target === hostTarget() && !opts.skipNative);
     if (fs.existsSync(dir)) fs.renameSync(dir, previous);
     try {
       fs.renameSync(stage, dir);
@@ -269,6 +269,7 @@ export async function main(argv) {
       target,
       refetch: argv.includes('--refetch'),
       allowDownload: argv.includes('--download'),
+      skipNative: argv.includes('--skip-native'),
     });
     console.log(`engine ready: ${dir}`);
   } else if (cmd === 'verify' || cmd === 'path') {

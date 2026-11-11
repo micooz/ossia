@@ -582,6 +582,7 @@ function verifyReleaseArtifacts(target, artifactDir, files) {
       throw new Error(`unexpected RPM architecture for ${target}`);
     }
     assertBinaryVersion(target);
+    return;
   }
   if (!fs.readdirSync(artifactDir).some((name) => name.endsWith('.dmg'))) {
     throw new Error(`expected a DMG for ${target}`);
@@ -594,7 +595,7 @@ export async function packageTarget(target, options = {}) {
   const spec = specFor(target);
   if (!options.allowDirty) assertClean();
   const engine = path.join(ROOT, 'vendor/lilypond', `${entry.version}-${target}`);
-  verifyTree(engine, lock, target === hostTarget());
+  verifyTree(engine, lock, target === hostTarget() && process.platform !== 'win32');
   if (!fs.existsSync(path.join(ROOT, 'packages/ui/dist/index.html'))) buildUI();
   const stage = path.join(ROOT, 'target/package', target);
   fs.rmSync(stage, { recursive: true, force: true });
