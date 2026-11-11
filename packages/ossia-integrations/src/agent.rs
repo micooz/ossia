@@ -65,6 +65,7 @@ pub(crate) trait AgentAdapter: Sync {
     fn profile(&self) -> &'static str;
     fn reload_hint(&self) -> &'static str;
     fn detect(&self, paths: &HostPaths) -> Option<DetectedAgent>;
+    fn config_path(&self, ctx: &AgentContext) -> PathBuf;
     fn status(
         &self,
         ctx: &AgentContext,

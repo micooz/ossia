@@ -51,6 +51,8 @@ pub struct Runtime {
     pub engine: Arc<dyn EngineBackend>,
     pub info: RuntimeInfo,
     state: Mutex<State>,
+    ui_language: std::sync::RwLock<Option<UiLanguage>>,
+    parent_pid: Mutex<Option<u32>>,
     pub changed: Notify,
     pub stopping: AtomicBool,
 }
@@ -97,6 +99,7 @@ impl Runtime {
                     "render-geometry".into(),
                     "version-render".into(),
                     "export-reveal".into(),
+                    "ui-language".into(),
                 ],
             },
             library: Arc::new(library),
@@ -111,6 +114,8 @@ impl Runtime {
                 running: HashMap::new(),
                 observed: HashMap::new(),
             }),
+            ui_language: std::sync::RwLock::new(None),
+            parent_pid: Mutex::new(None),
             changed: Notify::new(),
             stopping: AtomicBool::new(false),
         })
@@ -129,6 +134,37 @@ impl Runtime {
         } else {
             Ok(())
         }
+    }
+
+    pub fn ui_language(&self) -> Option<UiLanguage> {
+        *self.ui_language.read().expect("runtime language poisoned")
+    }
+
+    pub fn initialize_ui_language(&self, language: Option<UiLanguage>) {
+        *self.ui_language.write().expect("runtime language poisoned") = language;
+    }
+
+    pub fn set_ui_language(&self, language: Option<UiLanguage>) {
+        let mut current = self.ui_language.write().expect("runtime language poisoned");
+        if *current == language {
+            return;
+        }
+        *current = language;
+        drop(current);
+        self.emit(
+            "ui-language-changed",
+            None,
+            None,
+            json!({"language": language}),
+        );
+    }
+
+    pub fn set_parent_pid(&self, pid: u32) {
+        *self.parent_pid.lock().expect("runtime parent poisoned") = Some(pid);
+    }
+
+    pub fn parent_pid(&self) -> Option<u32> {
+        *self.parent_pid.lock().expect("runtime parent poisoned")
     }
 
     fn emit_locked(

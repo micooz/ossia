@@ -176,7 +176,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
             call(&client, "ossia_open", json!({"documentId":doc.document_id})).await,
         )
         .unwrap();
-        assert!(open.url.contains("#ticket="));
+        assert!(open.url.contains("/score.html#ticket="));
         let response = web
             .post(format!("{api}/sessions/exchange"))
             .json(&ExchangeRequest {

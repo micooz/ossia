@@ -7,6 +7,7 @@ import type {
   Version,
   ViewSnapshot,
 } from '../generated/protocol.ts';
+import { useI18n } from '../i18n.tsx';
 import { ExportBar } from './ExportBar.tsx';
 
 export function DocumentDetails({
@@ -30,29 +31,36 @@ export function DocumentDetails({
   onClear: () => void;
   onError: (error: unknown) => void;
 }) {
+  const { t } = useI18n();
+  const measureLabel = (locator: Locator) =>
+    locator.measureEnd === locator.measureStart
+      ? t('measure', { start: locator.measureStart })
+      : t('measureRange', {
+          start: locator.measureStart,
+          end: locator.measureEnd,
+        });
   return (
     <aside className="details-column">
       <section className="panel selection">
-        <h2>当前选区</h2>
-        <p className="hint">选择会关联到当前视图，由 Agent 读取。</p>
+        <h2>{t('selectionTitle')}</h2>
+        <p className="hint">{t('selectionDescription')}</p>
         {!selected.length ? (
-          <p>尚未选择小节</p>
+          <p>{t('selectionEmpty')}</p>
         ) : (
           <ul>
             {selected.map((l) => (
               <li key={locatorKey(l)}>
-                谱表 {l.staffIndex + 1} · 第 {l.measureStart}
-                {l.measureEnd !== l.measureStart ? `–${l.measureEnd}` : ''} 小节
+                {t('staff', { staff: l.staffIndex + 1 })} · {measureLabel(l)}
               </li>
             ))}
           </ul>
         )}
         <button type="button" disabled={!selected.length || !connected || stale} onClick={onClear}>
-          清空选区
+          {t('clearSelection')}
         </button>
       </section>
       <section className="panel diagnostics">
-        <h2>编译诊断</h2>
+        <h2>{t('diagnosticsTitle')}</h2>
         {doc.lastCheck?.error && (
           <p className="error" role="alert">
             {doc.lastCheck.error.message}
@@ -82,6 +90,7 @@ function Diagnostics({
   render: ViewSnapshot['render'] | undefined;
   stale: boolean;
 }) {
+  const { t } = useI18n();
   const result = doc.lastCheck?.result as RenderManifest | null;
   const diagnostics = result?.diagnostics ?? (stale ? [] : (render?.manifest.diagnostics ?? []));
   const issues = diagnostics.filter((d) => d.severity !== 'info');
@@ -92,21 +101,23 @@ function Diagnostics({
         <ul>
           {issues.map((d, i) => (
             <li key={i}>
-              {d.position && `第 ${d.position.line} 行，第 ${d.position.column} 列：`}
+              {d.position &&
+                t('lineColumn', {
+                  line: d.position.line,
+                  column: d.position.column,
+                })}
               {d.message}
             </li>
           ))}
         </ul>
       ) : (
         <p className="hint">
-          {doc.lastCheck?.state === 'error'
-            ? '请让 Agent 检查源码和任务详情。'
-            : '暂无编译警告或错误'}
+          {doc.lastCheck?.state === 'error' ? t('diagnosticsFallback') : t('noDiagnostics')}
         </p>
       )}
       {logs.length > 0 && (
         <details>
-          <summary>查看编译日志</summary>
+          <summary>{t('showCompileLog')}</summary>
           <ul>
             {logs.map((d, i) => (
               <li key={i}>{d.message}</li>

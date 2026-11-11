@@ -16,6 +16,7 @@ import type {
   Version,
   ViewSnapshot,
 } from './generated/protocol.ts';
+import { jobStateKey, translate } from './i18n.tsx';
 
 export class ApiError extends Error {
   constructor(publicStatus: number, code: string, message: string, detail?: unknown) {
@@ -49,7 +50,7 @@ export function makeApi(session: Session, signal?: AbortSignal) {
       throw new ApiError(
         response.status,
         error?.code ?? 'http-error',
-        error?.message ?? `请求失败 (${response.status})`,
+        error?.message ?? translate(session.language, 'requestFailed', { status: response.status }),
         error?.detail,
       );
     }
@@ -108,7 +109,10 @@ export function makeApi(session: Session, signal?: AbortSignal) {
         throw new ApiError(
           422,
           job.error?.code ?? job.state,
-          job.error?.message ?? `任务${job.state}`,
+          job.error?.message ??
+            translate(session.language, 'jobState', {
+              state: translate(session.language, jobStateKey(job.state)),
+            }),
           job.error?.detail,
         );
       return job.result as T;
@@ -119,7 +123,7 @@ export function makeApi(session: Session, signal?: AbortSignal) {
         after: String(snapshot.seq),
       });
       const response = await request(`/events?${query}`);
-      if (!response.body) throw new Error('浏览器不支持事件流');
+      if (!response.body) throw new Error(translate(session.language, 'eventsUnsupported'));
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -139,11 +143,16 @@ export function makeApi(session: Session, signal?: AbortSignal) {
               if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''));
             }
             if (kind === 'session-expired')
-              throw new ApiError(401, 'unauthorized', '视图已失效，请让 Agent 重新打开。');
+              throw new ApiError(
+                401,
+                'unauthorized',
+                translate(session.language, 'sessionExpired'),
+              );
             if (kind === 'resync-required') return;
             if (kind === 'runtime' && data.length) onEvent(JSON.parse(data.join('\n')));
           }
-          if (buffer.length > 1024 * 1024) throw new Error('事件流消息过大');
+          if (buffer.length > 1024 * 1024)
+            throw new Error(translate(session.language, 'eventTooLarge'));
         }
       } finally {
         await reader.cancel().catch(() => {});

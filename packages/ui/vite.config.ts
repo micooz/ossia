@@ -8,7 +8,7 @@ export default defineConfig({
     target: 'es2022',
     outDir: 'dist',
     sourcemap: true,
-    rolldownOptions: { input: { score: 'index.html', admin: 'admin.html' } },
+    rolldownOptions: { input: { main: 'main.html', score: 'score.html' } },
   },
   server: {
     host: '127.0.0.1',

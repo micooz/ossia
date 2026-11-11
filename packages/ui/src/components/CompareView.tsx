@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { describe } from '../api.ts';
 import type { Api } from '../api.ts';
 import type { RenderReference, Version } from '../generated/protocol.ts';
+import { useI18n } from '../i18n.tsx';
 import { ScoreView } from './ScoreView.tsx';
 
 function VersionScore({
@@ -14,6 +15,7 @@ function VersionScore({
   documentId: string;
   versionId: string;
 }) {
+  const { t } = useI18n();
   const [render, setRender] = useState<RenderReference | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -40,7 +42,7 @@ function VersionScore({
   ) : render ? (
     <ScoreView api={api} render={render} />
   ) : (
-    <p className="hint">载入历史谱面…</p>
+    <p className="hint">{t('loadingHistoryScore')}</p>
   );
 }
 export function CompareView({
@@ -52,13 +54,14 @@ export function CompareView({
   documentId: string;
   versions: Version[];
 }) {
+  const { t } = useI18n();
   const [left, setLeft] = useState(versions[1]?.versionId ?? versions[0]?.versionId ?? '');
   const [right, setRight] = useState(versions[0]?.versionId ?? '');
   return (
-    <section className="compare" aria-label="版本对比">
+    <section className="compare" aria-label={t('compareTitle')}>
       {[
-        { label: '左侧版本', value: left, set: setLeft },
-        { label: '右侧版本', value: right, set: setRight },
+        { label: t('leftVersion'), value: left, set: setLeft },
+        { label: t('rightVersion'), value: right, set: setRight },
       ].map((side) => (
         <div key={side.label}>
           <label>
@@ -70,7 +73,7 @@ export function CompareView({
             >
               {versions.map((v) => (
                 <option key={v.versionId} value={v.versionId}>
-                  版本 {v.seq} · {v.summary || v.origin}
+                  {t('version')} {v.seq} · {v.summary || v.origin}
                 </option>
               ))}
             </select>

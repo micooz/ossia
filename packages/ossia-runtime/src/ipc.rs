@@ -270,6 +270,26 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
             runtime.stop()?;
             Ok(json!({"stopping":true}))
         }
+        "ui-language" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase", deny_unknown_fields)]
+            struct LanguageChange {
+                language: Option<UiLanguage>,
+            }
+            let change: LanguageChange = decode(params)?;
+            runtime.set_ui_language(change.language);
+            value(runtime.ui_language())
+        }
+        "watch-parent" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase", deny_unknown_fields)]
+            struct ParentWatch {
+                pid: u32,
+            }
+            let watch: ParentWatch = decode(params)?;
+            runtime.set_parent_pid(watch.pid);
+            Ok(json!({"watching":true}))
+        }
         "integrate" => Err(AppError::unsupported(
             "host integration is not implemented; see P06",
         )),

@@ -75,12 +75,14 @@ impl Integrator {
         executable: impl AsRef<Path>,
         paths: HostPaths,
     ) -> Result<Self, AppError> {
+        let home = absolute_path(home.as_ref(), "integration home")?;
+        let shared_root = default_shared_root(&home)?;
         Self::build(
             home,
             executable,
             ResourceSource::Bundled,
             paths,
-            default_shared_root()?,
+            shared_root,
         )
     }
 
@@ -90,12 +92,14 @@ impl Integrator {
         resources: impl AsRef<Path>,
         paths: HostPaths,
     ) -> Result<Self, AppError> {
+        let home = absolute_path(home.as_ref(), "integration home")?;
+        let shared_root = default_shared_root(&home)?;
         Self::build(
             home,
             executable,
             ResourceSource::directory(resources.as_ref())?,
             paths,
-            default_shared_root()?,
+            shared_root,
         )
     }
 
@@ -198,6 +202,16 @@ impl Integrator {
                 .as_ref()
                 .map(|value| value.config_root.to_string_lossy().into_owned())
                 .unwrap_or_else(|| default_config_root(adapter.id(), &self.paths));
+            let config_path = detected
+                .as_ref()
+                .map(|value| {
+                    let ctx = AgentContext {
+                        integrator: self,
+                        detected: value,
+                    };
+                    adapter.config_path(&ctx).to_string_lossy().into_owned()
+                })
+                .unwrap_or_default();
             agents.push(AgentIntegration {
                 id: adapter.id().into(),
                 name: adapter.name().into(),
@@ -212,6 +226,7 @@ impl Integrator {
                     .as_ref()
                     .map(|value| value.executable.to_string_lossy().into_owned()),
                 config_root,
+                config_path,
                 profile: Some(adapter.profile().into()),
                 path: inspection.path,
                 reload_hint: Some(adapter.reload_hint().into()),
@@ -379,12 +394,10 @@ impl Integrator {
     }
 }
 
-fn default_shared_root() -> Result<PathBuf, AppError> {
-    let home = dirs::home_dir()
-        .ok_or_else(|| AppError::new(ErrorCode::StorageError, "cannot determine home directory"))?;
+fn default_shared_root(home: &Path) -> Result<PathBuf, AppError> {
     absolute_path(
         &absolute_env("OSSIA_HOST_INTEGRATION_ROOT")
-            .unwrap_or_else(|| home.join(".ossia/integrations/hosts")),
+            .unwrap_or_else(|| home.join("integrations/hosts")),
         "shared integration root",
     )
 }
@@ -394,5 +407,27 @@ fn default_config_root(agent_id: &str, paths: &HostPaths) -> String {
         "codex" => paths.codex_home.to_string_lossy().into_owned(),
         "dsh" => paths.dsh_home.to_string_lossy().into_owned(),
         _ => String::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn shared_integration_root_follows_the_runtime_home() {
+        let root = tempfile::tempdir().unwrap();
+        let home = root.path().join(".ossia");
+        let paths = HostPaths {
+            codex_home: root.path().join("codex"),
+            dsh_home: root.path().join("dsh"),
+            codex_bin: None,
+            dsh_bin: None,
+            launch_env: BTreeMap::new(),
+        };
+        let integrator =
+            Integrator::with_paths(home.clone(), std::env::current_exe().unwrap(), paths).unwrap();
+        assert_eq!(integrator.shared_root(), home.join("integrations/hosts"));
     }
 }

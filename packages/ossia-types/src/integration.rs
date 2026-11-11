@@ -52,6 +52,8 @@ pub struct AgentIntegration {
     pub version: Option<String>,
     pub executable: Option<String>,
     pub config_root: String,
+    /// Exact host configuration file changed by the integration.
+    pub config_path: String,
     pub profile: Option<String>,
     pub path: Option<String>,
     pub reload_hint: Option<String>,

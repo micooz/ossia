@@ -1,8 +1,10 @@
+import { Download, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 
 import { describe } from '../api.ts';
 import type { Api } from '../api.ts';
 import type { ExportFormat, ExportOutcome, Version } from '../generated/protocol.ts';
+import { useI18n } from '../i18n.tsx';
 export function ExportBar({
   api,
   documentId,
@@ -14,6 +16,7 @@ export function ExportBar({
   versions: Version[];
   onError: (e: unknown) => void;
 }) {
+  const { t } = useI18n();
   const [version, setVersion] = useState(versions[0]?.versionId ?? '');
   const [format, setFormat] = useState<ExportFormat>('pdf');
   const [working, setWorking] = useState(false);
@@ -36,38 +39,39 @@ export function ExportBar({
   }
   return (
     <section className="panel export">
-      <h2>导出已提交版本</h2>
+      <h2>{t('exportTitle')}</h2>
       <div className="row">
         <label>
-          版本{' '}
+          {t('exportVersion')}{' '}
           <select
-            aria-label="导出版本"
+            aria-label={t('exportVersionLabel')}
             value={version}
             disabled={working}
             onChange={(e) => setVersion(e.target.value)}
           >
             {versions.map((v) => (
               <option key={v.versionId} value={v.versionId}>
-                版本 {v.seq}
+                {t('version')} {v.seq}
               </option>
             ))}
           </select>
         </label>
         <label>
-          格式{' '}
+          {t('format')}{' '}
           <select
-            aria-label="导出格式"
+            aria-label={t('exportFormatLabel')}
             value={format}
             disabled={working}
             onChange={(e) => setFormat(e.target.value as ExportFormat)}
           >
             <option value="pdf">PDF</option>
             <option value="midi">MIDI</option>
-            <option value="ly">LilyPond 源码</option>
+            <option value="ly">{t('lilypondSource')}</option>
           </select>
         </label>
         <button type="button" disabled={working || !version} onClick={() => void run()}>
-          {working ? '导出中…' : '导出'}
+          <Download aria-hidden="true" size={15} />
+          {working ? t('exporting') : t('exportAction')}
         </button>
       </div>
       {error && (
@@ -78,7 +82,7 @@ export function ExportBar({
       {result && (
         <div role="status">
           <p>
-            已保存到 <code className="path">{result.outcome.path}</code>
+            {t('savedTo')} <code className="path">{result.outcome.path}</code>
           </p>
           <button
             type="button"
@@ -89,7 +93,8 @@ export function ExportBar({
               })
             }
           >
-            打开位置
+            <ExternalLink aria-hidden="true" size={15} />
+            {t('reveal')}
           </button>
         </div>
       )}

@@ -16,6 +16,8 @@ pub struct Args {
     pub static_dir: Option<PathBuf>,
     #[arg(long, global = true)]
     pub dev_origin: Option<String>,
+    #[arg(long, global = true, hide = true)]
+    pub no_main_window: bool,
     #[command(subcommand)]
     pub command: Option<Command>,
 }

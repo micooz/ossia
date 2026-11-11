@@ -62,6 +62,9 @@ pub struct ExchangeRequest {
 pub struct ExchangeResponse {
     pub token: String,
     pub view: ViewSnapshot,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub language: Option<UiLanguage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
@@ -308,6 +311,103 @@ pub struct DoctorReport {
     pub engine: EngineHealth,
     pub runtime: RuntimeHealth,
 }
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, TS, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum UiTheme {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, TS, PartialEq, Eq)]
+pub enum UiLanguage {
+    #[serde(rename = "en-US")]
+    #[default]
+    EnUs,
+    #[serde(rename = "zh-CN")]
+    ZhCn,
+}
+
+impl UiLanguage {
+    pub fn from_locale(locale: &str) -> Option<Self> {
+        let primary = locale
+            .split(['-', '_'])
+            .next()
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        match primary.as_str() {
+            "en" => Some(Self::EnUs),
+            "zh" => Some(Self::ZhCn),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::EnUs => "en-US",
+            Self::ZhCn => "zh-CN",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, TS, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum TrayClickAction {
+    Menu,
+    #[default]
+    Window,
+}
+
+impl TrayClickAction {
+    pub fn effective(self) -> Self {
+        if cfg!(target_os = "linux") {
+            Self::Menu
+        } else {
+            self
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct UiPreferences {
+    pub theme: UiTheme,
+    pub language: Option<UiLanguage>,
+    pub tray_click_action: TrayClickAction,
+}
+
+impl Default for UiPreferences {
+    fn default() -> Self {
+        Self {
+            theme: UiTheme::System,
+            language: None,
+            tray_click_action: TrayClickAction::Window,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagementPreferences {
+    pub theme: UiTheme,
+    pub language: Option<UiLanguage>,
+    pub tray_click_action: TrayClickAction,
+    pub tray_click_action_editable: bool,
+    pub launch_at_login: bool,
+    pub launch_at_login_editable: bool,
+    pub app_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ManagementPreferencesChange {
+    pub theme: UiTheme,
+    pub language: Option<UiLanguage>,
+    pub tray_click_action: TrayClickAction,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ManagementSnapshot {

@@ -1,8 +1,10 @@
+import { Music2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { describe, locatorKey } from '../api.ts';
 import type { Api } from '../api.ts';
 import type { Locator, RenderGeometry, RenderReference } from '../generated/protocol.ts';
+import { useI18n } from '../i18n.tsx';
 
 interface Props {
   api: Api;
@@ -20,6 +22,7 @@ export function ScoreView({
   onPoint,
   onToggle,
 }: Props) {
+  const { t } = useI18n();
   const [page, setPage] = useState(1);
   const [geometry, setGeometry] = useState<RenderGeometry | null>(null);
   const [image, setImage] = useState<{ key: string; page: number; url: string } | null>(null);
@@ -70,26 +73,26 @@ export function ScoreView({
   const keys = new Set(selected.map(locatorKey));
   const regions = layout?.regions ?? [];
   return (
-    <section className="score" aria-label="谱面">
+    <section className="score" aria-label={t('scoreLabel')}>
       <div className="score-bar">
         <label>
-          页码{' '}
+          {t('page')}{' '}
           <select
-            aria-label="谱面页码"
+            aria-label={t('pageLabel')}
             value={currentPage}
             onChange={(e) => setPage(Number(e.target.value))}
           >
             {render.manifest.pages.map((p) => (
               <option key={p.page} value={p.page}>
-                第 {p.page} 页
+                {t('pageOption', { page: p.page })}
               </option>
             ))}
           </select>
         </label>
         <label>
-          缩放{' '}
+          {t('zoom')}{' '}
           <select
-            aria-label="谱面缩放"
+            aria-label={t('zoomLabel')}
             value={zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
           >
@@ -100,15 +103,15 @@ export function ScoreView({
             ))}
           </select>
         </label>
-        <span className="hint">共 {render.manifest.pages.length} 页</span>
+        <span className="hint">{t('totalPages', { count: render.manifest.pages.length })}</span>
       </div>
       {error && (
         <p className="error" role="alert">
-          无法载入谱面：{error}
+          {t('scoreLoadFailed', { error })}
         </p>
       )}
       {!ready ? (
-        <p className="hint">载入谱面…</p>
+        <p className="hint">{t('loadingScore')}</p>
       ) : (
         <div className="page-scroll">
           <div
@@ -121,7 +124,7 @@ export function ScoreView({
             <img
               className="score-image"
               src={image.url}
-              alt={`乐谱第 ${currentPage} 页；小节选择可使用下方控件`}
+              alt={t('scoreAlt', { page: currentPage })}
               draggable={false}
             />
             {box && (
@@ -157,13 +160,13 @@ export function ScoreView({
       )}
       {layout && layout.capability !== 'measure' && (
         <p className="hint">
-          小节定位能力：{layout.capability}。
-          {layout.reason ?? '此页仅能浏览，请让 Agent 直接检查源码。'}
+          {t('locateCapability', { capability: layout.capability })}
+          {layout.reason ?? t('locateBrowseOnly')}
         </p>
       )}
       {regions.length > 0 && (
         <details className="measure-picker">
-          <summary>使用键盘选择小节</summary>
+          <summary>{t('keyboardSelect')}</summary>
           <div className="measure-options">
             {regions.map((r, i) => (
               <button
@@ -173,11 +176,14 @@ export function ScoreView({
                 aria-pressed={keys.has(locatorKey(r.locator))}
                 onClick={() => onToggle?.(r.locator)}
               >
-                谱表 {r.locator.staffIndex + 1} · 第 {r.locator.measureStart}
-                {r.locator.measureEnd !== r.locator.measureStart
-                  ? `–${r.locator.measureEnd}`
-                  : ''}{' '}
-                小节
+                <Music2 aria-hidden="true" size={14} />
+                {t('staff', { staff: r.locator.staffIndex + 1 })} ·{' '}
+                {r.locator.measureEnd === r.locator.measureStart
+                  ? t('measure', { start: r.locator.measureStart })
+                  : t('measureRange', {
+                      start: r.locator.measureStart,
+                      end: r.locator.measureEnd,
+                    })}
               </button>
             ))}
           </div>

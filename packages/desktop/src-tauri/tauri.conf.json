@@ -7,23 +7,11 @@
   "build": {
     "beforeDevCommand": "node scripts/ui-dev.mjs",
     "beforeBuildCommand": "node scripts/ui-dev.mjs build",
-    "devUrl": "http://127.0.0.1:5173/admin.html",
+    "devUrl": "http://127.0.0.1:5173/main.html",
     "frontendDist": "../../ui/dist"
   },
   "app": {
-    "windows": [
-      {
-        "title": "ossia 管理",
-        "width": 920,
-        "height": 760,
-        "minWidth": 520,
-        "minHeight": 480,
-        "resizable": true,
-        "fullscreen": false,
-        "label": "management",
-        "url": "admin.html"
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": {
         "default-src": "'self'",

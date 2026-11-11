@@ -30,7 +30,7 @@ impl Runtime {
         );
         Ok(OpenView {
             view_id: view,
-            url: format!("{}/#ticket={ticket}", self.info.web_base_url),
+            url: format!("{}/score.html#ticket={ticket}", self.info.web_base_url),
             ticket,
         })
     }
@@ -57,6 +57,7 @@ impl Runtime {
         Ok(ExchangeResponse {
             token,
             view: self.context(view)?,
+            language: self.ui_language(),
         })
     }
 

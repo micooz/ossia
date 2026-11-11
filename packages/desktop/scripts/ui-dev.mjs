@@ -10,16 +10,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const UI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../ui');
+const ROOT = path.resolve(UI, '../..');
 const windows = process.platform === 'win32';
 const vite = path.join(UI, 'node_modules/.bin', windows ? 'vite.cmd' : 'vite');
+const pnpm = windows ? 'pnpm.cmd' : 'pnpm';
 const args = process.argv.slice(2);
+
+execFileSync(pnpm, ['run', 'generate:types'], { cwd: ROOT, stdio: 'inherit', shell: windows });
 
 if (args[0] === 'build') {
   execFileSync(vite, ['build'], { cwd: UI, stdio: 'inherit', shell: windows });
 } else {
   if (
-    !fs.existsSync(path.join(UI, 'dist/index.html')) ||
-    !fs.existsSync(path.join(UI, 'dist/admin.html'))
+    !fs.existsSync(path.join(UI, 'dist/score.html')) ||
+    !fs.existsSync(path.join(UI, 'dist/main.html'))
   ) {
     process.stderr.write('SPA dist missing -> building it once for tauri-codegen\n');
     execFileSync(vite, ['build'], { cwd: UI, stdio: 'inherit', shell: windows });

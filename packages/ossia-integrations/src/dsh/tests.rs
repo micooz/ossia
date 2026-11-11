@@ -37,6 +37,13 @@ fn plugin_package_declares_both_halves_and_absolute_mcp_command() {
         integrator: &integrator,
         detected: &detected,
     };
+    assert_eq!(
+        Dsh.config_path(&ctx),
+        integrator
+            .paths()
+            .dsh_home
+            .join("profiles/desktop/package.json")
+    );
     let files = plugin_files(&ctx).unwrap();
     let package = files
         .iter()

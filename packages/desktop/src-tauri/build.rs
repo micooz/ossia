@@ -8,6 +8,9 @@ fn main() {
             "management_doctor",
             "management_agents_state",
             "management_agents_change",
+            "management_preferences",
+            "management_preferences_change",
+            "management_autostart_set",
         ]),
     ))
     .expect("build Tauri management permissions");

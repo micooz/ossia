@@ -47,6 +47,10 @@ impl AgentAdapter for Codex {
         detect::detect(paths)
     }
 
+    fn config_path(&self, ctx: &AgentContext) -> PathBuf {
+        ctx.detected.config_root.join("config.toml")
+    }
+
     fn status(
         &self,
         ctx: &AgentContext,

@@ -9,7 +9,7 @@ fn main() {
         std::process::exit(ossia_runtime::cli::entry(args).unwrap_or(1));
     }
     #[cfg(feature = "gui")]
-    ossia_desktop_lib::run(args.config());
+    ossia_desktop_lib::run(args.config(), !args.no_main_window);
     #[cfg(not(feature = "gui"))]
     {
         eprintln!("GUI feature disabled; use serve, mcp or another CLI command");

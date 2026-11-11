@@ -26,6 +26,8 @@ next-env.d.ts
 # `tsc --incremental` run from showing up as a 258 KB untracked artifact.
 *.tsbuildinfo
 packages/*/dist/
+# Rust DTOs generate this TypeScript file before builds and checks.
+packages/ui/src/generated/
 packages/desktop/src-tauri/target/
 packages/desktop/src-tauri/binaries/
 packages/desktop/src-tauri/gen/

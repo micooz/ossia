@@ -37,6 +37,10 @@ fn plugin_files_point_to_the_absolute_runtime_and_shared_root() {
         integrator: &integrator,
         detected: &detected,
     };
+    assert_eq!(
+        Codex.config_path(&ctx),
+        integrator.paths().codex_home.join("config.toml")
+    );
     let files = plugin_files(&ctx).unwrap();
     assert_eq!(files.len(), 5);
     let mcp = files.iter().find(|file| file.kind == "mcp").unwrap();

@@ -8,6 +8,14 @@
     "allow-management-stop",
     "allow-management-doctor",
     "allow-management-agents-state",
-    "allow-management-agents-change"
+    "allow-management-agents-change",
+    "allow-management-preferences",
+    "allow-management-preferences-change",
+    "allow-management-autostart-set",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
   ]
 }

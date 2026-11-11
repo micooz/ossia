@@ -64,6 +64,7 @@ pub async fn serve(config: Config) -> Result<()> {
         }
     }
     let library = ossia_library::Library::open(&config.home)?;
+    let ui_preferences = crate::preferences::load(library.home())?;
     let run = secure_run(library.home())?;
     let root = config.engine_root.clone();
     let scratch = run.join("scratch");
@@ -82,6 +83,8 @@ pub async fn serve(config: Config) -> Result<()> {
         })?;
     let url = format!("http://{}", listener.local_addr().map_err(storage)?);
     let runtime = Runtime::new(library, Arc::new(engine), url);
+    runtime.initialize_ui_language(ui_preferences.language);
+    watch_parent(runtime.clone());
     let endpoint = ipc::endpoint(runtime.library.home())?;
     let ipc_listener = ipc::listen(&endpoint)?;
     let discovery = ipc::Discovery {
@@ -147,8 +150,28 @@ pub async fn serve(config: Config) -> Result<()> {
 }
 
 pub async fn ensure_runtime(config: &Config, executable: &Path) -> Result<ipc::Discovery> {
+    ensure_runtime_inner(config, executable, None).await
+}
+
+/// Start a runtime owned by the desktop process and stop it when that process disappears.
+pub async fn ensure_runtime_owned(
+    config: &Config,
+    executable: &Path,
+    parent_pid: u32,
+) -> Result<ipc::Discovery> {
+    ensure_runtime_inner(config, executable, Some(parent_pid)).await
+}
+
+async fn ensure_runtime_inner(
+    config: &Config,
+    executable: &Path,
+    parent_pid: Option<u32>,
+) -> Result<ipc::Discovery> {
     match ipc::connect(&config.home).await {
-        Ok(info) => return Ok(info),
+        Ok(info) => {
+            watch_existing_parent(&info, parent_pid).await?;
+            return Ok(info);
+        }
         Err(error) if error.code == ErrorCode::RuntimeIncompatible => return Err(error),
         _ => {}
     }
@@ -166,6 +189,9 @@ pub async fn ensure_runtime(config: &Config, executable: &Path) -> Result<ipc::D
     }
     if let Some(origin) = &config.dev_origin {
         command.arg("--dev-origin").arg(origin);
+    }
+    if let Some(pid) = parent_pid {
+        command.env("OSSIA_PARENT_PID", pid.to_string());
     }
     command
         .arg("serve")
@@ -185,6 +211,7 @@ pub async fn ensure_runtime(config: &Config, executable: &Path) -> Result<ipc::D
     loop {
         match ipc::connect(&config.home).await {
             Ok(info) => {
+                watch_existing_parent(&info, parent_pid).await?;
                 tokio::spawn(async move {
                     let _ = child.wait().await;
                 });
@@ -218,6 +245,63 @@ pub async fn ensure_runtime(config: &Config, executable: &Path) -> Result<ipc::D
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
+}
+
+fn watch_parent(runtime: Arc<Runtime>) {
+    if let Some(pid) = std::env::var("OSSIA_PARENT_PID")
+        .ok()
+        .and_then(|value| value.parse::<u32>().ok())
+    {
+        runtime.set_parent_pid(pid);
+    }
+    tokio::spawn(async move {
+        while !runtime.stopping.load(std::sync::atomic::Ordering::Acquire) {
+            if runtime.parent_pid().is_some_and(|pid| !process_alive(pid)) {
+                let _ = runtime.stop();
+                break;
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    });
+}
+
+async fn watch_existing_parent(discovery: &ipc::Discovery, parent_pid: Option<u32>) -> Result<()> {
+    if let Some(pid) = parent_pid {
+        ipc::call(&discovery.endpoint, "watch-parent", json!({"pid": pid})).await?;
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn process_alive(pid: u32) -> bool {
+    if pid == 0 || pid > libc::pid_t::MAX as u32 {
+        return false;
+    }
+    let result = unsafe { libc::kill(pid as libc::pid_t, 0) };
+    result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+}
+
+#[cfg(windows)]
+fn process_alive(pid: u32) -> bool {
+    use windows_sys::Win32::{
+        Foundation::{CloseHandle, WAIT_TIMEOUT},
+        Storage::FileSystem::SYNCHRONIZE,
+        System::Threading::{OpenProcess, WaitForSingleObject},
+    };
+    unsafe {
+        let handle = OpenProcess(SYNCHRONIZE, 0, pid);
+        if handle.is_null() {
+            return false;
+        }
+        let alive = WaitForSingleObject(handle, 0) == WAIT_TIMEOUT;
+        CloseHandle(handle);
+        alive
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+fn process_alive(_: u32) -> bool {
+    true
 }
 
 async fn shutdown_signal() {
@@ -271,4 +355,15 @@ pub async fn doctor(config: &Config) -> Result<DoctorReport> {
             },
         },
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::process_alive;
+
+    #[test]
+    fn parent_liveness_distinguishes_current_and_impossible_pids() {
+        assert!(process_alive(std::process::id()));
+        assert!(!process_alive(u32::MAX));
+    }
 }

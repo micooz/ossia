@@ -1,3 +1,4 @@
+import { GitCompare, Music2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { ApiError, delay, describe, locatorKey, makeApi } from './api.ts';
@@ -8,12 +9,54 @@ import { ImportPanel } from './components/ImportPanel.tsx';
 import { ScoreView } from './components/ScoreView.tsx';
 import { forgetSession } from './endpoint.ts';
 import type { Session } from './endpoint.ts';
-import type { DocumentState, Locator, Version, ViewSnapshot } from './generated/protocol.ts';
+import type {
+  DocumentState,
+  Locator,
+  UiLanguage,
+  Version,
+  ViewSnapshot,
+} from './generated/protocol.ts';
+import {
+  I18nProvider,
+  jobKindKey,
+  jobStateKey,
+  matchSystemLanguage,
+  phaseKey,
+  translate,
+  useI18n,
+} from './i18n.tsx';
 import { initialState, reducer } from './state.ts';
 
 export function App({ session }: { session: Session }) {
+  const [language, setLanguage] = useState<UiLanguage>(session.language);
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
+  return (
+    <I18nProvider language={language}>
+      <ScoreApp session={session} language={language} onLanguage={setLanguage} />
+    </I18nProvider>
+  );
+}
+
+function ScoreApp({
+  session,
+  language,
+  onLanguage,
+}: {
+  session: Session;
+  language: UiLanguage;
+  onLanguage: (language: UiLanguage) => void;
+}) {
+  const { t } = useI18n();
+  const liveSession = useMemo(() => ({ ...session }), [session]);
+  const languageRef = useRef(language);
+  useEffect(() => {
+    liveSession.language = language;
+    languageRef.current = language;
+  }, [language, liveSession]);
   const lifetime = useMemo(() => new AbortController(), [session]);
-  const api = useMemo(() => makeApi(session, lifetime.signal), [session, lifetime]);
+  const api = useMemo(() => makeApi(liveSession, lifetime.signal), [liveSession, lifetime]);
   const [state, dispatch] = useReducer(reducer, initialState);
   const viewRef = useRef<ViewSnapshot | null>(null);
   const serial = useRef(0);
@@ -33,7 +76,7 @@ export function App({ session }: { session: Session }) {
       if (error instanceof ApiError && error.status === 401) {
         forgetSession(session);
         dispatch({ type: 'connection', connection: 'expired' });
-        dispatch({ type: 'error', message: '视图已失效，请让 Agent 重新打开谱面。' });
+        dispatch({ type: 'error', message: translate(languageRef.current, 'sessionExpired') });
         lifetime.abort();
       } else dispatch({ type: 'error', message: describe(error) });
     },
@@ -57,7 +100,7 @@ export function App({ session }: { session: Session }) {
       previous?.document?.documentId === view.document?.documentId &&
       previous?.document?.sourceHash !== view.document?.sourceHash
     ) {
-      setNotice('源码已变化，旧选区已失效，请在最新谱面上重新选择。');
+      setNotice(translate(languageRef.current, 'sourceChanged'));
     }
     viewRef.current = view;
     dispatch({ type: 'sync', view, documents, status, versions });
@@ -95,7 +138,14 @@ export function App({ session }: { session: Session }) {
             await delay(100, lifetime.signal);
             continue;
           }
-          await api.events(snapshot, requestRefresh);
+          await api.events(snapshot, (event) => {
+            if (event.type === 'ui-language-changed') {
+              const next = (event.payload as { language?: UiLanguage | null }).language;
+              onLanguage(next ?? matchSystemLanguage(navigator.languages));
+              return;
+            }
+            requestRefresh();
+          });
           if (!lifetime.signal.aborted)
             dispatch({ type: 'connection', connection: 'reconnecting' });
         } catch (e) {
@@ -110,7 +160,7 @@ export function App({ session }: { session: Session }) {
       if (timer) clearTimeout(timer);
       lifetime.abort();
     };
-  }, [api, lifetime, refresh, onError]);
+  }, [api, lifetime, refresh, onError, onLanguage]);
   const doc = state.view?.document;
   const documentId = doc?.documentId;
   useEffect(() => {
@@ -158,7 +208,7 @@ export function App({ session }: { session: Session }) {
         const result = await api.locate({ sourceHash: hash, ...point });
         if (result.capability !== 'measure' || !result.region) {
           if (result.reason && result.reason !== 'no-hit')
-            setNotice(`此处无法选择小节：${result.reason}`);
+            setNotice(t('cannotSelect', { reason: result.reason }));
           return;
         }
         chosen = result.region.locator;
@@ -226,20 +276,20 @@ export function App({ session }: { session: Session }) {
           baseVersionId: current.headVersionId,
           expectedSourceHash: current.sourceHash,
           author: 'user',
-          summary: `恢复至版本 ${action.seq}`,
+          summary: t('restoreSummary', { version: action.seq }),
         });
         await api.waitJob(job);
         setHistoryVersion(null);
-        setNotice(`已追加恢复版本（来源：版本 ${action.seq}）。`);
+        setNotice(t('restoredVersion', { version: action.seq }));
       }
     });
   }
   if (state.connection === 'expired')
     return (
       <main className="start panel">
-        <h1>视图已失效</h1>
+        <h1>{t('viewExpiredTitle')}</h1>
         <p role="alert">{state.error}</p>
-        <p>服务重启或凭据过期后，需要新的打开链接。工作区文件会保留。</p>
+        <p>{t('viewExpiredBody')}</p>
       </main>
     );
   const render = state.view?.render;
@@ -253,17 +303,19 @@ export function App({ session }: { session: Session }) {
   return (
     <main className="app">
       <header className="bar">
-        <h1>Ossia</h1>
+        <h1>
+          <Music2 aria-hidden="true" size={20} /> {t('appName')}
+        </h1>
         <label className="document-switch">
-          乐谱{' '}
+          {t('score')}{' '}
           <select
-            aria-label="当前乐谱"
+            aria-label={t('currentScore')}
             value={documentId ?? ''}
             disabled={!connected || working}
             onChange={(e) => void openDocument(e.target.value)}
           >
             <option value="" disabled>
-              选择乐谱
+              {t('chooseScore')}
             </option>
             {state.documents.map((d) => (
               <option key={d.documentId} value={d.documentId}>
@@ -274,17 +326,17 @@ export function App({ session }: { session: Session }) {
         </label>
         <span className="connection" role="status">
           {connected
-            ? '本地服务已连接'
+            ? t('connected')
             : state.connection === 'connecting'
-              ? '正在连接…'
-              : '连接中断，正在重连…'}
+              ? t('connecting')
+              : t('reconnecting')}
         </span>
       </header>
       {state.error && (
         <div className="message error" role="alert">
           {state.error}
           <button type="button" onClick={() => dispatch({ type: 'error', message: null })}>
-            关闭提示
+            {t('dismissNotice')}
           </button>
         </div>
       )}
@@ -313,8 +365,8 @@ export function App({ session }: { session: Session }) {
         <div className="score-column">
           {!doc ? (
             <section className="panel empty">
-              <h2>{connected ? '选择或导入一份乐谱' : '正在连接本地乐谱库'}</h2>
-              <p>在这里查看谱面、选择小节；修改任务由你的 Agent 完成。</p>
+              <h2>{connected ? t('chooseOrImport') : t('connectingLibrary')}</h2>
+              <p>{t('emptyWorkspace')}</p>
             </section>
           ) : (
             <>
@@ -322,28 +374,37 @@ export function App({ session }: { session: Session }) {
                 <h2>{doc.title}</h2>
                 <div className="row">
                   <span className={doc.dirty ? 'warn' : 'hint'}>
-                    {doc.dirty ? '工作区有未提交修改' : '工作区与已提交版本一致'}
+                    {doc.dirty ? t('dirtyWorkspace') : t('cleanWorkspace')}
                   </span>
                   {state.view?.editActivity && (
                     <span>
-                      编辑者：{state.view.editActivity.author} ·{' '}
-                      {state.view.editActivity.ownedByView ? '当前视图' : '其他视图'}
+                      {t('editor', { author: state.view.editActivity.author })} ·{' '}
+                      {state.view.editActivity.ownedByView ? t('currentView') : t('otherView')}
                     </span>
                   )}
-                  {doc.editState === 'active' && <span>编辑任务占用中</span>}
+                  {doc.editState === 'active' && <span>{t('editOccupied')}</span>}
                   {['interrupted', 'recovery-conflict'].includes(doc.editState) && (
-                    <span className="warn">待恢复：请让 Agent 检查工作区并显式恢复编辑。</span>
+                    <span className="warn">{t('recoveryNeeded')}</span>
                   )}
                 </div>
                 {jobs.length > 0 && (
                   <p role="status">
-                    正在处理：{jobs.map((j) => `${j.kind} · ${j.phase}`).join('；')}
+                    {t('processing', {
+                      jobs: jobs
+                        .map(
+                          (j) =>
+                            `${t(jobKindKey(j.kind))} · ${t(phaseKey(j.phase))} (${t(
+                              jobStateKey(j.state),
+                            )})`,
+                        )
+                        .join(language === 'zh-CN' ? '；' : '; '),
+                    })}
                     <span className="hash"> · {doc.sourceHash.slice(0, 12)}</span>
                   </p>
                 )}
                 <p className="hint hash">
-                  源码 {doc.sourceHash.slice(0, 12)}
-                  {render ? ` · 谱面 ${render.manifest.sourceHash.slice(0, 12)}` : ''}
+                  {t('source')} {doc.sourceHash.slice(0, 12)}
+                  {render ? ` · ${t('render')} ${render.manifest.sourceHash.slice(0, 12)}` : ''}
                 </p>
                 <div className="row">
                   <button
@@ -354,7 +415,7 @@ export function App({ session }: { session: Session }) {
                       setComparing(false);
                     }}
                   >
-                    工作区谱面
+                    <Music2 aria-hidden="true" size={15} /> {t('workspaceScore')}
                   </button>
                   <button
                     type="button"
@@ -365,7 +426,7 @@ export function App({ session }: { session: Session }) {
                       setHistoryVersion(null);
                     }}
                   >
-                    版本对比
+                    <GitCompare aria-hidden="true" size={15} /> {t('compareVersions')}
                   </button>
                   {doc.dirty && (
                     <button
@@ -373,7 +434,7 @@ export function App({ session }: { session: Session }) {
                       disabled={!connected || working}
                       onClick={() => requestConfirmation('discard')}
                     >
-                      丢弃工作区修改
+                      <Trash2 aria-hidden="true" size={15} /> {t('discardChanges')}
                     </button>
                   )}
                 </div>
@@ -388,8 +449,10 @@ export function App({ session }: { session: Session }) {
               ) : historyVersion ? (
                 <>
                   <p className="message">
-                    正在浏览版本 {state.versions.find((v) => v.versionId === historyVersion)?.seq}
-                    ，此谱面仅供查看。
+                    {t('browsingVersion', {
+                      version:
+                        state.versions.find((v) => v.versionId === historyVersion)?.seq ?? '',
+                    })}
                   </p>
                   <VersionScore api={api} documentId={doc.documentId} versionId={historyVersion} />
                 </>
@@ -397,7 +460,7 @@ export function App({ session }: { session: Session }) {
                 <>
                   {stale && (
                     <p className="message warn" role="status">
-                      上次成功结果：当前源码尚无成功谱面，旧谱面仅供查看，暂不可选择。
+                      {t('staleRender')}
                     </p>
                   )}
                   {render ? (
@@ -411,8 +474,8 @@ export function App({ session }: { session: Session }) {
                     />
                   ) : (
                     <section className="panel empty">
-                      <h2>尚无成功谱面</h2>
-                      <p>等待排版完成，或让 Agent 检查下方诊断。</p>
+                      <h2>{t('noRenderTitle')}</h2>
+                      <p>{t('noRenderBody')}</p>
                     </section>
                   )}
                 </>
@@ -437,20 +500,17 @@ export function App({ session }: { session: Session }) {
       <dialog ref={dialog} onCancel={() => setConfirm(null)} aria-labelledby="confirm-title">
         <h2 id="confirm-title">
           {confirm?.target === 'discard'
-            ? '丢弃未提交修改？'
-            : `恢复至版本 ${confirm?.target.seq ?? ''}？`}
+            ? t('discardTitle')
+            : t('restoreTitle', { version: confirm?.target.seq ?? '' })}
         </h2>
-        <p>
-          {confirm?.target === 'discard'
-            ? '公共源码将恢复为当前已提交版本。'
-            : '将追加一个恢复版本。工作区存在未提交修改或编辑占用时，核心会拒绝操作。'}
-        </p>
+        <p>{confirm?.target === 'discard' ? t('discardBody') : t('restoreBody')}</p>
         <div className="row">
           <button type="button" autoFocus onClick={() => setConfirm(null)}>
-            取消
+            {t('cancel')}
           </button>
           <button type="button" onClick={() => void destructive()}>
-            确认{confirm?.target === 'discard' ? '丢弃' : '恢复'}
+            {t('confirm')}
+            {confirm?.target === 'discard' ? t('confirmDiscard') : t('confirmRestore')}
           </button>
         </div>
       </dialog>

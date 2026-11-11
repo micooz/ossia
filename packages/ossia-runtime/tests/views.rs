@@ -104,6 +104,50 @@ async fn snapshots_replay_events_and_detect_expired_instance_or_cursor() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn language_exchange_and_global_updates_reach_every_view() {
+    let f = Fixture::new(false).await;
+    let other = f.runtime.open_view(None).unwrap();
+    f.runtime.initialize_ui_language(Some(UiLanguage::ZhCn));
+    let opened = f.runtime.open_view(None).unwrap();
+    assert_eq!(
+        f.runtime.exchange(&opened.ticket).unwrap().language,
+        Some(UiLanguage::ZhCn)
+    );
+    let cursor = f.runtime.status().unwrap().seq;
+    let changed = ipc::dispatch(&f.runtime, "ui-language", json!({"language": "en-US"})).unwrap();
+    assert_eq!(changed, json!("en-US"));
+    let events = f
+        .runtime
+        .events(f.view, &f.runtime.info.instance_id, cursor)
+        .unwrap();
+    let event = events
+        .iter()
+        .find(|event| event.r#type == "ui-language-changed")
+        .unwrap();
+    assert_eq!(event.payload, json!({"language": "en-US"}));
+    assert!(event.view_id.is_none());
+    assert!(f
+        .runtime
+        .events(other.view_id, &f.runtime.info.instance_id, cursor)
+        .unwrap()
+        .iter()
+        .any(|event| event.r#type == "ui-language-changed"));
+    ipc::dispatch(
+        &f.runtime,
+        "watch-parent",
+        json!({"pid": std::process::id()}),
+    )
+    .unwrap();
+    assert_eq!(f.runtime.parent_pid(), Some(std::process::id()));
+    let opened = f.runtime.open_view(None).unwrap();
+    assert_eq!(
+        f.runtime.exchange(&opened.ticket).unwrap().language,
+        Some(UiLanguage::EnUs)
+    );
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn browser_version_renders_are_immutable_and_edit_summaries_omit_credentials() {
     let f = Fixture::new(true).await;
     let edit = f.begin();

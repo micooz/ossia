@@ -4,6 +4,7 @@ mod core;
 pub mod http;
 pub mod ipc;
 pub mod mcp;
+pub mod preferences;
 pub mod server;
 pub use core::*;
 pub use ossia_types::*;

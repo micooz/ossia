@@ -584,7 +584,11 @@ export async function packageTarget(target, options = {}) {
   if (!options.allowDirty) assertClean();
   const engine = path.join(ROOT, 'vendor/lilypond', `${entry.version}-${target}`);
   verifyTree(engine, lock, target === hostTarget() && process.platform !== 'win32');
-  if (!fs.existsSync(path.join(ROOT, 'packages/ui/dist/index.html'))) buildUI();
+  if (
+    !fs.existsSync(path.join(ROOT, 'packages/ui/dist/main.html')) ||
+    !fs.existsSync(path.join(ROOT, 'packages/ui/dist/score.html'))
+  )
+    buildUI();
   const stage = path.join(ROOT, 'target/package', target);
   fs.rmSync(stage, { recursive: true, force: true });
   fs.mkdirSync(stage, { recursive: true });

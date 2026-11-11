@@ -46,6 +46,10 @@ impl AgentAdapter for Dsh {
         detect::detect(paths)
     }
 
+    fn config_path(&self, ctx: &AgentContext) -> PathBuf {
+        profile_path(ctx)
+    }
+
     fn status(
         &self,
         ctx: &AgentContext,

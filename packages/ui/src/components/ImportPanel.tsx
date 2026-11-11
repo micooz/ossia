@@ -1,8 +1,10 @@
+import { FileUp } from 'lucide-react';
 import { useState } from 'react';
 
 import { ApiError, describe } from '../api.ts';
 import type { Api } from '../api.ts';
 import type { ImportOutcome, ImportReport, InputFormat } from '../generated/protocol.ts';
+import { useI18n } from '../i18n.tsx';
 
 export function ImportPanel({
   api,
@@ -13,6 +15,7 @@ export function ImportPanel({
   onImported: (id: string) => void;
   onError: (e: unknown) => void;
 }) {
+  const { t } = useI18n();
   const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
   const [working, setWorking] = useState(false);
@@ -29,7 +32,7 @@ export function ImportPanel({
             ? 'midi'
             : undefined;
     if (!format) {
-      setError('请选择 LilyPond、MusicXML 或 MIDI 单文件；暂不支持 .mxl。');
+      setError(t('unsupportedFile'));
       return;
     }
     setWorking(true);
@@ -66,8 +69,10 @@ export function ImportPanel({
   }
   return (
     <section className="panel import">
-      <h2>导入乐谱</h2>
-      <label htmlFor="score-file">单文件 LilyPond / MusicXML / MIDI</label>
+      <h2>
+        <FileUp aria-hidden="true" size={17} /> {t('importTitle')}
+      </h2>
+      <label htmlFor="score-file">{t('importFile')}</label>
       <input
         id="score-file"
         type="file"
@@ -80,7 +85,8 @@ export function ImportPanel({
         }}
       />
       <button type="button" disabled={!file || working} onClick={() => void send()}>
-        {working ? '正在转换与排版…' : '导入'}
+        <FileUp aria-hidden="true" size={15} />
+        {working ? t('converting') : t('importAction')}
       </button>
       {error && (
         <p className="error" role="alert">
@@ -90,9 +96,7 @@ export function ImportPanel({
       {report && (
         <div className="import-report" role="status">
           <p className={report.status === 'refused' ? 'error' : 'warn'}>
-            {report.status === 'refused'
-              ? '已拒绝导入：存在无法放行的问题。'
-              : '转换存在以下损失，请确认。'}
+            {report.status === 'refused' ? t('importRefused') : t('importLosses')}
           </p>
           <ul>
             {[...report.blocking, ...report.losses].map((line, i) => (
@@ -104,7 +108,7 @@ export function ImportPanel({
           ))}
           {report.status === 'needs-confirmation' && report.confirmation && (
             <button type="button" disabled={working} onClick={() => void send(report.confirmation)}>
-              知悉损失，确认导入
+              {t('confirmImport')}
             </button>
           )}
         </div>
