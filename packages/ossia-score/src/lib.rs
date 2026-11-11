@@ -15,3 +15,9 @@ pub use ossia_types::{
 };
 pub use pitch::*;
 pub use position::*;
+
+mod analysis;
+pub use analysis::*;
+
+mod verification;
+pub use verification::*;

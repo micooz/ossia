@@ -7,6 +7,20 @@ fn main() {
     let mut declarations = BTreeMap::new();
     macro_rules! register {($($ty:ty),+ $(,)?)=>{$(declarations.insert(<$ty>::ident(&cfg),<$ty>::decl(&cfg));)+};}
     register!(
+        AnalysisStatus,
+        QuarterTime,
+        WrittenEvent,
+        SourceAnalysis,
+        PerformedNote,
+        PerformanceAnalysis,
+        MusicReport,
+        ExpectedNote,
+        TrackExpectation,
+        MusicExpectation,
+        VerificationStatus,
+        VerificationDifference,
+        Verification,
+        CheckResult,
         DocumentId,
         VersionId,
         EditId,

@@ -496,3 +496,6 @@ mod runtime;
 pub use runtime::*;
 mod integration;
 pub use integration::*;
+
+mod music;
+pub use music::*;

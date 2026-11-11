@@ -1,5 +1,6 @@
 use ossia_types::AppError;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
@@ -22,6 +23,8 @@ pub struct MidiNote {
     pub note: u8,
     pub time: u64,
     pub channel: u8,
+    pub duration: Option<u64>,
+    pub duration_reason: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -135,7 +138,8 @@ pub fn parse_midi(bytes: &[u8]) -> Result<MidiFile, AppError> {
             bytes: r.take(len)?,
             pos: 0,
         };
-        let mut notes = Vec::new();
+        let mut notes: Vec<MidiNote> = Vec::new();
+        let mut active = HashMap::<(u8, u8), Vec<usize>>::new();
         let mut time = 0u64;
         let mut running = None;
         let mut ended = false;
@@ -162,12 +166,44 @@ pub fn parse_midi(bytes: &[u8]) -> Result<MidiFile, AppError> {
                     } else {
                         None
                     };
+                    let key = (status & 0xf, first);
                     if status & 0xf0 == 0x90 && second.unwrap_or(0) > 0 {
+                        let pending = active.entry(key).or_default();
+                        if !pending.is_empty() {
+                            for &i in pending.iter() {
+                                notes[i].duration_reason =
+                                    Some("overlapping same-pitch note-ons".into());
+                            }
+                        }
+                        let ambiguous = !pending.is_empty();
+                        pending.push(notes.len());
                         notes.push(MidiNote {
                             note: first,
                             time,
                             channel: status & 0xf,
+                            duration: None,
+                            duration_reason: Some(
+                                if ambiguous {
+                                    "overlapping same-pitch note-ons"
+                                } else {
+                                    "missing note-off"
+                                }
+                                .into(),
+                            ),
                         });
+                    } else if status & 0xf0 == 0x80 || status & 0xf0 == 0x90 {
+                        if let Some(pending) = active.get_mut(&key) {
+                            if pending.len() == 1 {
+                                let n = &mut notes[pending[0]];
+                                if n.duration_reason.as_deref() == Some("missing note-off") {
+                                    n.duration = Some(time - n.time);
+                                    n.duration_reason = None;
+                                }
+                            }
+                            if !pending.is_empty() {
+                                pending.remove(0);
+                            }
+                        }
                     }
                 }
                 0xff => {
