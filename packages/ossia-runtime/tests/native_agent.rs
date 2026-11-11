@@ -59,7 +59,7 @@ async fn wait(client: &Client, initial: Value) -> Job {
     while matches!(job.state, JobState::Queued | JobState::Running) {
         assert!(start.elapsed() < Duration::from_secs(60));
         tokio::time::sleep(Duration::from_millis(30)).await;
-        job = serde_json::from_value(
+        let outcome: JobOutcome = serde_json::from_value(
             call(
                 client,
                 "ossia_job",
@@ -68,6 +68,7 @@ async fn wait(client: &Client, initial: Value) -> Job {
             .await,
         )
         .unwrap();
+        job = outcome.job;
     }
     assert_eq!(job.state, JobState::Done, "{job:?}");
     job
@@ -148,11 +149,18 @@ async fn offline_docs_cli_and_mcp_complete_the_agent_music_workflow() {
     assert_eq!(music.source.measures, Some(2));
     assert_eq!(music.performance.notes.len(), 8);
     let first = &music.performance.notes[0];
-    let opened: OpenView = serde_json::from_value(
+    let opened: AgentOpenOutcome = serde_json::from_value(
         call(&client, "ossia_open", json!({"documentId":doc.document_id})).await,
     )
     .unwrap();
     let edit:EditSession=serde_json::from_value(call(&client,"ossia_edit",json!({"action":"begin","documentId":doc.document_id,"viewId":opened.view_id,"baseVersionId":doc.head_version_id,"expectedSourceHash":doc.source_hash})).await).unwrap();
+    let page:ReadSourceOutcome=serde_json::from_value(cli(&bin,&home,&engine,&docs,"read-source",json!({"documentId":doc.document_id,"viewId":opened.view_id,"expectedSourceHash":doc.source_hash,"start":{"kind":"start"},"maxLines":200,"maxBytes":262144})).await).unwrap();
+    assert_eq!(page.content, source);
+    assert!(page.complete);
+    assert_eq!(page.source_hash, doc.source_hash);
+    let mcp_page:ReadSourceOutcome=serde_json::from_value(call(&client,"ossia_read_source",json!({"documentId":doc.document_id,"viewId":opened.view_id,"expectedSourceHash":doc.source_hash,"start":{"kind":"span","span":page.span},"maxLines":200,"maxBytes":262144})).await).unwrap();
+    assert_eq!(mcp_page.content, source);
+    assert_eq!(mcp_page.span, page.span);
     let expected_notes = [60, 62, 64, 65, 67, 69, 71, 72]
         .into_iter()
         .enumerate()
@@ -173,14 +181,17 @@ async fn offline_docs_cli_and_mcp_complete_the_agent_music_workflow() {
             "notes": expected_notes
         }]
     });
-    let wrong=wait(&client,call(&client,"ossia_check",json!({"documentId":doc.document_id,"viewId":opened.view_id,"editId":edit.edit_id,"expectedSourceHash":doc.source_hash,"expect":expected})).await).await;
+    let wrong=wait(&client,call(&client,"ossia_check",json!({"viewId":opened.view_id,"editId":edit.edit_id,"expectedSourceHash":doc.source_hash,"expect":expected})).await).await;
     assert_eq!(wrong.result.unwrap()["verification"]["status"], "failed");
-    let rejected=client.call_tool(CallToolRequestParam {name:"ossia_commit".into(),arguments:json!({"documentId":doc.document_id,"viewId":opened.view_id,"editId":edit.edit_id,"baseVersionId":doc.head_version_id,"expectedSourceHash":doc.source_hash,"summary":"wrong octave"}).as_object().cloned()}).await.unwrap();
+    let rejected=client.call_tool(CallToolRequestParam {name:"ossia_commit".into(),arguments:json!({"viewId":opened.view_id,"editId":edit.edit_id,"expectedSourceHash":doc.source_hash,"summary":"wrong octave"}).as_object().cloned()}).await.unwrap();
     assert_eq!(rejected.is_error, Some(true));
-    let fixed = source.replace("c4 d e f | g4 a b c'", "c'4 d' e' f' | g'4 a' b' c''");
-    let written=cli(&bin,&home,&engine,&docs,"write-source",json!({"documentId":doc.document_id,"viewId":opened.view_id,"editId":edit.edit_id,"expectedSourceHash":doc.source_hash,"text":fixed})).await;
+    let original_notes = "c4 d e f | g4 a b c'";
+    let map = ossia_score::SourceMap::new(source);
+    let start = source.find(original_notes).unwrap();
+    let span = map.span(start, start + original_notes.len()).unwrap();
+    let written=cli(&bin,&home,&engine,&docs,"write-source",json!({"viewId":opened.view_id,"editId":edit.edit_id,"expectedSourceHash":doc.source_hash,"change":{"kind":"edit","edits":[{"span":span,"expectedText":original_notes,"replacement":"c'4 d' e' f' | g'4 a' b' c''"}]}})).await;
     let hash = written["sourceHash"].clone();
-    let good=wait(&client,call(&client,"ossia_check",json!({"documentId":doc.document_id,"viewId":opened.view_id,"editId":edit.edit_id,"expectedSourceHash":hash,"expect":expected})).await).await;
+    let good=wait(&client,call(&client,"ossia_check",json!({"viewId":opened.view_id,"editId":edit.edit_id,"expectedSourceHash":hash,"expect":expected})).await).await;
     assert_eq!(
         good.result.as_ref().unwrap()["verification"]["status"],
         "passed"
@@ -191,21 +202,25 @@ async fn offline_docs_cli_and_mcp_complete_the_agent_music_workflow() {
             &client,
             call(
                 &client,
-                "ossia_artifact",
-                json!({"jobId":good.job_id,"format":format}),
+                "ossia_output",
+                json!({
+                    "source":{"kind":"job","jobId":good.job_id},
+                    "format":format,
+                    "outputPath":work.path().join(format!("scale.{format}"))
+                }),
             )
             .await,
         )
         .await;
-        let result: ArtifactOutcome = serde_json::from_value(artifact.result.unwrap()).unwrap();
+        let result: OutputOutcome = serde_json::from_value(artifact.result.unwrap()).unwrap();
         assert_eq!(serde_json::to_value(result.source_hash).unwrap(), hash);
         assert!(Path::new(&result.path).is_file());
         if format == "png" {
             png_path = Some(result.path);
         }
     }
-    let version=call(&client,"ossia_commit",json!({"documentId":doc.document_id,"viewId":opened.view_id,"editId":edit.edit_id,"baseVersionId":doc.head_version_id,"expectedSourceHash":hash,"summary":"verified C4–C5 scale"})).await;
-    wait(&client,cli(&bin,&home,&engine,&docs,"export",json!({"documentId":doc.document_id,"versionId":version["versionId"],"format":"pdf","outputPath":work.path().join("scale.pdf")})).await).await;
+    let version=call(&client,"ossia_commit",json!({"viewId":opened.view_id,"editId":edit.edit_id,"expectedSourceHash":hash,"summary":"verified C4–C5 scale"})).await;
+    wait(&client,cli(&bin,&home,&engine,&docs,"output",json!({"source":{"kind":"version","versionId":version["versionId"]},"format":"pdf","outputPath":work.path().join("scale-final.pdf")})).await).await;
     let piano="\\version \"2.26.0\"\n\\score { \\new PianoStaff << \\new Staff { c'2 e'2 | } \\new Staff { \\clef bass c2 g2 | } >> \\layout {} \\midi {} }";
     std::fs::write(&input, piano).unwrap();
     let piano = wait(

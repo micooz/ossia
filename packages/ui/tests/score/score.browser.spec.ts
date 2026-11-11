@@ -120,7 +120,7 @@ test('discard confirmation keeps the original hash when source changes while the
   page,
 }) => {
   const h = await mockScoreRuntime(context);
-  h.docs[0]!.dirty = true;
+  h.states[0]!.dirty = true;
   await page.goto('/score.html#ticket=confirm-hash');
   await page.getByRole('button', { name: '丢弃工作区修改' }).click();
   h.change();

@@ -76,22 +76,22 @@ impl Runtime {
         })
     }
 
-    /// Resolve a recorded export, never a caller-supplied filesystem path.
+    /// Resolve a recorded output, never a caller-supplied filesystem path.
     pub fn export_location(&self, job: JobId) -> Result<PathBuf> {
         let job = self.library.get_job(job)?;
-        if job.kind != "export" || job.state != JobState::Done {
-            return Err(invalid("only completed exports have an openable location"));
+        if job.kind != "output" || job.state != JobState::Done {
+            return Err(invalid("only completed outputs have an openable location"));
         }
-        let outcome: ExportOutcome =
-            decode(job.result.ok_or_else(|| storage("export result missing"))?)?;
+        let outcome: OutputOutcome =
+            decode(job.result.ok_or_else(|| storage("output result missing"))?)?;
         let path = PathBuf::from(outcome.path);
         let meta = std::fs::symlink_metadata(&path).map_err(storage)?;
         if !path.is_absolute() || !meta.is_file() || meta.file_type().is_symlink() {
-            return Err(storage("export is no longer a regular file"));
+            return Err(storage("output is no longer a regular file"));
         }
         let bytes = std::fs::read(&path).map_err(storage)?;
         if bytes.len() as u64 != outcome.bytes || ContentHash::of(&bytes) != outcome.sha256 {
-            return Err(storage("export changed since it was saved"));
+            return Err(storage("output changed since it was saved"));
         }
         Ok(path)
     }

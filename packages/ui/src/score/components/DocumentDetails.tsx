@@ -73,7 +73,6 @@ export function DocumentDetails({
         <ExportBar
           key={doc.documentId + (doc.headVersionId ?? '')}
           api={api}
-          documentId={doc.documentId}
           versions={versions}
           onError={onError}
         />

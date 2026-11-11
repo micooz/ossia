@@ -1,60 +1,77 @@
 //! Agent operations on owned source files and immutable draft snapshots.
 use crate::*;
 
-/// Replace only the active edit's source; the runtime computes the new hash.
+/// Start of a bounded source read. Line numbers are one-based.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum SourceReadStart {
+    Start,
+    Line { line: u32 },
+    Span { span: SourceSpan },
+}
+
+/// Read a bounded portion of the public source at one exact hash.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReadSourceArgs {
+    pub document_id: DocumentId,
+    pub view_id: ViewId,
+    pub expected_source_hash: ContentHash,
+    pub start: Option<SourceReadStart>,
+    pub max_lines: Option<usize>,
+    pub max_bytes: Option<usize>,
+}
+
+/// A UTF-8-safe source page and the exact remainder for the next call.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadSourceOutcome {
+    pub document_id: DocumentId,
+    pub source_hash: ContentHash,
+    pub content: String,
+    pub span: SourceSpan,
+    pub next: Option<SourceSpan>,
+    pub complete: bool,
+    pub returned_bytes: usize,
+    pub total_bytes: usize,
+    pub total_lines: usize,
+}
+
+/// One exact original-text replacement. Empty text inserts or deletes.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SourceEdit {
+    pub span: SourceSpan,
+    pub expected_text: String,
+    pub replacement: String,
+}
+
+/// Whole-source replacement or one atomic batch of non-overlapping edits.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum SourceWriteChange {
+    Replace { text: String },
+    Edit { edits: Vec<SourceEdit> },
+}
+
+/// Apply one atomic source change to the active owned edit.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WriteSourceArgs {
-    pub document_id: DocumentId,
     pub view_id: ViewId,
     pub edit_id: EditId,
     pub expected_source_hash: ContentHash,
-    pub text: String,
+    pub change: SourceWriteChange,
 }
+
 /// Source state after a guarded atomic write.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct WriteSourceOutcome {
     pub document_id: DocumentId,
     pub source_hash: ContentHash,
-    pub source_path: String,
     pub dirty: bool,
-}
-
-/// A draft artifact format, independent of versioned exports.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
-)]
-#[serde(rename_all = "lowercase")]
-pub enum DraftFormat {
-    Svg,
-    Midi,
-    Pdf,
-    Png,
-}
-/// Prepare an artifact from a finished import/check, never from the latest mutable file.
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ArtifactArgs {
-    pub job_id: JobId,
-    pub format: DraftFormat,
-    pub page: Option<u32>,
-    pub width: Option<u32>,
-}
-/// Verified local artifact location and immutable provenance.
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
-#[serde(rename_all = "camelCase")]
-pub struct ArtifactOutcome {
-    pub source_job_id: JobId,
-    pub document_id: DocumentId,
-    pub source_hash: ContentHash,
-    pub engine_build_id: String,
-    pub format: DraftFormat,
-    pub page: Option<u32>,
-    pub path: String,
-    pub sha256: ContentHash,
-    pub bytes: u64,
-    pub media_type: String,
+    pub source_bytes: usize,
 }
 
 /// Agent responses are compact unless the caller explicitly requests full evidence.
@@ -76,13 +93,48 @@ pub enum DetailLevel {
     Summary,
     Full,
 }
-/// Runtime status projection for Agent transports.
+
+/// Bounded document listing for Agent transports.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StatusArgs {
+pub struct ListArgs {
+    pub limit: Option<usize>,
     #[serde(default)]
-    pub detail: DetailLevel,
+    pub offset: usize,
 }
+
+/// Compact document metadata without render manifests or check evidence.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentSummary {
+    pub document_id: DocumentId,
+    pub title: String,
+    pub head_version_id: Option<VersionId>,
+    pub source_hash: ContentHash,
+    pub dirty: bool,
+    pub edit_state: DocumentEditState,
+}
+
+/// One bounded page of compact document metadata.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentPage {
+    pub items: Vec<DocumentSummary>,
+    pub total: usize,
+    pub offset: usize,
+    pub next_offset: Option<usize>,
+}
+
+/// One bounded page of version nodes.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionPage {
+    pub items: Vec<Version>,
+    pub total: usize,
+    pub offset: usize,
+    pub next_offset: Option<usize>,
+}
+
 /// Compact runtime state, excluding terminal task history.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
@@ -91,22 +143,26 @@ pub struct AgentStatus {
     pub runtime: RuntimeInfo,
     pub engine_build_id: String,
     pub document_count: usize,
+    pub seq: u64,
     pub jobs: Vec<Job>,
+    pub documentation: DocumentationStatus,
 }
+
 /// Current document metadata without duplicated render manifests.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentDocument {
     pub document_id: DocumentId,
     pub title: String,
-    pub source_path: String,
     pub head_version_id: Option<VersionId>,
     pub source_hash: ContentHash,
+    pub source_bytes: usize,
     pub dirty: bool,
     pub edit_state: DocumentEditState,
     pub last_check: Option<Job>,
 }
-/// Stable preview identity with a page count; use artifact to read a page.
+
+/// Stable preview identity with a page count; use job evidence or output to read a page.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentRender {
@@ -114,6 +170,7 @@ pub struct AgentRender {
     pub source_hash: ContentHash,
     pub pages: usize,
 }
+
 /// Isolated view metadata for an Agent task.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
@@ -127,6 +184,16 @@ pub struct AgentView {
     pub render: Option<AgentRender>,
     pub edit_activity: Option<EditActivity>,
 }
+
+/// A newly isolated Agent view and its initial compact context.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentOpenOutcome {
+    pub view_id: ViewId,
+    pub url: String,
+    pub context: AgentView,
+}
+
 /// Which immutable evidence to page through.
 #[derive(
     Debug,
@@ -147,17 +214,7 @@ pub enum AnalysisSection {
     Source,
     Differences,
 }
-/// Read bounded evidence from a completed import/check job.
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AnalysisArgs {
-    pub job_id: JobId,
-    #[serde(default)]
-    pub section: AnalysisSection,
-    #[serde(default)]
-    pub offset: usize,
-    pub limit: Option<usize>,
-}
+
 /// A bounded page of source events, performed notes or verification differences.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
@@ -170,4 +227,12 @@ pub struct AnalysisPage {
     pub offset: usize,
     pub next_offset: Option<usize>,
     pub items: Vec<serde_json::Value>,
+}
+
+/// A job and, when requested, one bounded evidence page from that job.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct JobOutcome {
+    pub job: Job,
+    pub analysis: Option<AnalysisPage>,
 }

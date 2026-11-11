@@ -1,64 +1,72 @@
 [
   {
     "name": "ossia_guide",
-    "description": "Read the local score editing workflow and supported capabilities.",
+    "description": "Read the complete local score workflow and tool contract. Returns a Markdown string.",
     "inputSchema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
       "title": "EmptyArgs",
       "type": "object"
-    }
-  },
-  {
-    "name": "ossia_doctor",
-    "description": "Inspect the connected runtime and verified engine build; use CLI doctor for offline resource diagnostics.",
-    "inputSchema": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "additionalProperties": false,
-      "title": "EmptyArgs",
-      "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   {
     "name": "ossia_status",
-    "description": "Inspect runtime, engine, library and durable jobs.",
-    "inputSchema": {
-      "$defs": {
-        "DetailLevel": {
-          "description": "Agent responses are compact unless the caller explicitly requests full evidence.",
-          "enum": [
-            "summary",
-            "full"
-          ],
-          "type": "string"
-        }
-      },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "additionalProperties": false,
-      "description": "Runtime status projection for Agent transports.",
-      "properties": {
-        "detail": {
-          "$ref": "#/$defs/DetailLevel",
-          "default": "summary"
-        }
-      },
-      "title": "StatusArgs",
-      "type": "object"
-    }
-  },
-  {
-    "name": "ossia_list",
-    "description": "List documents in the selected library.",
+    "description": "Inspect runtime, engine, library, documentation and active jobs. Returns AgentStatus.",
     "inputSchema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
       "title": "EmptyArgs",
       "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "ossia_list",
+    "description": "List compact documents with limit/offset. Returns DocumentPage; does not load render or check history.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Bounded document listing for Agent transports.",
+      "properties": {
+        "limit": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "default": 0,
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "title": "ListArgs",
+      "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   {
     "name": "ossia_import",
-    "description": "Queue an absolute-path file import; poll jobId for result and conversion confirmation.",
+    "description": "Queue an absolute-path import. format/title/author are inferred or defaulted; returns a Job. Pass waitMs to wait for completion.",
     "inputSchema": {
       "$defs": {
         "ContentHash": {
@@ -77,7 +85,10 @@
       "additionalProperties": false,
       "properties": {
         "author": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "confirmation": {
           "anyOf": [
@@ -90,28 +101,49 @@
           ]
         },
         "format": {
-          "$ref": "#/$defs/InputFormat"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InputFormat"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "path": {
           "type": "string"
         },
         "title": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "waitMs": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "required": [
-        "title",
-        "format",
-        "path",
-        "author"
+        "path"
       ],
       "title": "ImportArgs",
       "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
     }
   },
   {
     "name": "ossia_open",
-    "description": "Create an isolated view and a one-use local browser link.",
+    "description": "Create an isolated view and one-use browser URL. Returns AgentOpenOutcome with the initial compact context; the ticket is not exposed separately.",
     "inputSchema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
@@ -126,29 +158,22 @@
       },
       "title": "OpenArgs",
       "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
     }
   },
   {
     "name": "ossia_context",
-    "description": "Read this explicit view's document, selection, source spans and event cursor.",
+    "description": "Read this explicit view's compact document, selection, source spans and event cursor. Returns AgentView.",
     "inputSchema": {
-      "$defs": {
-        "DetailLevel": {
-          "description": "Agent responses are compact unless the caller explicitly requests full evidence.",
-          "enum": [
-            "summary",
-            "full"
-          ],
-          "type": "string"
-        }
-      },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
+      "description": "Identify one isolated view for a context read.",
       "properties": {
-        "detail": {
-          "$ref": "#/$defs/DetailLevel",
-          "default": "summary"
-        },
         "viewId": {
           "format": "uuid",
           "type": "string"
@@ -157,13 +182,19 @@
       "required": [
         "viewId"
       ],
-      "title": "ContextArgs",
+      "title": "ViewArgs",
       "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   {
     "name": "ossia_edit",
-    "description": "Explicitly begin, resume, end, discard or acknowledge recovery; keep editId private.",
+    "description": "Begin, resume, end or discard an owned edit; recovery actions are advanced. Returns EditSession or null. Keep editId private.",
     "inputSchema": {
       "$defs": {
         "ContentHash": {
@@ -228,24 +259,144 @@
       ],
       "title": "EditArgs",
       "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
     }
   },
   {
     "name": "ossia_write_source",
-    "description": "Atomically replace the active owned edit source and return its computed hash.",
+    "description": "Atomically replace or batch-edit the active owned source and return the computed hash. The document is derived from editId.",
     "inputSchema": {
       "$defs": {
         "ContentHash": {
           "type": "string"
+        },
+        "SourceEdit": {
+          "additionalProperties": false,
+          "description": "One exact original-text replacement. Empty text inserts or deletes.",
+          "properties": {
+            "expectedText": {
+              "type": "string"
+            },
+            "replacement": {
+              "type": "string"
+            },
+            "span": {
+              "$ref": "#/$defs/SourceSpan"
+            }
+          },
+          "required": [
+            "span",
+            "expectedText",
+            "replacement"
+          ],
+          "type": "object"
+        },
+        "SourcePosition": {
+          "properties": {
+            "byte": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "column": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "line": {
+              "description": "One-based line and Unicode scalar column, including a retained BOM or CR.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "byte",
+            "line",
+            "column"
+          ],
+          "type": "object"
+        },
+        "SourceSpan": {
+          "properties": {
+            "byteEnd": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "byteStart": {
+              "description": "Half-open byte range. Consumers must validate it against the same source snapshot.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end": {
+              "$ref": "#/$defs/SourcePosition"
+            },
+            "start": {
+              "$ref": "#/$defs/SourcePosition"
+            }
+          },
+          "required": [
+            "byteStart",
+            "byteEnd",
+            "start",
+            "end"
+          ],
+          "type": "object"
+        },
+        "SourceWriteChange": {
+          "description": "Whole-source replacement or one atomic batch of non-overlapping edits.",
+          "oneOf": [
+            {
+              "properties": {
+                "kind": {
+                  "const": "replace",
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "text"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "edits": {
+                  "items": {
+                    "$ref": "#/$defs/SourceEdit"
+                  },
+                  "type": "array"
+                },
+                "kind": {
+                  "const": "edit",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "edits"
+              ],
+              "type": "object"
+            }
+          ]
         }
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
-      "description": "Replace only the active edit's source; the runtime computes the new hash.",
+      "description": "Apply one atomic source change to the active owned edit.",
       "properties": {
-        "documentId": {
-          "format": "uuid",
-          "type": "string"
+        "change": {
+          "$ref": "#/$defs/SourceWriteChange"
         },
         "editId": {
           "format": "uuid",
@@ -254,8 +405,177 @@
         "expectedSourceHash": {
           "$ref": "#/$defs/ContentHash"
         },
-        "text": {
+        "viewId": {
+          "format": "uuid",
           "type": "string"
+        }
+      },
+      "required": [
+        "viewId",
+        "editId",
+        "expectedSourceHash",
+        "change"
+      ],
+      "title": "WriteSourceArgs",
+      "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "ossia_read_source",
+    "description": "Read a bounded UTF-8-safe source page at an exact source hash. Returns ReadSourceOutcome with the next span.",
+    "inputSchema": {
+      "$defs": {
+        "ContentHash": {
+          "type": "string"
+        },
+        "SourcePosition": {
+          "properties": {
+            "byte": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "column": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "line": {
+              "description": "One-based line and Unicode scalar column, including a retained BOM or CR.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "byte",
+            "line",
+            "column"
+          ],
+          "type": "object"
+        },
+        "SourceReadStart": {
+          "description": "Start of a bounded source read. Line numbers are one-based.",
+          "oneOf": [
+            {
+              "properties": {
+                "kind": {
+                  "const": "start",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "line",
+                  "type": "string"
+                },
+                "line": {
+                  "format": "uint32",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "kind",
+                "line"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "span",
+                  "type": "string"
+                },
+                "span": {
+                  "$ref": "#/$defs/SourceSpan"
+                }
+              },
+              "required": [
+                "kind",
+                "span"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "SourceSpan": {
+          "properties": {
+            "byteEnd": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "byteStart": {
+              "description": "Half-open byte range. Consumers must validate it against the same source snapshot.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end": {
+              "$ref": "#/$defs/SourcePosition"
+            },
+            "start": {
+              "$ref": "#/$defs/SourcePosition"
+            }
+          },
+          "required": [
+            "byteStart",
+            "byteEnd",
+            "start",
+            "end"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Read a bounded portion of the public source at one exact hash.",
+      "properties": {
+        "documentId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "expectedSourceHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "maxBytes": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "maxLines": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "start": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceReadStart"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "viewId": {
           "format": "uuid",
@@ -265,72 +585,92 @@
       "required": [
         "documentId",
         "viewId",
-        "editId",
-        "expectedSourceHash",
-        "text"
+        "expectedSourceHash"
       ],
-      "title": "WriteSourceArgs",
+      "title": "ReadSourceArgs",
       "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   {
     "name": "ossia_docs",
-    "description": "Search or read the bundled offline LilyPond documentation matching this engine.",
+    "description": "Search or read the bundled offline LilyPond documentation. Search takes query/limit; read takes chapterId/offset/limit. Returns DocsOutcome.",
     "inputSchema": {
-      "$defs": {
-        "DocsAction": {
-          "description": "Offline reference operation.",
-          "enum": [
-            "search",
-            "read"
-          ],
-          "type": "string"
-        }
-      },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "additionalProperties": false,
       "description": "Search keywords or read one stable chapter ID with character-based pagination.",
-      "properties": {
-        "action": {
-          "$ref": "#/$defs/DocsAction"
+      "oneOf": [
+        {
+          "properties": {
+            "action": {
+              "const": "search",
+              "type": "string"
+            },
+            "limit": {
+              "format": "uint",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "query"
+          ],
+          "type": "object"
         },
-        "chapterId": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "limit": {
-          "format": "uint",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "offset": {
-          "default": 0,
-          "format": "uint",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "query": {
-          "type": [
-            "string",
-            "null"
-          ]
+        {
+          "properties": {
+            "action": {
+              "const": "read",
+              "type": "string"
+            },
+            "chapterId": {
+              "type": "string"
+            },
+            "limit": {
+              "format": "uint",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "offset": {
+              "default": 0,
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "action",
+            "chapterId"
+          ],
+          "type": "object"
         }
-      },
-      "required": [
-        "action"
       ],
-      "title": "DocsArgs",
-      "type": "object"
+      "title": "DocsRequest"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   {
-    "name": "ossia_analysis",
-    "description": "Read paginated notes, written pitch events or verification differences from a fixed check.",
+    "name": "ossia_job",
+    "description": "Get or cancel a durable job. Optionally wait with waitMs; section pages performance, source or differences evidence. Returns JobOutcome.",
     "inputSchema": {
       "$defs": {
         "AnalysisSection": {
@@ -341,12 +681,33 @@
             "differences"
           ],
           "type": "string"
+        },
+        "DetailLevel": {
+          "description": "Agent responses are compact unless the caller explicitly requests full evidence.",
+          "enum": [
+            "summary",
+            "full"
+          ],
+          "type": "string"
+        },
+        "JobAction": {
+          "enum": [
+            "get",
+            "cancel"
+          ],
+          "type": "string"
         }
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
-      "description": "Read bounded evidence from a completed import/check job.",
       "properties": {
+        "action": {
+          "$ref": "#/$defs/JobAction"
+        },
+        "detail": {
+          "$ref": "#/$defs/DetailLevel",
+          "default": "summary"
+        },
         "jobId": {
           "format": "uuid",
           "type": "string"
@@ -366,54 +727,17 @@
           "type": "integer"
         },
         "section": {
-          "$ref": "#/$defs/AnalysisSection",
-          "default": "performance"
-        }
-      },
-      "required": [
-        "jobId"
-      ],
-      "title": "AnalysisArgs",
-      "type": "object"
-    }
-  },
-  {
-    "name": "ossia_artifact",
-    "description": "Queue a verified SVG, PNG, MIDI or PDF from a completed import/check snapshot.",
-    "inputSchema": {
-      "$defs": {
-        "DraftFormat": {
-          "description": "A draft artifact format, independent of versioned exports.",
-          "enum": [
-            "svg",
-            "midi",
-            "pdf",
-            "png"
-          ],
-          "type": "string"
-        }
-      },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "additionalProperties": false,
-      "description": "Prepare an artifact from a finished import/check, never from the latest mutable file.",
-      "properties": {
-        "format": {
-          "$ref": "#/$defs/DraftFormat"
-        },
-        "jobId": {
-          "format": "uuid",
-          "type": "string"
-        },
-        "page": {
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnalysisSection"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
-        "width": {
-          "format": "uint32",
+        "waitMs": {
+          "format": "uint64",
           "minimum": 0,
           "type": [
             "integer",
@@ -423,15 +747,21 @@
       },
       "required": [
         "jobId",
-        "format"
+        "action"
       ],
-      "title": "ArtifactArgs",
+      "title": "JobArgs",
       "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
     }
   },
   {
     "name": "ossia_check",
-    "description": "Queue a check of exact expectedSourceHash; editId binds successful checks to commit.",
+    "description": "Queue a check of exact expectedSourceHash; documentId is derived from editId when supplied. Returns a Job; poll with ossia_job.",
     "inputSchema": {
       "$defs": {
         "ContentHash": {
@@ -553,7 +883,10 @@
       "properties": {
         "documentId": {
           "format": "uuid",
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "editId": {
           "format": "uuid",
@@ -579,20 +912,33 @@
         "viewId": {
           "format": "uuid",
           "type": "string"
+        },
+        "waitMs": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "required": [
-        "documentId",
         "viewId",
         "expectedSourceHash"
       ],
       "title": "CheckArgs",
       "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
     }
   },
   {
     "name": "ossia_commit",
-    "description": "Commit the exact checked source and base version; no human acceptance step.",
+    "description": "Commit the exact checked source through editId. Creates a Version; base version is derived from the edit.",
     "inputSchema": {
       "$defs": {
         "ContentHash": {
@@ -602,17 +948,6 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
       "properties": {
-        "baseVersionId": {
-          "format": "uuid",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "documentId": {
-          "format": "uuid",
-          "type": "string"
-        },
         "editId": {
           "format": "uuid",
           "type": "string"
@@ -629,7 +964,6 @@
         }
       },
       "required": [
-        "documentId",
         "viewId",
         "editId",
         "expectedSourceHash",
@@ -637,11 +971,17 @@
       ],
       "title": "CommitArgs",
       "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
     }
   },
   {
     "name": "ossia_history",
-    "description": "List distinct version nodes in order.",
+    "description": "Page through distinct version nodes. Returns VersionPage with limit/offset.",
     "inputSchema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
@@ -649,6 +989,20 @@
         "documentId": {
           "format": "uuid",
           "type": "string"
+        },
+        "limit": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "default": 0,
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
@@ -656,11 +1010,17 @@
       ],
       "title": "HistoryArgs",
       "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
     }
   },
   {
     "name": "ossia_restore",
-    "description": "Queue restoration as a new version; requires clean workspace and no active edit.",
+    "description": "Queue restoration of a version as a new version. Requires a clean workspace and no active edit; returns a Job.",
     "inputSchema": {
       "$defs": {
         "ContentHash": {
@@ -671,7 +1031,10 @@
       "additionalProperties": false,
       "properties": {
         "author": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "baseVersionId": {
           "format": "uuid",
@@ -679,10 +1042,6 @@
             "string",
             "null"
           ]
-        },
-        "documentId": {
-          "format": "uuid",
-          "type": "string"
         },
         "expectedSourceHash": {
           "$ref": "#/$defs/ContentHash"
@@ -693,42 +1052,93 @@
         "versionId": {
           "format": "uuid",
           "type": "string"
+        },
+        "waitMs": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "required": [
-        "documentId",
         "versionId",
         "expectedSourceHash",
-        "author",
         "summary"
       ],
       "title": "RestoreArgs",
       "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
     }
   },
   {
-    "name": "ossia_export",
-    "description": "Queue immutable version export; never overwrite an existing destination.",
+    "name": "ossia_output",
+    "description": "Write SVG, PNG, MIDI, PDF or LilyPond output from a completed job snapshot or immutable version. Never overwrites; returns a Job whose result is OutputOutcome.",
     "inputSchema": {
       "$defs": {
-        "ExportFormat": {
+        "OutputFormat": {
+          "description": "Output file format for a job or version snapshot.",
           "enum": [
             "ly",
+            "svg",
+            "png",
             "pdf",
             "midi"
           ],
           "type": "string"
+        },
+        "OutputSource": {
+          "description": "Immutable snapshot source for a generated output file.",
+          "oneOf": [
+            {
+              "properties": {
+                "jobId": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "kind": {
+                  "const": "job",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "jobId"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "version",
+                  "type": "string"
+                },
+                "versionId": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "versionId"
+              ],
+              "type": "object"
+            }
+          ]
         }
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
+      "description": "Write one output file from a completed job snapshot or an immutable version.",
       "properties": {
-        "documentId": {
-          "format": "uuid",
-          "type": "string"
-        },
         "format": {
-          "$ref": "#/$defs/ExportFormat"
+          "$ref": "#/$defs/OutputFormat"
         },
         "outputPath": {
           "type": [
@@ -736,62 +1146,46 @@
             "null"
           ]
         },
-        "versionId": {
-          "format": "uuid",
-          "type": "string"
+        "page": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/OutputSource"
+        },
+        "waitMs": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "width": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "required": [
-        "documentId",
-        "versionId",
+        "source",
         "format"
       ],
-      "title": "ExportArgs",
+      "title": "OutputArgs",
       "type": "object"
-    }
-  },
-  {
-    "name": "ossia_job",
-    "description": "Query or cancel a durable job; terminal states are immutable.",
-    "inputSchema": {
-      "$defs": {
-        "DetailLevel": {
-          "description": "Agent responses are compact unless the caller explicitly requests full evidence.",
-          "enum": [
-            "summary",
-            "full"
-          ],
-          "type": "string"
-        },
-        "JobAction": {
-          "enum": [
-            "get",
-            "cancel"
-          ],
-          "type": "string"
-        }
-      },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "additionalProperties": false,
-      "properties": {
-        "action": {
-          "$ref": "#/$defs/JobAction"
-        },
-        "detail": {
-          "$ref": "#/$defs/DetailLevel",
-          "default": "summary"
-        },
-        "jobId": {
-          "format": "uuid",
-          "type": "string"
-        }
-      },
-      "required": [
-        "jobId",
-        "action"
-      ],
-      "title": "JobArgs",
-      "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
     }
   }
 ]

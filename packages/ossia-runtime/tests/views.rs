@@ -34,10 +34,11 @@ async fn view_ownership_stale_selections_and_explicit_commit() {
     );
     let args = CheckArgs {
         expect: None,
-        document_id: f.doc.document_id,
+        document_id: Some(f.doc.document_id),
         view_id: other,
         edit_id: Some(edit.edit_id),
         expected_source_hash: changed.clone(),
+        wait_ms: None,
     };
     assert_eq!(
         f.runtime.check(args, false).unwrap_err().code,
@@ -48,10 +49,11 @@ async fn view_ownership_stale_selections_and_explicit_commit() {
         .check(
             CheckArgs {
                 expect: None,
-                document_id: f.doc.document_id,
+                document_id: Some(f.doc.document_id),
                 view_id: f.view,
                 edit_id: Some(edit.edit_id),
                 expected_source_hash: changed.clone(),
+                wait_ms: None,
             },
             false,
         )
@@ -60,10 +62,8 @@ async fn view_ownership_stale_selections_and_explicit_commit() {
     let version = f
         .runtime
         .commit(CommitArgs {
-            document_id: f.doc.document_id,
             view_id: f.view,
             edit_id: edit.edit_id,
-            base_version_id: f.doc.head_version_id,
             expected_source_hash: changed,
             summary: "raise note".into(),
         })
@@ -115,7 +115,7 @@ async fn language_exchange_and_global_updates_reach_every_view() {
         f.runtime.exchange(&opened.ticket).unwrap().language,
         Some(UiLanguage::ZhCn)
     );
-    let cursor = f.runtime.status().unwrap().seq;
+    let cursor = f.runtime.agent_status().unwrap().seq;
     let changed = ipc::dispatch(&f.runtime, "ui-language", json!({"language": "en-US"})).unwrap();
     assert_eq!(changed, json!("en-US"));
     let events = f

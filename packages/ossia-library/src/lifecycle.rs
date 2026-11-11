@@ -124,14 +124,21 @@ impl Library {
     ) -> Result<SourceSnapshot> {
         let snapshot = self.snapshot(doc)?;
         if snapshot.source_hash() != expected {
-            return Err(conflict("public source changed"));
+            let mut error = conflict("public source changed");
+            error.detail = Some(serde_json::json!({
+                "currentSourceHash": snapshot.source_hash(),
+                "headVersionId": doc.head,
+            }));
+            return Err(error);
         }
         Ok(snapshot)
     }
 
     pub(crate) fn expect_head(&self, doc: &db::Document, base: Option<VersionId>) -> Result<()> {
         if doc.head != base {
-            Err(conflict("base version is stale"))
+            let mut error = conflict("base version is stale");
+            error.detail = Some(serde_json::json!({"headVersionId": doc.head}));
+            Err(error)
         } else {
             Ok(())
         }

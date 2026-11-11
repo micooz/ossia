@@ -15,10 +15,11 @@ async fn queued_snapshots_previews_and_explicit_checks_are_distinct() {
         .check(
             CheckArgs {
                 expect: None,
-                document_id: f.doc.document_id,
+                document_id: Some(f.doc.document_id),
                 view_id: f.view,
                 edit_id: None,
                 expected_source_hash: old.clone(),
+                wait_ms: None,
             },
             true,
         )
@@ -29,10 +30,11 @@ async fn queued_snapshots_previews_and_explicit_checks_are_distinct() {
         .check(
             CheckArgs {
                 expect: None,
-                document_id: f.doc.document_id,
+                document_id: Some(f.doc.document_id),
                 view_id: f.view,
                 edit_id: None,
                 expected_source_hash: latest.clone(),
+                wait_ms: None,
             },
             true,
         )
@@ -104,10 +106,11 @@ async fn global_limit_same_document_serialization_and_cancel_cleanup() {
                 .check(
                     CheckArgs {
                         expect: None,
-                        document_id: doc.document_id,
+                        document_id: Some(doc.document_id),
                         view_id: view,
                         edit_id: None,
                         expected_source_hash: doc.source_hash.clone(),
+                        wait_ms: None,
                     },
                     false,
                 )
@@ -138,8 +141,31 @@ async fn global_limit_same_document_serialization_and_cancel_cleanup() {
     f.finish().await;
 }
 
+#[tokio::test]
+async fn invalid_wait_is_rejected_before_queueing() {
+    let f = Fixture::new(false).await;
+    let before = f.runtime.library.list_jobs().unwrap().len();
+    let error = f
+        .runtime
+        .check(
+            CheckArgs {
+                expect: None,
+                document_id: Some(f.doc.document_id),
+                view_id: f.view,
+                edit_id: None,
+                expected_source_hash: f.doc.source_hash.clone(),
+                wait_ms: Some(30_001),
+            },
+            false,
+        )
+        .unwrap_err();
+    assert_eq!(error.code, ErrorCode::InvalidRequest);
+    assert_eq!(f.runtime.library.list_jobs().unwrap().len(), before);
+    f.finish().await;
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn export_and_render_keys_enforce_version_ownership_and_do_not_overwrite() {
+async fn output_and_render_keys_enforce_version_ownership_and_do_not_overwrite() {
     let f = Fixture::new(true).await;
     let key = ossia_library::render_key(
         f.doc.document_id,
@@ -153,42 +179,102 @@ async fn export_and_render_keys_enforce_version_ownership_and_do_not_overwrite()
         .is_empty());
     assert!(f.runtime.library.read_render_page(&key, 2).is_err());
     let target = f.root.path().join("export.ly");
-    let args = ExportArgs {
-        document_id: f.doc.document_id,
-        version_id: f.doc.head_version_id.unwrap(),
-        format: ExportFormat::Ly,
+    let args = OutputArgs {
+        source: OutputSource::Version {
+            version_id: f.doc.head_version_id.unwrap(),
+        },
+        format: OutputFormat::Ly,
+        page: None,
+        width: None,
         output_path: Some(target.to_string_lossy().into_owned()),
+        wait_ms: None,
     };
-    let job = f.runtime.export(args.clone()).unwrap();
+    let job = f.runtime.output(args.clone()).unwrap();
     assert_eq!(wait_job(&f.runtime, job.job_id).await.state, JobState::Done);
     assert_eq!(std::fs::read(&target).unwrap(), SOURCE);
-    let job = f.runtime.export(args.clone()).unwrap();
+    let job = f.runtime.output(args.clone()).unwrap();
     assert_eq!(
         wait_job(&f.runtime, job.job_id).await.error.unwrap().code,
         ErrorCode::Conflict
     );
     assert_eq!(std::fs::read(&target).unwrap(), SOURCE);
-    let bad = ExportArgs {
-        document_id: DocumentId::new(),
+    let bad = OutputArgs {
+        source: OutputSource::Version {
+            version_id: VersionId::new(),
+        },
         ..args
     };
-    assert_eq!(f.runtime.export(bad).unwrap_err().code, ErrorCode::NotFound);
+    assert_eq!(f.runtime.output(bad).unwrap_err().code, ErrorCode::NotFound);
     f.finish().await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn running_import_restore_export_cancellation_finishes_before_publishing() {
+async fn job_outputs_use_the_captured_snapshot_and_validate_pages() {
+    let f = Fixture::new(true).await;
+    let source_job = f.doc.last_check.as_ref().unwrap().job_id;
+    let svg_path = f.root.path().join("job.svg");
+    let job = f
+        .runtime
+        .output(OutputArgs {
+            source: OutputSource::Job { job_id: source_job },
+            format: OutputFormat::Svg,
+            page: None,
+            width: None,
+            output_path: Some(svg_path.to_string_lossy().into_owned()),
+            wait_ms: None,
+        })
+        .unwrap();
+    assert_eq!(wait_job(&f.runtime, job.job_id).await.state, JobState::Done);
+    assert!(std::fs::read_to_string(&svg_path).unwrap().contains("<svg"));
+
+    let ly_path = f.root.path().join("job.ly");
+    let job = f
+        .runtime
+        .output(OutputArgs {
+            source: OutputSource::Job { job_id: source_job },
+            format: OutputFormat::Ly,
+            page: None,
+            width: None,
+            output_path: Some(ly_path.to_string_lossy().into_owned()),
+            wait_ms: None,
+        })
+        .unwrap();
+    assert_eq!(wait_job(&f.runtime, job.job_id).await.state, JobState::Done);
+    assert_eq!(std::fs::read(&ly_path).unwrap(), SOURCE);
+
+    let missing_page = f.root.path().join("missing.svg");
+    let job = f
+        .runtime
+        .output(OutputArgs {
+            source: OutputSource::Job { job_id: source_job },
+            format: OutputFormat::Svg,
+            page: Some(2),
+            width: None,
+            output_path: Some(missing_page.to_string_lossy().into_owned()),
+            wait_ms: None,
+        })
+        .unwrap();
+    let job = wait_job(&f.runtime, job.job_id).await;
+    assert_eq!(job.state, JobState::Error);
+    assert_eq!(job.error.unwrap().code, ErrorCode::NotFound);
+    assert!(!missing_page.exists());
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn running_import_restore_output_cancellation_finishes_before_publishing() {
     let f = Fixture::new(true).await;
     f.engine.hold.store(true, Ordering::Release);
     let imported = f
         .runtime
         .import(
             ImportArgs {
-                title: "cancel import".into(),
-                format: InputFormat::Ly,
+                title: Some("cancel import".into()),
+                format: Some(InputFormat::Ly),
                 path: String::new(),
                 confirmation: None,
-                author: "test".into(),
+                author: Some("test".into()),
+                wait_ms: None,
             },
             SOURCE.to_vec(),
         )
@@ -204,12 +290,12 @@ async fn running_import_restore_export_cancellation_finishes_before_publishing()
     let restored = f
         .runtime
         .restore(RestoreArgs {
-            document_id: f.doc.document_id,
             version_id: f.doc.head_version_id.unwrap(),
             base_version_id: f.doc.head_version_id,
             expected_source_hash: f.doc.source_hash.clone(),
-            author: "test".into(),
+            author: Some("test".into()),
             summary: "cancel restore".into(),
+            wait_ms: None,
         })
         .unwrap();
     until(|| f.engine.active.load(Ordering::SeqCst) == 1).await;
@@ -226,11 +312,15 @@ async fn running_import_restore_export_cancellation_finishes_before_publishing()
     let path = f.root.path().join("cancelled.pdf");
     let exported = f
         .runtime
-        .export(ExportArgs {
-            document_id: f.doc.document_id,
-            version_id: f.doc.head_version_id.unwrap(),
-            format: ExportFormat::Pdf,
+        .output(OutputArgs {
+            source: OutputSource::Version {
+                version_id: f.doc.head_version_id.unwrap(),
+            },
+            format: OutputFormat::Pdf,
+            page: None,
+            width: None,
             output_path: Some(path.to_string_lossy().into_owned()),
+            wait_ms: None,
         })
         .unwrap();
     until(|| f.engine.active.load(Ordering::SeqCst) == 1).await;
@@ -248,16 +338,20 @@ async fn running_import_restore_export_cancellation_finishes_before_publishing()
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn reveal_only_resolves_intact_completed_export_results() {
+async fn reveal_only_resolves_intact_completed_output_results() {
     let f = Fixture::new(true).await;
     let target = f.root.path().join("result.ly");
     let job = f
         .runtime
-        .export(ExportArgs {
-            document_id: f.doc.document_id,
-            version_id: f.doc.head_version_id.unwrap(),
-            format: ExportFormat::Ly,
+        .output(OutputArgs {
+            source: OutputSource::Version {
+                version_id: f.doc.head_version_id.unwrap(),
+            },
+            format: OutputFormat::Ly,
+            page: None,
+            width: None,
             output_path: Some(target.to_string_lossy().into_owned()),
+            wait_ms: None,
         })
         .unwrap();
     assert_eq!(wait_job(&f.runtime, job.job_id).await.state, JobState::Done);

@@ -211,27 +211,26 @@ impl Documentation {
         .map_err(storage_error)
     }
     /// Search official chapters or read one chapter; offsets count Unicode scalars.
-    pub fn query(&self, args: DocsArgs) -> Result<DocsOutcome> {
+    pub fn query(&self, request: DocsRequest) -> Result<DocsOutcome> {
         let conn = self.database()?;
+        let offset = match &request {
+            DocsRequest::Search { .. } => 0,
+            DocsRequest::Read { offset, .. } => *offset,
+        };
         let mut response = DocsOutcome {
             version: self.version.clone(),
             root: self.root.to_string_lossy().into_owned(),
             hits: vec![],
             text: None,
-            offset: args.offset,
+            offset,
             next_offset: None,
         };
-        match args.action {
-            DocsAction::Search => {
-                let limit = args.limit.unwrap_or(5);
-                if limit == 0 || limit > 20 || args.offset != 0 {
-                    return Err(AppError::invalid(
-                        "docs search limit must be 1..20 and offset must be zero",
-                    ));
+        match request {
+            DocsRequest::Search { query, limit } => {
+                let limit = limit.unwrap_or(5);
+                if limit == 0 || limit > 20 {
+                    return Err(AppError::invalid("docs search limit must be 1..20"));
                 }
-                let query = args
-                    .query
-                    .ok_or_else(|| AppError::invalid("docs search requires query"))?;
                 if query.len() > 512 {
                     return Err(AppError::invalid("docs query exceeds 512 bytes"));
                 }
@@ -279,11 +278,13 @@ impl Documentation {
                     response.hits.push(hit);
                 }
             }
-            DocsAction::Read => {
-                let id = args
-                    .chapter_id
-                    .ok_or_else(|| AppError::invalid("docs read requires chapterId"))?;
-                let limit = args.limit.unwrap_or(6000);
+            DocsRequest::Read {
+                chapter_id,
+                offset,
+                limit,
+            } => {
+                let id = chapter_id;
+                let limit = limit.unwrap_or(6000);
                 if limit == 0 || limit > 16000 {
                     return Err(AppError::invalid(
                         "docs read limit must be 1..16000 characters",
@@ -299,11 +300,11 @@ impl Documentation {
                     .map_err(storage_error)?
                     .ok_or_else(not_found)?;
                 let total = body.chars().count();
-                if args.offset > total {
+                if offset > total {
                     return Err(AppError::invalid("docs offset exceeds chapter length"));
                 }
-                let end = args.offset.saturating_add(limit).min(total);
-                response.text = Some(body.chars().skip(args.offset).take(limit).collect());
+                let end = offset.saturating_add(limit).min(total);
+                response.text = Some(body.chars().skip(offset).take(limit).collect());
                 response.next_offset = (end < total).then_some(end);
                 response.hits.push(DocsHit {
                     chapter_id: id,

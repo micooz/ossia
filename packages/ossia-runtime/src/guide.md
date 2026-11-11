@@ -14,10 +14,12 @@ both transports address the same library.
 
 CLI subcommands use the MCP tool name without the `ossia_` prefix. Operations with
 parameters accept a single JSON object argument with the same fields as MCP.
-For example, `ossia_list` becomes `list`, and `ossia_job` becomes
-`job '{"action":"get","jobId":"…"}'`. Run `guide` first for this manual;
-`--help` lists commands and options. CLI results are JSON; `guide` returns the
-manual as a JSON string. Score operations start the resident runtime on demand.
+For example, `ossia_list` becomes `list '{"limit":50}'`, `ossia_job` becomes
+`job '{"action":"get","jobId":"…"}'`, and `ossia_output` becomes `output`.
+CLI `doctor` provides offline diagnostics. Run `guide` first for
+this manual; `--help` lists commands and options. CLI results are JSON; `guide`
+returns the manual as a JSON string. Score operations start the resident runtime
+on demand.
 
 An operation error does not mean MCP is unavailable. If a write loses its
 response, inspect current state before retrying through another transport.
@@ -35,7 +37,7 @@ Search and chapter results include the authoritative LilyPond URL, a local
 chapter ID and the offline source archive path. The archive retains English
 manual HTML, examples, images and the upstream notices. Search text is indexed
 from the same 2.26.0 package used by the engine. A missing or damaged package is
-reported by `ossia_doctor`; it does not disable score editing.
+reported by `ossia_status.documentation`; it does not disable score editing.
 
 Official examples may use includes, multiple files or LilyPond features outside
 Ossia's current verified analysis subset. Follow the Ossia workflow for ownership,
@@ -43,33 +45,42 @@ snapshots and commit authorization, and use a check to verify the actual result.
 
 ## Create and edit
 
-1. Call `ossia_status` to inspect the connected runtime and capabilities, then
-   `ossia_list` to inspect the library.
+1. Call `ossia_status` to inspect the connected runtime, documentation and active
+   jobs, then `ossia_list` to inspect compact document metadata.
 2. To create a score, establish the requested music and instruments, write a
    self-contained `.ly` file in the host workspace, then call `ossia_import`
-   with its absolute path and format `ly`. For an existing file, import its
-   absolute path. Poll `ossia_job` until it reaches a terminal state: successful
-   import creates the first version and renders it.
+   with its absolute path. `format` is inferred from the extension; `title` and
+   `author` default from the filename and `"agent"`. Pass `waitMs` to wait for
+   completion, or poll `ossia_job`. Successful import creates the first version
+   and renders it.
 3. Call `ossia_open` with the selected `documentId`. Open its one-time URL in the
-   host's browser when available; otherwise give the URL to the user. Keep the
-   returned `viewId` for this task.
-4. Call `ossia_context` with that exact `viewId` to read the document, selection,
-   source hash, and source path. Do not use another session's recent selection.
+   host's browser when available; otherwise give the URL to the user. The result
+   already includes the initial compact context; keep `viewId` for this task.
+4. Call `ossia_context` with that exact `viewId` when you need to refresh the
+   document, selection, source spans and edit state. Do not use another session's
+   recent selection. The compact response has no source filesystem path.
 5. Call `ossia_edit` with action `begin`, the current `baseVersionId`, and the
    exact `expectedSourceHash`. Keep `editId` private.
-6. Use `ossia_write_source` with `documentId`, `viewId`, `editId`, the current
-   `expectedSourceHash` and complete `text`. Keep the returned new `sourceHash`.
-   Direct source-file editing remains supported; never bypass an explicit host
-   permission refusal by changing transports.
-7. Call `ossia_check` with the returned source hash and the same `editId`. Add
-   `expect` when musical intent is known. Poll `ossia_job`, inspect the music
-   report and verification, then inspect a preview. Repeat write/check within the
-   same edit; do not re-import drafts. A done job means the check ran: declared
-   expectations must also have verification status `passed` before commit.
-8. Call `ossia_commit` when ready with `editId`, `baseVersionId`,
-   `expectedSourceHash` and `summary`. If it conflicts, reread context and do not
-   overwrite another task. Auto-preview does not authorize commit.
-9. Report the committed version, what was actually checked, and any export path.
+6. Use `ossia_read_source` with that source hash. Start with
+   `{"kind":"start"}` or `{"kind":"line","line":N}`. Continue with the returned
+   `next` span while `complete` is false. Exact ranges use
+   `{"kind":"span","span":...}`.
+7. Use `ossia_write_source` with `change.kind = "edit"` and up to 64 non-overlapping
+   edits. Every edit supplies an exact `span`, its `expectedText`, and
+   `replacement`; empty expected text inserts and empty replacement deletes.
+   Reserve `change.kind = "replace"` for a deliberate whole-file rewrite. Do not
+   edit the source file directly. Keep the returned new `sourceHash`.
+8. Call `ossia_check` with the returned source hash and the same `editId`. Add
+   `expect` when musical intent is known. Pass `waitMs`, or poll `ossia_job`.
+   Inspect the check result and verification, then inspect a preview. Repeat
+   write/check within the same edit; do not re-import drafts. A done job means the
+   check ran: declared expectations must also have verification status `passed`
+   before commit.
+9. Call `ossia_commit` when ready with `editId`, `expectedSourceHash` and
+   `summary`; document and base version are derived from the edit. If it
+   conflicts, reread context and do not overwrite another task. Auto-preview does
+   not authorize commit.
+10. Report the committed version, what was actually checked, and any output path.
 
 End preserves files; discard is explicit and hash-guarded. Resume requires the
 original interrupted `editId`. Runtime restarts invalidate views and page tokens;
@@ -108,10 +119,10 @@ reference.
 
 ## History and output
 
-Use `ossia_history` to inspect versions, `ossia_restore` to restore, and
-`ossia_export` for output. History and export address `versionId`; restore appends
-history and requires a clean workspace. Export supports PDF, MIDI and LilyPond.
-SVG previews are available in the score page; PNG export is unsupported. Use Ossia
+Use `ossia_history` to page through versions, `ossia_restore` to restore, and
+`ossia_output` for files. History and restore address `versionId`; restore appends
+history and requires a clean workspace. Output accepts a completed job snapshot
+or a version snapshot and supports SVG, PNG, PDF, MIDI and LilyPond. Use Ossia
 operations instead of private engine binaries.
 
 ## Source locations
@@ -148,32 +159,36 @@ A check result contains `render`, `music`, and `verification`. Compilation succe
 and intent verification are independent. A failed/unavailable expectation keeps
 preview evidence but authorizes no commit. The latest explicit check supersedes
 older checks; automatic previews never authorize a commit. Do not drop an
-expectation just to make a check pass. Legacy jobs have no recorded music report;
-check again instead of treating missing evidence as success.
+expectation just to make a check pass. Jobs without a recorded music report
+cannot provide evidence; check again instead of treating missing evidence as
+success.
 
-## Draft artifacts
+## Output files
 
-Call `ossia_artifact` with a completed import/check `jobId` and `format` (`svg`,
-`png`, `midi`, `pdf`), then poll its returned job. The result contains a verified
-absolute `path`, media type, hash and source provenance. Read that file with the
-host's file/image tool. No external conversion tools or artifact-directory search
-are needed. This does not create a version or export to a user-selected path.
+Call `ossia_output` with a `source` of `{"kind":"job","jobId":…}` or
+`{"kind":"version","versionId":…}` and a `format` of `ly`, `svg`, `png`, `midi`
+or `pdf`, then poll its returned job. The result contains a verified absolute
+`path`, media type, hash and source provenance. Read that file with the host's
+file/image tool. No external conversion tools or artifact-directory search are
+needed. Job outputs use the captured import/check snapshot; version outputs use
+the immutable version snapshot.
 
 SVG/PNG accept one-based `page` (default 1). PNG defaults to a white 1600-pixel-wide
 page; optional `width` is 1..4096 and output is limited to 16 million pixels.
-Artifacts always refer to the source job's captured snapshot, even after edits or
-commit. Generate missing artifacts with the same engine build or re-check first.
+`outputPath` must be absolute and must not exist; otherwise output goes to the
+system download directory under `Ossia/`. Generate missing formats with the same
+engine build or re-check first.
 
 ## Compact Agent responses
 
-CLI/MCP `status`, `context` and `job` default to summaries. Pass `detail: "full"`
-for the complete persisted result. Status lists active jobs only; context includes
-one render identity rather than duplicated manifests. Check summaries omit info
-logs and show at most 64 performed notes, written events and differences, with
-`notesTotal`/`notesTruncated`, `eventsTotal`/`eventsTruncated`, or the corresponding
-difference fields. Missing legacy reports remain unavailable.
+CLI/MCP `status` and `context` always return compact Agent responses. `status`
+lists active jobs only and includes documentation health; `context` includes one
+render identity rather than duplicated manifests. `list` and `history` are paged
+with `limit`/`offset`.
 
-Use `ossia_analysis` with `jobId`, `section` (`performance`, `source`,
-`differences`), zero-based `offset` and optional `limit` (1..512, default 64) to
-read complete evidence. Follow `nextOffset` until null. Browser HTTP state remains
-complete and is not affected by Agent summary defaults.
+`ossia_job` returns `{job, analysis}`. Without `section`, it returns a summary by
+default; `detail:"full"` is available for diagnostics. Use `section`
+(`performance`, `source`, `differences`), zero-based `offset` and optional `limit`
+(1..512, default 64) to read bounded evidence from a completed import/check;
+`job.result` is then null and evidence is in `analysis`. Follow `nextOffset` until
+null. Pass `waitMs` (0..30000) to wait for a running job.

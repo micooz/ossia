@@ -4,17 +4,61 @@ use ossia_library::{CheckRequest, ImportRequest, RestoreRequest};
 use serde_json::json;
 use std::{
     collections::{HashSet, VecDeque},
-    path::PathBuf,
-    time::Duration,
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
 };
 
 pub(super) enum Work {
     Check,
-    Artifact(ArtifactArgs),
     VersionRender(DocumentId, VersionId),
-    Import { args: ImportArgs, bytes: Vec<u8> },
+    Import(ImportWork),
     Restore(RestoreArgs),
-    Export(ExportArgs, PathBuf),
+    Output(OutputArgs, PathBuf),
+}
+
+pub(super) struct ImportWork {
+    title: String,
+    format: InputFormat,
+    author: String,
+    confirmation: Option<ContentHash>,
+    bytes: Vec<u8>,
+}
+
+fn input_format_from_path(path: &str) -> Option<InputFormat> {
+    let extension = Path::new(path).extension()?.to_str()?.to_ascii_lowercase();
+    match extension.as_str() {
+        "ly" => Some(InputFormat::Ly),
+        "musicxml" | "xml" => Some(InputFormat::MusicXml),
+        "mid" | "midi" => Some(InputFormat::Midi),
+        _ => None,
+    }
+}
+
+fn output_destination(args: &OutputArgs, document: DocumentId) -> Result<PathBuf> {
+    if let Some(path) = &args.output_path {
+        let path = PathBuf::from(path);
+        if !path.is_absolute() {
+            return Err(invalid("outputPath must be absolute"));
+        }
+        return Ok(path);
+    }
+    let folder = dirs::download_dir()
+        .ok_or_else(|| storage("system download directory unavailable"))?
+        .join("Ossia");
+    std::fs::create_dir_all(&folder).map_err(storage)?;
+    let extension = match args.format {
+        OutputFormat::Ly => "ly",
+        OutputFormat::Svg => "svg",
+        OutputFormat::Png => "png",
+        OutputFormat::Pdf => "pdf",
+        OutputFormat::Midi => "mid",
+    };
+    Ok(folder.join(format!(
+        "{}-{}.{}",
+        document,
+        uuid::Uuid::new_v4(),
+        extension
+    )))
 }
 
 pub(super) struct Pending {
@@ -85,16 +129,27 @@ impl Runtime {
 
     pub fn check(&self, args: CheckArgs, preview: bool) -> Result<Job> {
         self.available()?;
+        let wait_ms = validate_wait_ms(args.wait_ms)?;
+        let document_id = if let Some(edit_id) = args.edit_id {
+            let edit = self.edit_capability(args.view_id, edit_id, false)?;
+            if args
+                .document_id
+                .is_some_and(|document| document != edit.document_id)
+            {
+                return Err(forbidden());
+            }
+            edit.document_id
+        } else {
+            args.document_id
+                .ok_or_else(|| invalid("check requires documentId or editId"))?
+        };
         if !preview {
-            self.document_in_view(args.view_id, args.document_id)?;
+            self.document_in_view(args.view_id, document_id)?;
         }
-        if let Some(edit) = args.edit_id {
-            self.owned_edit(args.document_id, args.view_id, edit, false)?;
-        }
-        self.observe(args.document_id)?;
+        self.observe(document_id)?;
         let job = self.library.queue_check(CheckRequest {
             expect: args.expect.as_ref(),
-            document_id: args.document_id,
+            document_id,
             edit_id: args.edit_id,
             expected_source_hash: &args.expected_source_hash,
             options: &CompileOptions {
@@ -106,36 +161,58 @@ impl Runtime {
                 point_and_click: true,
             },
         })?;
-        self.enqueue(job, Work::Check, preview)
-    }
-
-    pub fn artifact(&self, args: ArtifactArgs) -> Result<Job> {
-        self.available()?;
-        let (source, _) = self.library.checked_job(args.job_id)?;
-        let snapshot = self
-            .library
-            .job_snapshot(source.job_id)?
-            .ok_or_else(|| invalid("source job has no snapshot"))?;
-        let job = self
-            .library
-            .create_job("artifact", source.document_id, Some(&snapshot))?;
-        self.enqueue(job, Work::Artifact(args), false)
+        let job = self.enqueue(job, Work::Check, preview)?;
+        self.wait_for_job(job.job_id, Some(wait_ms))
     }
 
     pub fn import(&self, args: ImportArgs, bytes: Vec<u8>) -> Result<Job> {
         self.available()?;
+        let wait_ms = validate_wait_ms(args.wait_ms)?;
+        let format = args
+            .format
+            .or_else(|| input_format_from_path(&args.path))
+            .ok_or_else(|| {
+                invalid("import format is required when it cannot be inferred from the path")
+            })?;
+        let title = args
+            .title
+            .filter(|title| !title.is_empty())
+            .or_else(|| {
+                PathBuf::from(&args.path)
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .map(str::to_owned)
+            })
+            .unwrap_or_else(|| "Untitled".into());
+        let author = args
+            .author
+            .filter(|author| !author.is_empty())
+            .unwrap_or_else(|| "agent".into());
         let job = self.library.create_job("import-request", None, None)?;
-        self.enqueue(job, Work::Import { args, bytes }, false)
+        let job = self.enqueue(
+            job,
+            Work::Import(ImportWork {
+                title,
+                format,
+                author,
+                confirmation: args.confirmation,
+                bytes,
+            }),
+            false,
+        )?;
+        self.wait_for_job(job.job_id, Some(wait_ms))
     }
 
     pub fn restore(&self, args: RestoreArgs) -> Result<Job> {
         self.available()?;
-        self.library
-            .get_version(args.document_id, args.version_id)?;
+        let wait_ms = validate_wait_ms(args.wait_ms)?;
+        let snapshot = self.library.version_snapshot(args.version_id)?;
+        let document_id = snapshot.document_id();
         let job = self
             .library
-            .create_job("restore", Some(args.document_id), None)?;
-        self.enqueue(job, Work::Restore(args), false)
+            .create_job("restore", Some(document_id), None)?;
+        let job = self.enqueue(job, Work::Restore(args), false)?;
+        self.wait_for_job(job.job_id, Some(wait_ms))
     }
 
     pub fn render_version(&self, document: DocumentId, version: VersionId) -> Result<Job> {
@@ -148,37 +225,43 @@ impl Runtime {
         self.enqueue(job, Work::VersionRender(document, version), false)
     }
 
-    pub fn export(&self, args: ExportArgs) -> Result<Job> {
+    pub fn output(&self, args: OutputArgs) -> Result<Job> {
         self.available()?;
-        self.library
-            .get_version(args.document_id, args.version_id)?;
-        let destination = if let Some(path) = &args.output_path {
-            let path = PathBuf::from(path);
-            if !path.is_absolute() {
-                return Err(invalid("outputPath must be absolute"));
+        let wait_ms = validate_wait_ms(args.wait_ms)?;
+        let snapshot = match &args.source {
+            OutputSource::Job { job_id } => {
+                let (job, _) = self.library.checked_job(*job_id)?;
+                self.library
+                    .job_snapshot(job.job_id)?
+                    .ok_or_else(|| invalid("output source job has no snapshot"))?
             }
-            path
-        } else {
-            let folder = dirs::download_dir()
-                .ok_or_else(|| storage("system download directory unavailable"))?
-                .join("Ossia");
-            std::fs::create_dir_all(&folder).map_err(storage)?;
-            let ext = match args.format {
-                ExportFormat::Ly => "ly",
-                ExportFormat::Pdf => "pdf",
-                ExportFormat::Midi => "mid",
-            };
-            folder.join(format!(
-                "{}-{}.{}",
-                args.document_id,
-                uuid::Uuid::new_v4(),
-                ext
-            ))
+            OutputSource::Version { version_id } => self.library.version_snapshot(*version_id)?,
         };
+        let document_id = snapshot.document_id();
+        let destination = output_destination(&args, document_id)?;
         let job = self
             .library
-            .create_job("export", Some(args.document_id), None)?;
-        self.enqueue(job, Work::Export(args, destination), false)
+            .create_job("output", Some(document_id), Some(&snapshot))?;
+        let job = self.enqueue(job, Work::Output(args, destination), false)?;
+        self.wait_for_job(job.job_id, Some(wait_ms))
+    }
+
+    /// Wait for a job to leave queued/running, bounded to the caller's timeout.
+    pub fn wait_for_job(&self, id: JobId, wait_ms: Option<u64>) -> Result<Job> {
+        let wait_ms = validate_wait_ms(wait_ms)?;
+        if wait_ms == 0 {
+            return self.library.get_job(id);
+        }
+        let deadline = Instant::now() + Duration::from_millis(wait_ms);
+        loop {
+            let job = self.library.get_job(id)?;
+            if !matches!(job.state, JobState::Queued | JobState::Running)
+                || Instant::now() >= deadline
+            {
+                return Ok(job);
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
 
     pub fn cancel(&self, id: JobId) -> Result<Job> {
@@ -330,23 +413,18 @@ impl Runtime {
             task.context.check()?;
             match task.work {
                 Work::Check => unreachable!(),
-                Work::Artifact(args) => value(self.library.draft_artifact(
-                    self.engine.as_ref(),
-                    &args,
-                    &task.context,
-                )?),
                 Work::VersionRender(document, version) => value(self.library.render_version(
                     self.engine.as_ref(),
                     document,
                     version,
                     &task.context,
                 )?),
-                Work::Import { args, bytes } => {
+                Work::Import(args) => {
                     let outcome = self.library.import(
                         self.engine.as_ref(),
                         ImportRequest {
                             title: &args.title,
-                            input: &bytes,
+                            input: &args.bytes,
                             format: args.format,
                             confirmation: args.confirmation.as_ref(),
                             author: &args.author,
@@ -369,12 +447,12 @@ impl Runtime {
                         target_version_id: args.version_id,
                         base_version_id: args.base_version_id,
                         expected_source_hash: &args.expected_source_hash,
-                        author: &args.author,
+                        author: args.author.as_deref().unwrap_or("agent"),
                         summary: &args.summary,
                     },
                     &task.context,
                 )?),
-                Work::Export(args, destination) => value(self.library.export_version(
+                Work::Output(args, destination) => value(self.library.output(
                     self.engine.as_ref(),
                     &args,
                     &destination,

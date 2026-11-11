@@ -98,8 +98,11 @@ impl Runtime {
                 capabilities: vec![
                     "documents".into(),
                     "write-source".into(),
-                    "draft-artifacts".into(),
-                    "music-analysis".into(),
+                    "source-read".into(),
+                    "source-paged".into(),
+                    "source-edits".into(),
+                    "outputs".into(),
+                    "job-evidence".into(),
                     "music-expectations".into(),
                     "offline-docs".into(),
                     "views".into(),
@@ -109,7 +112,7 @@ impl Runtime {
                     "mcp".into(),
                     "render-geometry".into(),
                     "version-render".into(),
-                    "export-reveal".into(),
+                    "output-reveal".into(),
                     "ui-language".into(),
                 ],
             },
@@ -134,6 +137,10 @@ impl Runtime {
 
     fn state(&self) -> std::sync::MutexGuard<'_, State> {
         self.state.lock().expect("runtime state poisoned")
+    }
+
+    pub(crate) fn event_seq(&self) -> u64 {
+        self.state().seq
     }
 
     fn available(&self) -> Result<()> {
@@ -216,22 +223,17 @@ impl Runtime {
 
     pub fn write_source(&self, args: WriteSourceArgs) -> Result<WriteSourceOutcome> {
         self.available()?;
-        self.document_in_view(args.view_id, args.document_id)?;
+        let edit = self.edit_capability(args.view_id, args.edit_id, false)?;
+        self.document_in_view(args.view_id, edit.document_id)?;
         let result = self.library.write_source(&args)?;
-        self.observe(args.document_id)?;
+        self.observe(edit.document_id)?;
         Ok(result)
     }
 
-    pub fn status(&self) -> Result<StatusSnapshot> {
-        let state = self.state();
-        let jobs = self.library.list_jobs()?;
-        Ok(StatusSnapshot {
-            runtime: self.info.clone(),
-            engine_build_id: self.engine.build_id().into(),
-            jobs,
-            instance_id: self.info.instance_id.clone(),
-            seq: state.seq,
-        })
+    pub fn read_source(&self, args: ReadSourceArgs) -> Result<ReadSourceOutcome> {
+        self.available()?;
+        self.document_in_view(args.view_id, args.document_id)?;
+        self.library.read_source(&args)
     }
 
     fn owned_edit(
@@ -243,6 +245,14 @@ impl Runtime {
     ) -> Result<EditSession> {
         let edit = self.library.get_edit(edit)?;
         if edit.document_id != document || (!transfer && edit.owner_view_id != view) {
+            return Err(forbidden());
+        }
+        Ok(edit)
+    }
+
+    fn edit_capability(&self, view: ViewId, edit: EditId, transfer: bool) -> Result<EditSession> {
+        let edit = self.library.get_edit(edit)?;
+        if !transfer && edit.owner_view_id != view {
             return Err(forbidden());
         }
         Ok(edit)
@@ -261,7 +271,13 @@ impl Runtime {
         }
         let doc = self.observe(args.document_id)?;
         if doc.source_hash != args.expected_source_hash {
-            return Err(AppError::new(ErrorCode::Conflict, "public source changed"));
+            let mut error = AppError::new(ErrorCode::Conflict, "public source changed");
+            error.detail = Some(json!({
+                "currentSourceHash": doc.source_hash,
+                "headVersionId": doc.head_version_id,
+                "editState": doc.edit_state,
+            }));
+            return Err(error);
         }
         let edit = match args.action {
             EditAction::Begin => Some(self.library.begin_edit(BeginEditRequest {
@@ -314,18 +330,18 @@ impl Runtime {
 
     pub fn commit(&self, args: CommitArgs) -> Result<Version> {
         self.available()?;
-        self.document_in_view(args.view_id, args.document_id)?;
-        self.owned_edit(args.document_id, args.view_id, args.edit_id, false)?;
-        self.observe(args.document_id)?;
+        let edit = self.edit_capability(args.view_id, args.edit_id, false)?;
+        self.document_in_view(args.view_id, edit.document_id)?;
+        self.observe(edit.document_id)?;
         let version = self.library.commit(CommitRequest {
             edit_id: args.edit_id,
-            base_version_id: args.base_version_id,
+            base_version_id: edit.base_version_id,
             expected_source_hash: &args.expected_source_hash,
             summary: &args.summary,
         })?;
         self.emit(
             "version-created",
-            Some(args.document_id),
+            Some(edit.document_id),
             Some(version.source_hash.clone()),
             value(&version)?,
         );

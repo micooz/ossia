@@ -132,37 +132,86 @@ impl Library {
         self.read_artifact(&asset.artifact)
     }
 
-    pub fn export_version(
+    pub fn output(
         &self,
         engine: &dyn EngineBackend,
-        request: &ExportArgs,
+        request: &OutputArgs,
         destination: &Path,
         context: &RunContext,
-    ) -> Result<ExportOutcome> {
-        let version = self.get_version(request.document_id, request.version_id)?;
-        let snapshot = self.version_snapshot(version.version_id)?;
+    ) -> Result<OutputOutcome> {
+        context.check()?;
+        let page = request.page.unwrap_or(1);
+        let paged = matches!(request.format, OutputFormat::Svg | OutputFormat::Png);
+        if page == 0
+            || (request.page.is_some() && !paged)
+            || (request.width.is_some() && request.format != OutputFormat::Png)
+        {
+            return Err(AppError::invalid(
+                "page/width are valid only for SVG/PNG output",
+            ));
+        }
+        let (snapshot, engine_build_id, checked) = match &request.source {
+            OutputSource::Job { job_id } => {
+                let (job, result) = self.checked_job(*job_id)?;
+                let snapshot = self.job_snapshot(job.job_id)?.ok_or_else(not_found)?;
+                (
+                    snapshot,
+                    result.render.engine_build_id.clone(),
+                    Some(result.render),
+                )
+            }
+            OutputSource::Version { version_id } => {
+                let version = db::version(&*self.db()?, *version_id)?;
+                let snapshot = SourceSnapshot::new(
+                    version.document_id,
+                    self.store.get(&version.source_hash)?,
+                )?;
+                (snapshot, engine.build_id().to_owned(), None)
+            }
+        };
+        let checked = checked.as_ref();
         let bytes = match request.format {
-            ExportFormat::Ly => snapshot.bytes().to_vec(),
-            ExportFormat::Pdf | ExportFormat::Midi => {
-                let format = if matches!(request.format, ExportFormat::Pdf) {
+            OutputFormat::Ly => snapshot.bytes().to_vec(),
+            OutputFormat::Svg => {
+                let render =
+                    self.output_render(engine, &snapshot, checked, RenderFormat::Svg, context)?;
+                let asset = render
+                    .pages
+                    .iter()
+                    .find(|page_asset| page_asset.page == page)
+                    .ok_or_else(not_found)?;
+                self.read_artifact(&asset.artifact)?
+            }
+            OutputFormat::Png => {
+                if checked.is_some() && engine_build_id != engine.build_id() {
+                    return Err(AppError::new(
+                        ErrorCode::RuntimeIncompatible,
+                        "check again with the current engine before generating PNG",
+                    ));
+                }
+                let render =
+                    self.output_render(engine, &snapshot, checked, RenderFormat::Svg, context)?;
+                let asset = render
+                    .pages
+                    .iter()
+                    .find(|page_asset| page_asset.page == page)
+                    .ok_or_else(not_found)?;
+                let svg = self.read_artifact(&asset.artifact)?;
+                let raster = engine.rasterize_svg(
+                    &svg,
+                    request.width.unwrap_or(1600),
+                    &self.artifact_root()?,
+                    context,
+                )?;
+                self.read_artifact(&raster)?
+            }
+            OutputFormat::Pdf | OutputFormat::Midi => {
+                let format = if request.format == OutputFormat::Pdf {
                     RenderFormat::Pdf
                 } else {
                     RenderFormat::Midi
                 };
-                let render = engine.compile(
-                    &snapshot,
-                    &CompileOptions {
-                        formats: vec![format],
-                        point_and_click: true,
-                    },
-                    &self.artifact_root()?,
-                    context,
-                )?;
-                if render.source_hash != version.source_hash
-                    || render.engine_build_id != engine.build_id()
-                {
-                    return Err(storage_error("export render does not match version"));
-                }
+                let render = self.output_render(engine, &snapshot, checked, format, context)?;
                 let asset = if format == RenderFormat::Pdf {
                     render.pdf.as_ref()
                 } else {
@@ -174,19 +223,18 @@ impl Library {
                         .iter()
                         .find(|e| e.format == format)
                         .map(|e| e.error.clone())
-                        .unwrap_or_else(|| AppError::unsupported("requested export is unavailable"))
+                        .unwrap_or_else(|| AppError::unsupported("requested output is unavailable"))
                 })?;
                 self.read_artifact(asset)?
             }
         };
-        context.check()?;
         let mut output = OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(destination)
             .map_err(|e| {
                 if e.kind() == std::io::ErrorKind::AlreadyExists {
-                    conflict("export destination already exists")
+                    conflict("output destination already exists")
                 } else {
                     storage_error(e)
                 }
@@ -196,14 +244,65 @@ impl Library {
             let _ = fs::remove_file(destination);
             return Err(storage_error(error));
         }
-        Ok(ExportOutcome {
-            document_id: version.document_id,
-            version_id: version.version_id,
-            source_hash: version.source_hash,
+        let media_type = match request.format {
+            OutputFormat::Ly => "text/plain; charset=utf-8",
+            OutputFormat::Svg => "image/svg+xml",
+            OutputFormat::Png => "image/png",
+            OutputFormat::Pdf => "application/pdf",
+            OutputFormat::Midi => "audio/midi",
+        };
+        Ok(OutputOutcome {
+            source: request.source.clone(),
+            document_id: snapshot.document_id(),
+            source_hash: snapshot.source_hash().clone(),
+            engine_build_id,
             format: request.format,
+            page: paged.then_some(page),
             path: destination.to_string_lossy().into_owned(),
             bytes: bytes.len() as u64,
             sha256: ContentHash::of(&bytes),
+            media_type: media_type.into(),
         })
+    }
+
+    fn output_render(
+        &self,
+        engine: &dyn EngineBackend,
+        snapshot: &SourceSnapshot,
+        checked: Option<&RenderManifest>,
+        format: RenderFormat,
+        context: &RunContext,
+    ) -> Result<RenderManifest> {
+        if let Some(render) = checked {
+            let available = match format {
+                RenderFormat::Svg => !render.pages.is_empty(),
+                RenderFormat::Pdf => render.pdf.is_some(),
+                RenderFormat::Midi => render.midi.is_some(),
+            };
+            if available {
+                return Ok(render.clone());
+            }
+            if render.engine_build_id != engine.build_id() {
+                return Err(AppError::new(
+                    ErrorCode::RuntimeIncompatible,
+                    "check again with the current engine before generating this output",
+                ));
+            }
+        }
+        let render = engine.compile(
+            snapshot,
+            &CompileOptions {
+                formats: vec![format],
+                point_and_click: true,
+            },
+            &self.artifact_root()?,
+            context,
+        )?;
+        if render.source_hash != *snapshot.source_hash()
+            || render.engine_build_id != engine.build_id()
+        {
+            return Err(storage_error("output render does not match its snapshot"));
+        }
+        Ok(render)
     }
 }

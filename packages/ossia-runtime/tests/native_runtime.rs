@@ -35,10 +35,11 @@ async fn call(client: &Client, name: &'static str, args: Value) -> Value {
 async fn job(client: &Client, id: JobId) -> Job {
     let start = Instant::now();
     loop {
-        let job: Job = serde_json::from_value(
+        let outcome: JobOutcome = serde_json::from_value(
             call(client, "ossia_job", json!({"jobId":id,"action":"get"})).await,
         )
         .unwrap();
+        let job = outcome.job;
         if !matches!(job.state, JobState::Queued | JobState::Running) {
             assert_eq!(job.state, JobState::Done, "{job:?}");
             return job;
@@ -119,7 +120,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
     let _cleanup = Cleanup {
         endpoint: discovery.endpoint.clone(),
     };
-    assert_eq!(discovery.runtime.protocol_version, 1);
+    assert_eq!(discovery.runtime.protocol_version, PROTOCOL_VERSION);
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -160,7 +161,10 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         .unwrap();
     let tools = client.list_all_tools().await.unwrap();
     assert_eq!(tools.len(), mcp::tools().len());
-    assert!(tools.iter().all(|t| t.input_schema["type"] == "object"));
+    assert!(tools.iter().all(|t| {
+        t.input_schema.get("type").and_then(Value::as_str) == Some("object")
+            || t.input_schema.contains_key("oneOf")
+    }));
     assert!(call(&client, "ossia_guide", json!({}))
         .await
         .as_str()
@@ -179,15 +183,16 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
             serde_json::from_value(job(&client, job_ref.job_id).await.result.unwrap()).unwrap();
         let doc = imported.document.unwrap();
         let initial = doc.head_version_id.unwrap();
-        let open: OpenView = serde_json::from_value(
+        let open: AgentOpenOutcome = serde_json::from_value(
             call(&client, "ossia_open", json!({"documentId":doc.document_id})).await,
         )
         .unwrap();
         assert!(open.url.contains("/score.html#ticket="));
+        let ticket = open.url.split("#ticket=").nth(1).unwrap();
         let response = web
             .post(format!("{api}/sessions/exchange"))
             .json(&ExchangeRequest {
-                ticket: open.ticket,
+                ticket: ticket.into(),
             })
             .send()
             .await
@@ -209,15 +214,15 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         let hash = ContentHash::of(changed.as_bytes());
         let preview_start = Instant::now();
         loop {
-            let context: ViewSnapshot = serde_json::from_value(
-                call(
-                    &client,
-                    "ossia_context",
-                    json!({"viewId":open.view_id,"detail":"full"}),
-                )
-                .await,
-            )
-            .unwrap();
+            let context: ViewSnapshot = web
+                .get(format!("{api}/views/{}", open.view_id))
+                .bearer_auth(&session.token)
+                .send()
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
             if context
                 .document
                 .unwrap()
@@ -233,23 +238,31 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
 
-        let job_ref:Job=serde_json::from_value(call(&client,"ossia_check",json!({"documentId":doc.document_id,"viewId":open.view_id,"editId":edit.edit_id,"expectedSourceHash":hash})).await).unwrap();
+        let job_ref: Job = serde_json::from_value(
+            call(
+                &client,
+                "ossia_check",
+                json!({"viewId":open.view_id,"editId":edit.edit_id,"expectedSourceHash":hash}),
+            )
+            .await,
+        )
+        .unwrap();
         let checked = job(&client, job_ref.job_id).await;
         let result: CheckResult = serde_json::from_value(checked.result.unwrap()).unwrap();
         let render = result.render;
         assert_eq!(render.source_hash, hash);
         assert!(!render.pages.is_empty());
-        let version:Version=serde_json::from_value(call(&client,"ossia_commit",json!({"documentId":doc.document_id,"viewId":open.view_id,"editId":edit.edit_id,"baseVersionId":initial,"expectedSourceHash":hash,"summary":"native runtime edit"})).await).unwrap();
+        let version:Version=serde_json::from_value(call(&client,"ossia_commit",json!({"viewId":open.view_id,"editId":edit.edit_id,"expectedSourceHash":hash,"summary":"native runtime edit"})).await).unwrap();
         assert_eq!(version.seq, 2);
-        let context: ViewSnapshot = serde_json::from_value(
-            call(
-                &client,
-                "ossia_context",
-                json!({"viewId":open.view_id,"detail":"full"}),
-            )
-            .await,
-        )
-        .unwrap();
+        let context: ViewSnapshot = web
+            .get(format!("{api}/views/{}", open.view_id))
+            .bearer_auth(&session.token)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
         let key = context.render.unwrap().render_key;
         let response = web
             .get(format!("{api}/renders/{key}/pages/1"))
@@ -260,33 +273,34 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         assert_eq!(response.status(), 200);
         assert!(response.text().await.unwrap().contains("<svg"));
         for (format, extension) in [
-            (ExportFormat::Ly, "ly"),
-            (ExportFormat::Pdf, "pdf"),
-            (ExportFormat::Midi, "mid"),
+            (OutputFormat::Ly, "ly"),
+            (OutputFormat::Pdf, "pdf"),
+            (OutputFormat::Midi, "mid"),
         ] {
             let path = work
                 .path()
                 .join(format!("{}-export.{extension}", doc.document_id));
-            let queued:Job=serde_json::from_value(call(&client,"ossia_export",json!({"documentId":doc.document_id,"versionId":version.version_id,"format":format,"outputPath":path})).await).unwrap();
-            let exported: ExportOutcome =
+            let queued:Job=serde_json::from_value(call(&client,"ossia_output",json!({"source":{"kind":"version","versionId":version.version_id},"format":format,"outputPath":path})).await).unwrap();
+            let exported: OutputOutcome =
                 serde_json::from_value(job(&client, queued.job_id).await.result.unwrap()).unwrap();
             let bytes = std::fs::read(&exported.path).unwrap();
             assert!(!bytes.is_empty());
             assert_eq!(ContentHash::of(&bytes), exported.sha256);
             match format {
-                ExportFormat::Ly => assert_eq!(bytes, changed.as_bytes()),
-                ExportFormat::Pdf => assert!(bytes.starts_with(b"%PDF-")),
-                ExportFormat::Midi => {
+                OutputFormat::Ly => assert_eq!(bytes, changed.as_bytes()),
+                OutputFormat::Pdf => assert!(bytes.starts_with(b"%PDF-")),
+                OutputFormat::Midi => {
                     ossia_score::parse_midi(&bytes).unwrap();
                 }
+                OutputFormat::Svg | OutputFormat::Png => unreachable!(),
             }
         }
-        let queued:Job=serde_json::from_value(call(&client,"ossia_restore",json!({"documentId":doc.document_id,"versionId":initial,"baseVersionId":version.version_id,"expectedSourceHash":hash,"author":"native-agent","summary":"restore original"})).await).unwrap();
+        let queued:Job=serde_json::from_value(call(&client,"ossia_restore",json!({"versionId":initial,"baseVersionId":version.version_id,"expectedSourceHash":hash,"author":"native-agent","summary":"restore original"})).await).unwrap();
         let restored: Version =
             serde_json::from_value(job(&client, queued.job_id).await.result.unwrap()).unwrap();
         assert_eq!(restored.seq, 3);
         assert_eq!(std::fs::read(&doc.source_path).unwrap(), original);
-        let history: Vec<Version> = serde_json::from_value(
+        let history: VersionPage = serde_json::from_value(
             call(
                 &client,
                 "ossia_history",
@@ -295,7 +309,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
             .await,
         )
         .unwrap();
-        assert_eq!(history.len(), 3);
+        assert_eq!(history.items.len(), 3);
         let (code, history_cli) = cli(
             &executable,
             &home,
@@ -305,7 +319,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         )
         .await;
         assert_eq!(code, 0);
-        assert_eq!(history_cli.as_array().unwrap().len(), 3);
+        assert_eq!(history_cli["items"].as_array().unwrap().len(), 3);
         cases.push(json!({"input":file,"versions":3,"exports":["ly","pdf","midi"],"svgPages":render.pages.len()}));
     }
     client.cancel().await.unwrap();
@@ -374,12 +388,13 @@ async fn wait_runtime(home: &Path, child: &mut tokio::process::Child) -> ipc::Di
 async fn ipc_job(endpoint: &str, id: JobId) -> Job {
     let start = Instant::now();
     loop {
-        let job: Job = serde_json::from_value(
+        let outcome: JobOutcome = serde_json::from_value(
             ipc::call(endpoint, "job", json!({"jobId":id,"action":"get"}))
                 .await
                 .unwrap(),
         )
         .unwrap();
+        let job = outcome.job;
         if !matches!(job.state, JobState::Queued | JobState::Running) {
             return job;
         }
@@ -460,12 +475,13 @@ async fn native_crash_stale_endpoint_edit_recovery_port_conflict() {
         serde_json::from_value(ipc_job(&old.endpoint, queued.job_id).await.result.unwrap())
             .unwrap();
     let doc = imported.document.unwrap();
-    let view: OpenView = serde_json::from_value(
+    let view: AgentOpenOutcome = serde_json::from_value(
         ipc::call(&old.endpoint, "open", json!({"documentId":doc.document_id}))
             .await
             .unwrap(),
     )
     .unwrap();
+    let ticket = view.url.split("#ticket=").nth(1).unwrap();
     let web = reqwest::Client::new();
     let token: ExchangeResponse = web
         .post(format!(
@@ -473,7 +489,7 @@ async fn native_crash_stale_endpoint_edit_recovery_port_conflict() {
             old.runtime.web_base_url
         ))
         .json(&ExchangeRequest {
-            ticket: view.ticket,
+            ticket: ticket.into(),
         })
         .send()
         .await
@@ -516,13 +532,13 @@ async fn native_crash_stale_endpoint_edit_recovery_port_conflict() {
             .code,
         ErrorCode::NotFound
     );
-    let opened: OpenView = serde_json::from_value(
+    let opened: AgentOpenOutcome = serde_json::from_value(
         ipc::call(&new.endpoint, "open", json!({"documentId":doc.document_id}))
             .await
             .unwrap(),
     )
     .unwrap();
-    let context: ViewSnapshot = serde_json::from_value(
+    let context: AgentView = serde_json::from_value(
         ipc::call(&new.endpoint, "context", json!({"viewId":opened.view_id}))
             .await
             .unwrap(),

@@ -211,6 +211,39 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
             200
         );
     }
+    let documents: DocumentPage = client
+        .get(format!("{api}/documents?limit=1&offset=0"))
+        .bearer_auth(&session.token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(documents.items.len() <= 1);
+    let versions: VersionPage = client
+        .get(format!(
+            "{api}/documents/{}/versions?limit=1&offset=0",
+            document.document_id
+        ))
+        .bearer_auth(&session.token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(versions.items.len(), 1);
+    let job: JobOutcome = client
+        .get(format!("{api}/jobs/{}", job.job_id))
+        .bearer_auth(&session.token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(job.analysis.is_none());
     let mut edit: EditSession=client.post(format!("{api}/documents/{}/edits",document.document_id)).bearer_auth(&session.token).json(&json!({"action":"begin","documentId":document.document_id,"viewId":session.view.view_id,"baseVersionId":document.head_version_id,"expectedSourceHash":document.source_hash})).send().await.unwrap().json().await.unwrap();
     let status = client
         .get(format!("{api}/status"))
@@ -233,10 +266,11 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         .bearer_auth(&session.token)
         .json(&CheckArgs {
             expect: None,
-            document_id: document.document_id,
+            document_id: Some(document.document_id),
             view_id: session.view.view_id,
             edit_id: Some(edit.edit_id),
             expected_source_hash: hash.clone(),
+            wait_ms: None,
         })
         .send()
         .await
@@ -251,10 +285,8 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         .post(format!("{api}/documents/{}/commit", document.document_id))
         .bearer_auth(&session.token)
         .json(&CommitArgs {
-            document_id: document.document_id,
             view_id: session.view.view_id,
             edit_id: edit.edit_id,
-            base_version_id: edit.base_version_id,
             expected_source_hash: hash.clone(),
             summary: "HTTP commit".into(),
         })
@@ -266,18 +298,22 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         .unwrap();
     assert_eq!(version.seq, 2);
     let exported = client
-        .post(format!("{api}/documents/{}/export", document.document_id))
+        .post(format!("{api}/outputs"))
         .bearer_auth(&session.token)
-        .json(&ExportArgs {
-            document_id: document.document_id,
-            version_id: version.version_id,
-            format: ExportFormat::Ly,
+        .json(&OutputArgs {
+            source: OutputSource::Version {
+                version_id: version.version_id,
+            },
+            format: OutputFormat::Ly,
+            page: None,
+            width: None,
             output_path: Some(
                 root.path()
                     .join("http-export.ly")
                     .to_string_lossy()
                     .into_owned(),
             ),
+            wait_ms: None,
         })
         .send()
         .await
@@ -292,12 +328,12 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         .post(format!("{api}/documents/{}/restore", document.document_id))
         .bearer_auth(&session.token)
         .json(&RestoreArgs {
-            document_id: document.document_id,
             version_id: document.head_version_id.unwrap(),
             base_version_id: Some(version.version_id),
             expected_source_hash: hash,
-            author: "http".into(),
+            author: Some("http".into()),
             summary: "restore".into(),
+            wait_ms: None,
         })
         .send()
         .await
@@ -320,8 +356,8 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         .await
         .unwrap();
     assert_eq!(cancelled.status(), 200);
-    let cancelled: Job = cancelled.json().await.unwrap();
-    assert_eq!(cancelled.state, JobState::Done);
+    let cancelled: JobOutcome = cancelled.json().await.unwrap();
+    assert_eq!(cancelled.job.state, JobState::Done);
     let malformed = reqwest::multipart::Form::new()
         .text("metadata", "[]")
         .part("file", reqwest::multipart::Part::bytes(SOURCE.to_vec()));
@@ -347,7 +383,7 @@ fn ipc_handshake_rejects_wrong_home_schema_and_protocol() {
     let home = f.path().canonicalize().unwrap();
     let mut info = RuntimeInfo {
         runtime_version: "test".into(),
-        protocol_version: 1,
+        protocol_version: PROTOCOL_VERSION,
         schema_version: 1,
         instance_id: "test".into(),
         home: home.to_string_lossy().into_owned(),
@@ -355,12 +391,12 @@ fn ipc_handshake_rejects_wrong_home_schema_and_protocol() {
         capabilities: vec![],
     };
     assert!(ipc::verify_handshake(&home, &info).is_ok());
-    info.protocol_version = 2;
+    info.protocol_version = PROTOCOL_VERSION + 1;
     assert_eq!(
         ipc::verify_handshake(&home, &info).unwrap_err().code,
         ErrorCode::RuntimeIncompatible
     );
-    info.protocol_version = 1;
+    info.protocol_version = PROTOCOL_VERSION;
     info.schema_version = 2;
     assert!(ipc::verify_handshake(&home, &info).is_err());
 }

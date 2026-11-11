@@ -1,18 +1,21 @@
 import type {
-  DocumentState,
+  AgentStatus,
+  DocumentPage,
+  DocumentSummary,
   EditArgs,
-  ExportArgs,
   ImportArgs,
   Job,
+  JobOutcome,
   LocateArgs,
   LocateOutcome,
   Locator,
+  OutputArgs,
   RenderGeometry,
   RestoreArgs,
   RuntimeEvent,
   Selection,
-  StatusSnapshot,
   Version,
+  VersionPage,
   ViewSnapshot,
 } from '../generated/protocol.ts';
 import { jobStateKey, translate } from '../i18n.tsx';
@@ -68,10 +71,29 @@ export function makeApi(session: Session, signal?: AbortSignal) {
   return {
     session,
     context: () => json<ViewSnapshot>(`/views/${session.viewId}`),
-    status: () => json<StatusSnapshot>('/status'),
-    documents: () => json<DocumentState[]>('/documents'),
-    history: async (id: string) =>
-      (await json<Version[]>(`/documents/${id}/versions`)).sort((a, b) => b.seq - a.seq),
+    status: () => json<AgentStatus>('/status'),
+    documents: async () => {
+      const items: DocumentSummary[] = [];
+      let offset = 0;
+      for (;;) {
+        const page = await json<DocumentPage>(`/documents?limit=200&offset=${offset}`);
+        items.push(...page.items);
+        if (page.nextOffset === null) return items;
+        offset = page.nextOffset;
+      }
+    },
+    history: async (id: string) => {
+      const items: Version[] = [];
+      let offset = 0;
+      for (;;) {
+        const page = await json<VersionPage>(
+          `/documents/${id}/versions?limit=200&offset=${offset}`,
+        );
+        items.push(...page.items);
+        if (page.nextOffset === null) return items.sort((a, b) => b.seq - a.seq);
+        offset = page.nextOffset;
+      }
+    },
     selectDocument: (documentId: string | null) =>
       put<ViewSnapshot>(`/views/${session.viewId}/document`, { documentId }),
     selection: (body: Selection) => put<ViewSnapshot>(`/views/${session.viewId}/selection`, body),
@@ -82,11 +104,12 @@ export function makeApi(session: Session, signal?: AbortSignal) {
     renderVersion: (id: string, version: string) =>
       post<Job>(`/documents/${id}/versions/${version}/render`),
     edit: (args: EditArgs) => post<null>(`/documents/${args.documentId}/edits`, args),
-    restore: (args: RestoreArgs) => post<Job>(`/documents/${args.documentId}/restore`, args),
-    export: (args: ExportArgs) => post<Job>(`/documents/${args.documentId}/export`, args),
+    restore: (documentId: string, args: RestoreArgs) =>
+      post<Job>(`/documents/${documentId}/restore`, args),
+    output: (args: OutputArgs) => post<Job>('/outputs', args),
     reveal: (id: string) => post<{ opened: boolean }>(`/jobs/${id}/reveal`),
-    job: (id: string) => json<Job>(`/jobs/${id}`),
-    cancel: (id: string) => post<Job>(`/jobs/${id}/cancel`),
+    job: (id: string) => json<JobOutcome>(`/jobs/${id}`),
+    cancel: (id: string) => post<JobOutcome>(`/jobs/${id}/cancel`),
     import: (file: File, metadata: Omit<ImportArgs, 'path'>) => {
       const form = new FormData();
       form.append('metadata', JSON.stringify(metadata));
@@ -97,7 +120,7 @@ export function makeApi(session: Session, signal?: AbortSignal) {
       let job = initial;
       while (job.state === 'queued' || job.state === 'running') {
         await delay(200, signal);
-        job = await json<Job>(`/jobs/${job.jobId}`);
+        job = (await json<JobOutcome>(`/jobs/${job.jobId}`)).job;
       }
       if (job.state !== 'done')
         throw new ApiError(

@@ -185,10 +185,10 @@ pub async fn call(endpoint: &str, method: &str, params: Value) -> Result<Value> 
         },
     )
     .await?;
-    let response_timeout = if matches!(method, "docs" | "artifact") {
-        Duration::from_secs(60)
-    } else {
-        Duration::from_secs(15)
+    let response_timeout = match method {
+        "docs" => Duration::from_secs(60),
+        "import" | "check" | "restore" | "output" | "job" => Duration::from_secs(45),
+        _ => Duration::from_secs(15),
     };
     let bytes = tokio::time::timeout(response_timeout, read_frame(&mut stream))
         .await
@@ -222,19 +222,18 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
             let _: EmptyArgs = decode(params)?;
             value(GUIDE)
         }
-        "status" => runtime.agent_status(decode(params)?),
-        "analysis" => value(runtime.analysis(decode(params)?)?),
+        "status" => {
+            let _: EmptyArgs = decode(params)?;
+            value(runtime.agent_status()?)
+        }
         "docs" => value(runtime.docs(decode(params)?)?),
         "doctor" => {
             let _: EmptyArgs = decode(params)?;
             value(runtime.doctor())
         }
-        "list" => {
-            let _: EmptyArgs = decode(params)?;
-            value(runtime.library.list_documents()?)
-        }
-        "open" => value(runtime.open_view(decode::<OpenArgs>(params)?.document_id)?),
-        "context" => runtime.agent_context(decode(params)?),
+        "list" => value(runtime.agent_list(decode(params)?)?),
+        "open" => value(runtime.agent_open(decode::<OpenArgs>(params)?.document_id)?),
+        "context" => value(runtime.agent_context(decode::<ViewArgs>(params)?.view_id)?),
         "import" => {
             let args: ImportArgs = decode(params)?;
             let path = Path::new(&args.path);
@@ -258,29 +257,14 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
             value(runtime.import(args, bytes)?)
         }
         "write_source" => value(runtime.write_source(decode(params)?)?),
-        "artifact" => value(runtime.artifact(decode(params)?)?),
+        "read_source" => value(runtime.read_source(decode(params)?)?),
         "edit" => runtime.edit(decode(params)?, true),
         "check" => value(runtime.check(decode(params)?, false)?),
         "commit" => value(runtime.commit(decode(params)?)?),
-        "history" => value(
-            runtime
-                .library
-                .history(decode::<HistoryArgs>(params)?.document_id)?,
-        ),
+        "history" => value(runtime.agent_history(decode(params)?)?),
         "restore" => value(runtime.restore(decode(params)?)?),
-        "export" => value(runtime.export(decode(params)?)?),
-        "job" => {
-            let args: JobArgs = decode(params)?;
-            let job = match args.action {
-                JobAction::Get => runtime.library.get_job(args.job_id)?,
-                JobAction::Cancel => runtime.cancel(args.job_id)?,
-            };
-            value(if args.detail == DetailLevel::Full {
-                job
-            } else {
-                crate::agent::summarize_job(job)
-            })
-        }
+        "output" => value(runtime.output(decode(params)?)?),
+        "job" => value(runtime.job_outcome(decode(params)?)?),
         "stop" => {
             runtime.stop()?;
             Ok(json!({"stopping":true}))

@@ -65,7 +65,7 @@ fn native_import_edit_check_commit_restore_and_reopen() {
         } else {
             changed.push_str("\n% P03 fixed snapshot edit\n");
         }
-        fs::write(&edit.source_path, changed.as_bytes()).unwrap();
+        fs::write(&doc.source_path, changed.as_bytes()).unwrap();
         let hash = ContentHash::of(changed.as_bytes());
         let options = CompileOptions {
             formats: vec![RenderFormat::Svg, RenderFormat::Pdf, RenderFormat::Midi],
@@ -110,7 +110,7 @@ fn native_import_edit_check_commit_restore_and_reopen() {
                 .bytes(),
             changed.as_bytes()
         );
-        assert_eq!(fs::read(&edit.source_path).unwrap(), changed.as_bytes());
+        assert_eq!(fs::read(&doc.source_path).unwrap(), changed.as_bytes());
         let restored = library
             .restore(
                 &engine,
@@ -219,7 +219,7 @@ fn native_import_edit_check_commit_restore_and_reopen() {
         })
         .unwrap();
     let fixed = b"\\version \"2.26.0\"\n\\score { { c'1 } \\layout {} }\n";
-    fs::write(&repair.source_path, fixed).unwrap();
+    fs::write(&draft.source_path, fixed).unwrap();
     let hash = ContentHash::of(fixed);
     let checked = library
         .check(
@@ -264,7 +264,7 @@ fn native_import_edit_check_commit_restore_and_reopen() {
 
 #[test]
 #[ignore = "requires verified native LilyPond 2.26.0"]
-fn native_scale_expectations_gate_commit_before_export() {
+fn native_scale_expectations_gate_commit_before_output() {
     let root = PathBuf::from(std::env::var_os("OSSIA_TEST_LILYPOND_ROOT").unwrap());
     let work = tempfile::tempdir().unwrap();
     let engine =
@@ -354,30 +354,57 @@ fn native_scale_expectations_gate_commit_before_export() {
             summary: "wrong octave"
         })
         .is_err());
-    let fixed = source.replace("c4 d e f | g4 a b c'", "c'4 d' e' f' | g'4 a' b' c''");
+    let page = library
+        .read_source(&ReadSourceArgs {
+            document_id: doc.document_id,
+            view_id: edit.owner_view_id,
+            expected_source_hash: doc.source_hash.clone(),
+            start: Some(SourceReadStart::Start),
+            max_lines: None,
+            max_bytes: None,
+        })
+        .unwrap();
+    assert_eq!(page.content, source);
+    let original_notes = "c4 d e f | g4 a b c'";
+    let start = source.find(original_notes).unwrap();
+    let span = ossia_score::SourceMap::new(source)
+        .span(start, start + original_notes.len())
+        .unwrap();
     let original_job = imported.job.unwrap().job_id;
+    let original_svg_path = work.path().join("original.svg");
     let original_svg = library
-        .draft_artifact(
+        .output(
             &engine,
-            &ArtifactArgs {
-                job_id: original_job,
-                format: DraftFormat::Svg,
+            &OutputArgs {
+                source: OutputSource::Job {
+                    job_id: original_job,
+                },
+                format: OutputFormat::Svg,
                 page: None,
                 width: None,
+                output_path: Some(original_svg_path.to_string_lossy().into_owned()),
+                wait_ms: None,
             },
+            &original_svg_path,
             &RunContext::default(),
         )
         .unwrap();
     let written = library
         .write_source(&WriteSourceArgs {
-            document_id: doc.document_id,
             view_id: edit.owner_view_id,
             edit_id: edit.edit_id,
             expected_source_hash: doc.source_hash.clone(),
-            text: fixed,
+            change: SourceWriteChange::Edit {
+                edits: vec![SourceEdit {
+                    span,
+                    expected_text: original_notes.into(),
+                    replacement: "c'4 d' e' f' | g'4 a' b' c''".into(),
+                }],
+            },
         })
         .unwrap();
     let hash = written.source_hash;
+    let output_dir = tempfile::tempdir().unwrap();
     let checked = library
         .check(
             &engine,
@@ -392,54 +419,72 @@ fn native_scale_expectations_gate_commit_before_export() {
         )
         .unwrap();
     for format in [
-        DraftFormat::Svg,
-        DraftFormat::Midi,
-        DraftFormat::Pdf,
-        DraftFormat::Png,
+        OutputFormat::Svg,
+        OutputFormat::Midi,
+        OutputFormat::Pdf,
+        OutputFormat::Png,
     ] {
+        let path = output_dir.path().join(format!("new-{format:?}"));
         let artifact = library
-            .draft_artifact(
+            .output(
                 &engine,
-                &ArtifactArgs {
-                    job_id: checked.job.job_id,
+                &OutputArgs {
+                    source: OutputSource::Job {
+                        job_id: checked.job.job_id,
+                    },
                     format,
                     page: None,
                     width: None,
+                    output_path: Some(path.to_string_lossy().into_owned()),
+                    wait_ms: None,
                 },
+                &path,
                 &RunContext::default(),
             )
             .unwrap();
         assert!(Path::new(&artifact.path).is_file());
         assert_eq!(artifact.source_hash, hash);
-        if format == DraftFormat::Png {
+        if format == OutputFormat::Png {
             let bytes = fs::read(&artifact.path).unwrap();
             assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
             assert_eq!(u32::from_be_bytes(bytes[16..20].try_into().unwrap()), 1600);
         }
     }
+    let old_svg_path = work.path().join("old.svg");
     let old_svg = library
-        .draft_artifact(
+        .output(
             &engine,
-            &ArtifactArgs {
-                job_id: original_job,
-                format: DraftFormat::Svg,
+            &OutputArgs {
+                source: OutputSource::Job {
+                    job_id: original_job,
+                },
+                format: OutputFormat::Svg,
                 page: None,
                 width: None,
+                output_path: Some(old_svg_path.to_string_lossy().into_owned()),
+                wait_ms: None,
             },
+            &old_svg_path,
             &RunContext::default(),
         )
         .unwrap();
     assert_eq!(old_svg.sha256, original_svg.sha256);
     assert_ne!(old_svg.source_hash, hash);
+    let invalid_path = work.path().join("invalid.png");
     assert!(library
-        .draft_artifact(
+        .output(
             &engine,
-            &ArtifactArgs {
-                job_id: checked.job.job_id,
-                format: DraftFormat::Png,
+            &OutputArgs {
+                source: OutputSource::Job {
+                    job_id: checked.job.job_id,
+                },
+                format: OutputFormat::Png,
                 page: None,
-                width: Some(4097)
+                width: Some(4097),
+                output_path: Some(invalid_path.to_string_lossy().into_owned()),
+                wait_ms: None,
             },
+            &invalid_path,
             &RunContext::default()
         )
         .is_err());

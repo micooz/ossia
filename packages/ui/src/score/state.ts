@@ -1,15 +1,10 @@
-import type {
-  DocumentState,
-  StatusSnapshot,
-  Version,
-  ViewSnapshot,
-} from '../generated/protocol.ts';
+import type { AgentStatus, DocumentSummary, Version, ViewSnapshot } from '../generated/protocol.ts';
 export interface AppState {
   connection: 'connecting' | 'connected' | 'reconnecting' | 'expired';
   view: ViewSnapshot | null;
-  documents: DocumentState[];
+  documents: DocumentSummary[];
   versions: Version[];
-  status: StatusSnapshot | null;
+  status: AgentStatus | null;
   error: string | null;
 }
 export const initialState: AppState = {
@@ -24,9 +19,9 @@ export type Action =
   | {
       type: 'sync';
       view: ViewSnapshot;
-      documents: DocumentState[];
+      documents: DocumentSummary[];
       versions: Version[];
-      status: StatusSnapshot;
+      status: AgentStatus;
     }
   | { type: 'view'; view: ViewSnapshot }
   | { type: 'connection'; connection: AppState['connection'] }

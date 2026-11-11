@@ -29,8 +29,9 @@ Home selection is `--home`, `OSSIA_HOME`, then the user's `.ossia`; explicit pat
 CLI commands accept one JSON object matching the corresponding MCP tool. Successful commands print JSON; failures print `{error:{code,message,detail?}}` and exit nonzero. `serve` and `mcp` reserve stdout for their respective protocol roles. Doctor reports offline engine verification and discovery; integrate returns unsupported until P06.
 
 `docs` searches or reads the offline LilyPond 2.26.0 reference. The pack is
-installed into the data directory on first use. CLI/MCP status, context and jobs
-default to compact Agent projections; pass `detail: "full"` for complete state.
+installed into the data directory on first use. CLI/MCP status and context
+always return compact Agent projections; `list` and `history` are paged.
+`job` returns `{job, analysis}` and supports bounded evidence sections.
 
 ```sh
 target/debug/ossia-desktop --home /absolute/test-library import \
@@ -40,9 +41,9 @@ target/debug/ossia-desktop --home /absolute/test-library context \
   '{"viewId":"00000000-0000-4000-8000-000000000001"}'
 ```
 
-Import, check, restore and export return a durable Job. Poll `job '{"jobId":"…","action":"get"}'`; cancel with action=cancel. Running cancellation first reports phase=cancelling; the worker acknowledges after process cleanup. If a durable operation has already completed, its done result wins. The import request job contains the P03 ImportOutcome, including its library import record. Refused/unconfirmed reports have no document and must be inspected before continuing.
+Import, check, restore and output return a durable Job. Poll `job '{"jobId":"…","action":"get"}'`, or pass `waitMs` on the originating tool; cancel with action=cancel. Running cancellation reports phase=cancelling until the worker finishes process cleanup. If a durable operation has completed, its done result wins. The import request job contains its ImportOutcome and library import record. Refused or unconfirmed reports have no document and must be inspected before continuing.
 
-`open` returns a viewId and URL with a one-use ticket. All context/edit/check/commit calls use an explicit viewId; edit credentials remain private to the caller. Resume may transfer an interrupted edit to a new view only over trusted IPC with the original editId. End preserves files; discard and recovery acknowledgment are separate hash-guarded actions.
+`open` returns a viewId, a URL with a one-use ticket, and the initial compact context. All context/edit/check/commit calls use an explicit viewId; edit credentials stay private to the caller. Resume transfers an interrupted edit to a new view only over trusted IPC with the original editId. End preserves files; discard and recovery acknowledgment are separate hash-guarded actions.
 
 ## HTTP and events
 
@@ -56,7 +57,7 @@ JSON request bodies are limited to 1 MiB. Multipart import accepts one `metadata
 
 A content poll every second complements native filesystem notifications, including environments where FSEvents cannot start. Changes have a further 300 ms debounce; atomic replacement and deletion/recreation are supported. Only pending previews coalesce, and superseded job IDs remain cancelled and queryable. Explicit checks keep their captured snapshots. Context/check/commit reread source even without a watcher event.
 
-Render keys include document ownership, source hash, engine build and options hash. SVG is served only through a stored manifest and verified artifact; authenticated geometry returns page viewBox, locator capability and staff rectangles from the shared index. Exports require documentId + versionId, use immutable snapshots and never overwrite destinations. Missing outputPath selects a unique file under the system Downloads/Ossia directory. Historical `POST /documents/{id}/versions/{versionId}/render` renders a fixed version without changing the public source or preview. `POST /jobs/{jobId}/reveal` accepts only the verified result path of a successful export job.
+Render keys include document ownership, source hash, engine build and options hash. SVG is served only through a stored manifest and verified artifact; authenticated geometry returns page viewBox, locator capability and staff rectangles from the shared index. `POST /outputs` accepts a completed job or immutable version source, supports SVG/PNG/PDF/MIDI/LilyPond, uses the captured snapshot and never overwrites destinations. Missing outputPath selects a unique file under the system Downloads/Ossia directory. `POST /documents/{id}/versions/{versionId}/render` renders a fixed version without changing the public source or preview. `POST /jobs/{jobId}/reveal` accepts only the verified result path of a successful output job.
 
 ## Contracts and validation
 
@@ -73,6 +74,6 @@ OSSIA_NATIVE_EVIDENCE="$PWD/target/native-runtime.json" \
 cargo test -p ossia-runtime --test native_runtime -- --ignored
 ```
 
-Rust DTOs own TypeScript declarations and all 14 tool schemas: the 13 workflow tools plus ossia_doctor. Generated files have non-mutating drift checks in CI. Protocol and library schema remain 1. Missing native resources fail the explicit native suite rather than count as skipped success.
+Rust DTOs own TypeScript declarations and all MCP tool schemas. Generated files have non-mutating drift checks in CI. Protocol and library schema are 1. Missing native resources fail the explicit native suite rather than count as skipped success.
 
 The runtime lock is Library's lifetime OS lock, not the discovery JSON. Unix IPC uses a checked private per-user directory and a 0600 socket; Windows pipes receive a DACL for the current user's SID. The lock winner alone publishes/replaces discovery and stale sockets. P05 browser integration is covered separately by `pnpm test:ui` and `pnpm test:ui:native`; headless task and transport tests do not establish other-platform native behavior or P06 host integrations.

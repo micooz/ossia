@@ -8,7 +8,14 @@ import { promisify } from 'node:util';
 
 import { test, expect } from '@playwright/test';
 
-import type { Job, OpenView, RenderGeometry, ViewSnapshot } from '../src/generated/protocol.ts';
+import type {
+  AgentOpenOutcome,
+  DocumentPage,
+  Job,
+  JobOutcome,
+  RenderGeometry,
+  ViewSnapshot,
+} from '../src/generated/protocol.ts';
 
 const exec = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -41,7 +48,7 @@ async function waitJob<T>(initial: Job): Promise<T> {
   let job = initial;
   for (let count = 0; count < 600 && ['queued', 'running'].includes(job.state); count++) {
     await new Promise((resolve) => setTimeout(resolve, 100));
-    job = await cli<Job>('job', { jobId: job.jobId, action: 'get' });
+    job = (await cli<JobOutcome>('job', { jobId: job.jobId, action: 'get' })).job;
   }
   expect(job.state, JSON.stringify(job.error)).toBe('done');
   return job.result as T;
@@ -68,19 +75,30 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
       author: 'test',
     }),
   );
-  const docs = await cli<{ documentId: string }[]>('list');
-  const documentId = docs[0]!.documentId;
-  const opened = await cli<OpenView>('open', { documentId });
+  const docs = await cli<DocumentPage>('list');
+  const documentId = docs.items[0]!.documentId;
+  const opened = await cli<AgentOpenOutcome>('open', { documentId });
   await page.goto(opened.url);
   await expect(page.getByText('本地服务已连接')).toBeVisible();
   await expect(page.locator('.score-image')).toBeVisible();
-  const initial = await cli<ViewSnapshot>('context', { viewId: opened.viewId });
   const token = await page.evaluate(
     (viewId) => JSON.parse(sessionStorage.getItem(`ossia:view:${viewId}`)!).token as string,
     opened.viewId,
   );
+  const origin = new URL(opened.url).origin;
+  const initial: ViewSnapshot = await (
+    await page.request.get(`${origin}/api/v1/views/${opened.viewId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  ).json();
+  const fullView = async (): Promise<ViewSnapshot> =>
+    (
+      await page.request.get(`${origin}/api/v1/views/${opened.viewId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    ).json();
   const geometryResponse = await page.request.get(
-    `${new URL(opened.url).origin}/api/v1/renders/${initial.render!.renderKey}/geometry`,
+    `${origin}/api/v1/renders/${initial.render!.renderKey}/geometry`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
   expect(geometryResponse.ok()).toBeTruthy();
@@ -121,12 +139,12 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   await page.keyboard.press('Space');
   await expect(page.locator('.selection li')).toContainText('谱表 1');
   const other = await context.newPage();
-  const second = await cli<OpenView>('open', {});
+  const second = await cli<AgentOpenOutcome>('open', {});
   await other.goto(second.url);
   await expect(other.getByRole('heading', { name: '选择或导入一份乐谱' })).toBeVisible();
   await page.reload();
   await expect(page.locator('.selection li')).toContainText('谱表 1');
-  const edit = await cli<{ editId: string; sourcePath: string }>('edit', {
+  const edit = await cli<{ editId: string }>('edit', {
     action: 'begin',
     documentId,
     viewId: opened.viewId,
@@ -136,33 +154,27 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
     author: 'P05 test agent',
     adoptWorkspace: false,
   });
-  const source = await fs.readFile(edit.sourcePath, 'utf8');
+  const sourcePath = (await fullView()).document!.sourcePath;
+  const source = await fs.readFile(sourcePath, 'utf8');
   const changed = source.replace('c1', 'd1') + '\n% P05 synthetic edit\n';
-  await fs.writeFile(edit.sourcePath, changed);
+  await fs.writeFile(sourcePath, changed);
   const hash = createHash('sha256').update(changed).digest('hex');
   await expect(page.locator('.document-status')).toContainText('工作区有未提交修改');
   await expect(page.locator('.selection li')).toHaveCount(0);
   await expect
-    .poll(
-      async () =>
-        (await cli<ViewSnapshot>('context', { viewId: opened.viewId })).render?.manifest.sourceHash,
-      { timeout: 30_000 },
-    )
+    .poll(async () => (await fullView()).render?.manifest.sourceHash, { timeout: 30_000 })
     .toBe(hash);
   await expect(page.locator('.document-status')).toContainText(`谱面 ${hash.slice(0, 12)}`);
   await waitJob(
     await cli<Job>('check', {
-      documentId,
       viewId: opened.viewId,
       editId: edit.editId,
       expectedSourceHash: hash,
     }),
   );
   await cli('commit', {
-    documentId,
     viewId: opened.viewId,
     editId: edit.editId,
-    baseVersionId: initial.document!.headVersionId,
     expectedSourceHash: hash,
     summary: 'P05 合成编辑',
   });
@@ -170,7 +182,7 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   await page.getByRole('button', { name: '版本对比', exact: true }).click();
   await expect(page.locator('.compare .score-image')).toHaveCount(2);
   await page.getByRole('button', { name: '工作区谱面' }).click();
-  await fs.writeFile(edit.sourcePath, changed + '\n\\notAnOssiaCommand\n');
+  await fs.writeFile(sourcePath, changed + '\n\\notAnOssiaCommand\n');
   await expect(page.getByText('上次成功结果：', { exact: false })).toBeVisible();
   await expect(page.locator('.diagnostics')).toContainText('notAnOssiaCommand', {
     timeout: 30_000,
@@ -186,7 +198,7 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   await page.getByRole('button', { name: '恢复至版本 1', exact: true }).click();
   await page.getByRole('button', { name: '确认恢复' }).click();
   await expect(page.locator('.version-list li')).toHaveCount(3);
-  await page.route('**/api/v1/documents/*/export', async (route) => {
+  await page.route('**/api/v1/outputs', async (route) => {
     const args = route.request().postDataJSON();
     const response = await route.fetch({
       postData: JSON.stringify({

@@ -28,13 +28,13 @@ pub enum Command {
     Serve,
     Mcp,
     Doctor,
-    Status {
+    Status,
+    Stop,
+    Guide,
+    List {
         #[arg(default_value = "{}")]
         json: String,
     },
-    Stop,
-    Guide,
-    List,
     Integrate {
         #[command(subcommand)]
         action: IntegrateAction,
@@ -43,13 +43,10 @@ pub enum Command {
     WriteSource {
         json: String,
     },
+    ReadSource {
+        json: String,
+    },
     Docs {
-        json: String,
-    },
-    Analysis {
-        json: String,
-    },
-    Artifact {
         json: String,
     },
     Import {
@@ -77,7 +74,7 @@ pub enum Command {
     Restore {
         json: String,
     },
-    Export {
+    Output {
         json: String,
     },
     Job {
@@ -218,12 +215,11 @@ pub async fn run(args: Args) -> Result<Option<serde_json::Value>> {
                 return Ok(None);
             }
             let (method, args) = match command {
-                Command::Status { json } => ("status", json),
-                Command::List => ("list", "{}".into()),
+                Command::Status => ("status", "{}".into()),
+                Command::List { json } => ("list", json),
                 Command::WriteSource { json } => ("write_source", json),
+                Command::ReadSource { json } => ("read_source", json),
                 Command::Docs { json } => ("docs", json),
-                Command::Analysis { json } => ("analysis", json),
-                Command::Artifact { json } => ("artifact", json),
                 Command::Import { json } => ("import", json),
                 Command::Open { json } => ("open", json),
                 Command::Context { json } => ("context", json),
@@ -232,7 +228,7 @@ pub async fn run(args: Args) -> Result<Option<serde_json::Value>> {
                 Command::Commit { json } => ("commit", json),
                 Command::History { json } => ("history", json),
                 Command::Restore { json } => ("restore", json),
-                Command::Export { json } => ("export", json),
+                Command::Output { json } => ("output", json),
                 Command::Job { json } => ("job", json),
                 _ => unreachable!(),
             };

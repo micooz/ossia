@@ -165,7 +165,6 @@
     "baseVersionId": "20000000-0000-4000-8000-000000000001",
     "status": "active",
     "startedAt": "2026-11-10T00:01:00Z",
-    "sourcePath": "/synthetic/ossia/documents/10000000-0000-4000-8000-000000000001/score.ly",
     "author": "synthetic-agent"
   },
   "runtimeInfo": {

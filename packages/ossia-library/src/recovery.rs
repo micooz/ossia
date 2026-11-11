@@ -1,4 +1,5 @@
 use crate::{db, *};
+use ossia_score::SourceMap;
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
@@ -17,16 +18,69 @@ struct Intent {
 }
 
 impl Library {
+    const MAX_EDITS: usize = 64;
+    const MAX_SOURCE_BYTES: usize = 1024 * 1024;
+
     /// Write an owned edit through the same durable replacement journal as restore.
     pub fn write_source(&self, args: &WriteSourceArgs) -> Result<WriteSourceOutcome> {
-        if args.text.len() > 1024 * 1024 {
-            return Err(AppError::invalid("source exceeds 1 MiB"));
-        }
-        let snapshot = SourceSnapshot::new(args.document_id, args.text.as_bytes().to_vec())?;
+        let document_id = {
+            let conn = self.db()?;
+            db::edit(&conn, args.edit_id)?.document_id
+        };
+        let snapshot = match &args.change {
+            SourceWriteChange::Replace { text } => {
+                if text.len() > Self::MAX_SOURCE_BYTES {
+                    return Err(AppError::invalid("source exceeds 1 MiB"));
+                }
+                SourceSnapshot::new(document_id, text.as_bytes().to_vec())?
+            }
+            SourceWriteChange::Edit { edits } => {
+                if edits.is_empty() || edits.len() > Self::MAX_EDITS {
+                    return Err(AppError::invalid("source edit count must be 1..64"));
+                }
+                let current = {
+                    let conn = self.db()?;
+                    let doc = db::document(&conn, document_id)?;
+                    self.expect_snapshot(&doc, &args.expected_source_hash)?
+                };
+                let mut edited = current.source().to_owned();
+                let map = SourceMap::new(current.source());
+                let mut ranges = edits
+                    .iter()
+                    .map(|edit| {
+                        let original = map.slice(edit.span)?;
+                        if original != edit.expected_text {
+                            return Err(AppError::new(
+                                ErrorCode::Conflict,
+                                "source edit does not match the expected original text",
+                            ));
+                        }
+                        Ok((edit.span.byte_start, edit.span.byte_end, edit))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                ranges.sort_by_key(|(start, end, _)| (*start, *end));
+                for pair in ranges.windows(2) {
+                    let (previous_start, previous_end, _) = pair[0];
+                    let (start, _, _) = pair[1];
+                    if start < previous_end || start == previous_start {
+                        return Err(AppError::invalid(
+                            "source edits must not overlap or share a start offset",
+                        ));
+                    }
+                }
+                for (start, end, edit) in ranges.into_iter().rev() {
+                    edited.replace_range(start..end, &edit.replacement);
+                }
+                if edited.len() > Self::MAX_SOURCE_BYTES {
+                    return Err(AppError::invalid("source exceeds 1 MiB"));
+                }
+                SourceSnapshot::new(document_id, edited.into_bytes())?
+            }
+        };
         let intent = {
             let mut conn = self.db()?;
             let tx = conn.transaction().map_err(storage_error)?;
-            let doc = db::document(&tx, args.document_id)?;
+            let doc = db::document(&tx, document_id)?;
             self.no_intent(&tx, doc.id)?;
             let edit = db::edit(&tx, args.edit_id)?;
             if edit.document_id != doc.id
@@ -60,12 +114,12 @@ impl Library {
             intent
         };
         self.execute_intent(&intent)?;
-        let doc = self.get_document(args.document_id)?;
+        let doc = self.get_document(document_id)?;
         Ok(WriteSourceOutcome {
             document_id: doc.document_id,
             source_hash: doc.source_hash,
-            source_path: doc.source_path,
             dirty: doc.dirty,
+            source_bytes: snapshot.bytes().len(),
         })
     }
 

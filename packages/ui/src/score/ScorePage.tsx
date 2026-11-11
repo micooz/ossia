@@ -271,13 +271,13 @@ function ScoreApp({
           author: 'user',
         });
       } else {
-        const job = await api.restore({
-          documentId: current.documentId,
+        const job = await api.restore(current.documentId, {
           versionId: action.versionId,
           baseVersionId: current.headVersionId,
           expectedSourceHash: current.sourceHash,
           author: 'user',
           summary: t('restoreSummary', { version: action.seq }),
+          waitMs: null,
         });
         await api.waitJob(job);
         setHistoryVersion(null);

@@ -394,7 +394,6 @@ pub struct EditSession {
     pub base_version_id: Option<VersionId>,
     pub status: EditStatus,
     pub started_at: String,
-    pub source_path: String,
     pub author: String,
 }
 

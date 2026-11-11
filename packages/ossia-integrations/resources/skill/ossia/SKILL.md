@@ -24,13 +24,13 @@ operations. The entry is published in the data directory when Ossia starts.
 
 ## Capability index
 
-- Runtime and diagnostics: `ossia_status`, `ossia_doctor`.
+- Runtime, documentation health and diagnostics: `ossia_status` (CLI `doctor` for offline resources).
 - Offline LilyPond syntax reference: `ossia_docs`.
 - Library, score creation, and import: `ossia_list`, `ossia_import`.
 - Score preview and selection context: `ossia_open`, `ossia_context`.
-- Editing, validation, and version creation: `ossia_edit`, `ossia_write_source`, `ossia_check`, `ossia_commit`.
-- Draft previews and outputs: `ossia_artifact`.
-- Fixed-snapshot musical evidence: `ossia_analysis`.
+- Source reading and editing: `ossia_read_source`, `ossia_edit`, `ossia_write_source`.
+- Validation and version creation: `ossia_check`, `ossia_commit`.
+- Output files from job or version snapshots: `ossia_output`.
+- Fixed-snapshot musical evidence: `ossia_job` with `section`.
 - Version history and restoration: `ossia_history`, `ossia_restore`.
-- Versioned output: `ossia_export`.
 - Background job status and cancellation: `ossia_job`.

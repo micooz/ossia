@@ -25,5 +25,12 @@ pub(crate) fn value<T: Serialize>(data: T) -> Result<Value> {
 pub(crate) fn decode<T: serde::de::DeserializeOwned>(data: Value) -> Result<T> {
     serde_json::from_value(data).map_err(|e| invalid(e.to_string()))
 }
+pub(crate) fn validate_wait_ms(value: Option<u64>) -> Result<u64> {
+    let value = value.unwrap_or(0);
+    if value > 30_000 {
+        return Err(invalid("waitMs must be 0..30000"));
+    }
+    Ok(value)
+}
 /// Embedded workflow shared by the CLI and MCP.
 pub const GUIDE: &str = include_str!("guide.md");

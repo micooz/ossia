@@ -16,7 +16,7 @@ The caller provides a verified `Engine` and a fresh `RunContext` per operation. 
 
 - `import` returns an `ImportOutcome`. Refused or unconfirmed reports have no document. Retry losses with the exact confirmation hash. Converted input without a successful SVG is not published; a handwritten `.ly` with compiler diagnostics remains a repairable document with no head.
 - A no-head document is dirty, but its initial snapshot is a known baseline for `begin_edit`. Unknown changes require `adopt_workspace: true` and the exact current hash. This attributes the workspace to a task without replacing the file.
-- `begin_edit` returns the edit capability and absolute source path. `DocumentState` omits editId. P04 uses `get_edit(editId)` to verify ownerViewId without enumerating capabilities. Authentication and binding requests to a permitted view belong to P04; these are trusted in-process interfaces.
+- `begin_edit` returns the edit capability without a source filesystem path. `DocumentState` separately exposes the public source path for host diagnostics, while `read_source` and `write_source` provide the Agent editing boundary. P04 uses `get_edit(editId)` to verify ownerViewId without enumerating capabilities.
 - `source_snapshot` reads stable UTF-8 bytes. `observe_source` recomputes state without creating versions. Missing, invalid or unstable source is reported without resetting it.
 - `check` binds a successful SVG receipt to the active edit, exact source, engine build and options. A preview without editId does not authorize an edit commit. PDF/MIDI failures remain independent.
 - `commit` requires that receipt, matching head and current bytes. It appends a version and ends the edit in one transaction without rewriting source. Unchanged source ends the task and returns the current version. A repaired no-head document receives its first `origin=import` version.
@@ -44,21 +44,40 @@ fn edit_example(home: &Path, engine: &Engine) -> Result<Version> {
         author: "agent",
         adopt_workspace: false,
     })?;
-    fs::write(&edit.source_path,
-        b"\\version \"2.26.0\"\n\\score { { d'1 } \\layout {} }\n")
-        .map_err(|e| AppError::new(ErrorCode::StorageError, e.to_string()))?;
-    let snapshot = library.source_snapshot(doc.document_id)?;
+    let page = library.read_source(&ReadSourceArgs {
+        document_id: doc.document_id,
+        view_id: edit.owner_view_id,
+        expected_source_hash: doc.source_hash.clone(),
+        start: Some(SourceReadStart::Start),
+        max_lines: None,
+        max_bytes: None,
+    })?;
+    let start = page.content.find("c'1").expect("fixture note");
+    let span = ossia_score::SourceMap::new(&page.content)
+        .span(start, start + 3)?;
+    let written = library.write_source(&WriteSourceArgs {
+        view_id: edit.owner_view_id,
+        edit_id: edit.edit_id,
+        expected_source_hash: doc.source_hash,
+        change: SourceWriteChange::Edit {
+            edits: vec![SourceEdit {
+                span,
+                expected_text: "c'1".into(),
+                replacement: "d'1".into(),
+            }],
+        },
+    })?;
     library.check(engine, CheckRequest {
         expect: None,
         document_id: doc.document_id,
         edit_id: Some(edit.edit_id),
-        expected_source_hash: snapshot.source_hash(),
+        expected_source_hash: &written.source_hash,
         options: &CompileOptions::default(),
     }, &RunContext::default())?;
     library.commit(CommitRequest {
         edit_id: edit.edit_id,
         base_version_id: edit.base_version_id,
-        expected_source_hash: snapshot.source_hash(),
+        expected_source_hash: &written.source_hash,
         summary: "Raise the note to D",
     })
 }

@@ -88,11 +88,12 @@ pub struct RuntimeEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImportArgs {
-    pub title: String,
-    pub format: InputFormat,
+    pub title: Option<String>,
+    pub format: Option<InputFormat>,
     pub path: String,
     pub confirmation: Option<ContentHash>,
-    pub author: String,
+    pub author: Option<String>,
+    pub wait_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
@@ -100,11 +101,11 @@ pub struct ImportArgs {
 pub struct OpenArgs {
     pub document_id: Option<DocumentId>,
 }
+
+/// Identify one isolated view for a context read.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ContextArgs {
-    #[serde(default)]
-    pub detail: DetailLevel,
+pub struct ViewArgs {
     pub view_id: ViewId,
 }
 
@@ -141,18 +142,17 @@ fn default_author() -> String {
 pub struct CheckArgs {
     #[serde(default)]
     pub expect: Option<MusicExpectation>,
-    pub document_id: DocumentId,
+    pub document_id: Option<DocumentId>,
     pub view_id: ViewId,
     pub edit_id: Option<EditId>,
     pub expected_source_hash: ContentHash,
+    pub wait_ms: Option<u64>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CommitArgs {
-    pub document_id: DocumentId,
     pub view_id: ViewId,
     pub edit_id: EditId,
-    pub base_version_id: Option<VersionId>,
     pub expected_source_hash: ContentHash,
     pub summary: String,
 }
@@ -160,44 +160,72 @@ pub struct CommitArgs {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct HistoryArgs {
     pub document_id: DocumentId,
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub offset: usize,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RestoreArgs {
-    pub document_id: DocumentId,
     pub version_id: VersionId,
     pub base_version_id: Option<VersionId>,
     pub expected_source_hash: ContentHash,
-    pub author: String,
+    pub author: Option<String>,
     pub summary: String,
+    pub wait_ms: Option<u64>,
 }
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "kebab-case")]
-pub enum ExportFormat {
+
+/// Immutable snapshot source for a generated output file.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(
+    tag = "kind",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
+pub enum OutputSource {
+    Job { job_id: JobId },
+    Version { version_id: VersionId },
+}
+
+/// Output file format for a job or version snapshot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "lowercase")]
+pub enum OutputFormat {
     Ly,
+    Svg,
+    Png,
     Pdf,
     Midi,
 }
+
+/// Write one output file from a completed job snapshot or an immutable version.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ExportArgs {
-    pub document_id: DocumentId,
-    pub version_id: VersionId,
-    pub format: ExportFormat,
+pub struct OutputArgs {
+    pub source: OutputSource,
+    pub format: OutputFormat,
+    pub page: Option<u32>,
+    pub width: Option<u32>,
     pub output_path: Option<String>,
+    pub wait_ms: Option<u64>,
 }
+
+/// Verified local output file and immutable provenance.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct ExportOutcome {
+pub struct OutputOutcome {
+    pub source: OutputSource,
     pub document_id: DocumentId,
-    pub version_id: VersionId,
     pub source_hash: ContentHash,
-    pub format: ExportFormat,
+    pub engine_build_id: String,
+    pub format: OutputFormat,
+    pub page: Option<u32>,
     pub path: String,
     pub bytes: u64,
     pub sha256: ContentHash,
+    pub media_type: String,
 }
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum JobAction {
     Get,
@@ -210,6 +238,11 @@ pub struct JobArgs {
     pub detail: DetailLevel,
     pub job_id: JobId,
     pub action: JobAction,
+    pub wait_ms: Option<u64>,
+    pub section: Option<AnalysisSection>,
+    #[serde(default)]
+    pub offset: usize,
+    pub limit: Option<usize>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -226,16 +259,6 @@ pub struct LocateOutcome {
     pub reason: Option<String>,
     pub region: Option<LocatedRegion>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct StatusSnapshot {
-    pub runtime: RuntimeInfo,
-    pub engine_build_id: String,
-    pub jobs: Vec<Job>,
-    pub instance_id: String,
-    pub seq: u64,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EmptyArgs {}

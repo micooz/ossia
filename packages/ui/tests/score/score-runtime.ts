@@ -1,6 +1,7 @@
 import type { BrowserContext } from '@playwright/test';
 
 import type {
+  DocumentSummary,
   DocumentState,
   RenderGeometry,
   RenderReference,
@@ -38,6 +39,16 @@ export function scoreDocument(id = documentId): DocumentState {
     lastCheck: null,
   };
 }
+function scoreSummary(document: DocumentState): DocumentSummary {
+  return {
+    documentId: document.documentId,
+    title: document.title,
+    headVersionId: document.headVersionId,
+    sourceHash: document.sourceHash,
+    dirty: document.dirty,
+    editState: document.editState,
+  };
+}
 function geometry(): RenderGeometry {
   return {
     renderKey: hash,
@@ -65,7 +76,8 @@ export async function mockScoreRuntime(
   let expired = false;
   let loseEvents = false;
   const views = new Map<string, ViewSnapshot>();
-  const docs = [scoreDocument(), scoreDocument(secondId)];
+  const states = [scoreDocument(), scoreDocument(secondId)];
+  const docs = states.map(scoreSummary);
   const points: { page: number; x: number; y: number }[] = [];
   const mutations: { expectedSourceHash: string }[] = [];
   let rejectSelection = false;
@@ -87,7 +99,7 @@ export async function mockScoreRuntime(
         viewId: id,
         instanceId: 'instance',
         seq,
-        document: docs[0]!,
+        document: states[0]!,
         selection: null,
         regions: [],
         render: reference,
@@ -113,32 +125,48 @@ export async function mockScoreRuntime(
         : ': keep-alive\n\n';
       return route.fulfill({ contentType: 'text/event-stream', body });
     }
-    if (path === '/documents') return reply(docs);
+    if (path === '/documents')
+      return reply({ items: docs, total: docs.length, offset: 0, nextOffset: null });
     if (path === '/status')
       return reply({
-        runtime: { instanceId: 'instance' },
+        runtime: {
+          runtimeVersion: '0.1.0',
+          protocolVersion: 1,
+          schemaVersion: 1,
+          instanceId: 'instance',
+          home: '/synthetic/library',
+          webBaseUrl: 'http://127.0.0.1',
+          capabilities: [],
+        },
         engineBuildId: 'test',
+        documentCount: docs.length,
         instanceId: 'instance',
         seq,
         jobs: [],
+        documentation: { available: true, version: '2.26.0', root: '/synthetic/docs', error: null },
       });
     if (path.endsWith('/versions'))
-      return reply([
-        {
-          versionId,
-          documentId: view.document?.documentId,
-          seq: 1,
-          parentVersionId: null,
-          sourceHash: hash,
-          origin: 'import',
-          author: 'test',
-          summary: '初始版本',
-          createdAt: '2026-11-10T00:00:00Z',
-        },
-      ]);
+      return reply({
+        items: [
+          {
+            versionId,
+            documentId: view.document?.documentId,
+            seq: 1,
+            parentVersionId: null,
+            sourceHash: hash,
+            origin: 'import',
+            author: 'test',
+            summary: '初始版本',
+            createdAt: '2026-11-10T00:00:00Z',
+          },
+        ],
+        total: 1,
+        offset: 0,
+        nextOffset: null,
+      });
     if (path === `/views/${id}`) return reply({ ...view, seq });
     if (path.endsWith('/document')) {
-      view.document = docs.find((d) => d.documentId === payload.documentId)!;
+      view.document = states.find((d) => d.documentId === payload.documentId)!;
       view.selection = null;
       seq++;
       return reply({ ...view, seq });
@@ -196,6 +224,7 @@ export async function mockScoreRuntime(
     mutations,
     views,
     docs,
+    states,
     exchanges: () => exchanges,
     expire: () => {
       expired = true;
@@ -210,9 +239,11 @@ export async function mockScoreRuntime(
       conflict = true;
     },
     change: () => {
+      states[0]!.sourceHash = newer;
+      states[0]!.dirty = true;
       docs[0]!.sourceHash = newer;
       docs[0]!.dirty = true;
-      docs[0]!.lastCheck = {
+      states[0]!.lastCheck = {
         jobId: 'check',
         documentId,
         kind: 'check',

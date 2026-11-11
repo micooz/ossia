@@ -167,6 +167,57 @@ fn bind_document(data: &Value, document: DocumentId) -> Result<()> {
     Ok(())
 }
 
+fn page_args(query: &str) -> Result<ListArgs> {
+    let mut limit = None;
+    let mut offset = 0;
+    for pair in query.split('&').filter(|pair| !pair.is_empty()) {
+        let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+        match key {
+            "limit" => limit = Some(value.parse().map_err(|_| invalid("invalid limit"))?),
+            "offset" => offset = value.parse().map_err(|_| invalid("invalid offset"))?,
+            _ => {}
+        }
+    }
+    Ok(ListArgs { limit, offset })
+}
+
+fn job_args(query: &str, job_id: JobId, action: JobAction) -> Result<JobArgs> {
+    let mut args = JobArgs {
+        detail: DetailLevel::Summary,
+        job_id,
+        action,
+        wait_ms: None,
+        section: None,
+        offset: 0,
+        limit: None,
+    };
+    for pair in query.split('&').filter(|pair| !pair.is_empty()) {
+        let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+        match key {
+            "detail" => {
+                args.detail = match value {
+                    "summary" => DetailLevel::Summary,
+                    "full" => DetailLevel::Full,
+                    _ => return Err(invalid("invalid detail")),
+                }
+            }
+            "waitMs" => args.wait_ms = Some(value.parse().map_err(|_| invalid("invalid waitMs"))?),
+            "section" => {
+                args.section = Some(match value {
+                    "performance" => AnalysisSection::Performance,
+                    "source" => AnalysisSection::Source,
+                    "differences" => AnalysisSection::Differences,
+                    _ => return Err(invalid("invalid section")),
+                })
+            }
+            "offset" => args.offset = value.parse().map_err(|_| invalid("invalid offset"))?,
+            "limit" => args.limit = Some(value.parse().map_err(|_| invalid("invalid limit"))?),
+            _ => {}
+        }
+    }
+    Ok(args)
+}
+
 async fn api(
     State(state): State<WebState>,
     request: Request,
@@ -178,6 +229,7 @@ async fn api(
         .to_owned();
     let parts: Vec<_> = path.split('/').collect();
     let method = request.method().clone();
+    let pagination = page_args(request.uri().query().unwrap_or(""))?;
     if parts == ["sessions", "exchange"] && method == "POST" {
         let args: ExchangeRequest = decode(body(request).await?)?;
         return Ok(axum::Json(state.runtime.exchange(&args.ticket)?).into_response());
@@ -208,6 +260,7 @@ async fn api(
             .into_response());
     }
     let runtime = state.runtime.clone();
+    let query = request.uri().query().unwrap_or("").to_owned();
     let data = if method == "POST" || method == "PUT" {
         body(request).await?
     } else {
@@ -229,11 +282,18 @@ async fn api(
                 runtime.reveal_export(id(job)?)?;
                 json!({"opened":true})
             }
-            ("GET", ["status"]) => value(runtime.status()?)?,
-            ("GET", ["documents"]) => value(runtime.library.list_documents()?)?,
+            ("GET", ["status"]) => value(runtime.agent_status()?)?,
+            ("GET", ["documents"]) => value(runtime.agent_list(pagination.clone())?)?,
             ("GET", ["documents", doc]) => {
                 let doc = id(doc)?;
-                json!({"document":runtime.observe(doc)?,"versions":runtime.library.history(doc)?})
+                json!({
+                    "document": runtime.observe(doc)?,
+                    "versions": runtime.agent_history(HistoryArgs {
+                        document_id: doc,
+                        limit: pagination.limit,
+                        offset: pagination.offset,
+                    })?
+                })
             }
             ("GET", ["views", v]) => {
                 let v = id(v)?;
@@ -265,31 +325,68 @@ async fn api(
                 runtime.edit(args, false)?
             }
             ("POST", ["documents", doc, "check"]) => {
-                bind_document(&data, id(doc)?)?;
-                let args: CheckArgs = decode(data)?;
+                let document_id = id(doc)?;
+                let mut args: CheckArgs = decode(data)?;
+                if args
+                    .document_id
+                    .is_some_and(|document| document != document_id)
+                {
+                    return Err(AppError::new(
+                        ErrorCode::Forbidden,
+                        "path document does not match request",
+                    ));
+                }
+                args.document_id = Some(document_id);
                 same_view(view, args.view_id)?;
                 queued = true;
                 value(runtime.check(args, false)?)?
             }
             ("POST", ["documents", doc, "commit"]) => {
-                bind_document(&data, id(doc)?)?;
+                let document_id = id(doc)?;
                 let args: CommitArgs = decode(data)?;
+                if runtime.library.get_edit(args.edit_id)?.document_id != document_id {
+                    return Err(AppError::new(
+                        ErrorCode::Forbidden,
+                        "path document does not match request",
+                    ));
+                }
                 same_view(view, args.view_id)?;
                 value(runtime.commit(args)?)?
             }
-            ("GET", ["documents", doc, "versions"]) => value(runtime.library.history(id(doc)?)?)?,
+            ("GET", ["documents", doc, "versions"]) => {
+                value(runtime.agent_history(HistoryArgs {
+                    document_id: id(doc)?,
+                    limit: pagination.limit,
+                    offset: pagination.offset,
+                })?)?
+            }
             ("POST", ["documents", doc, "restore"]) => {
-                bind_document(&data, id(doc)?)?;
+                let document_id = id(doc)?;
+                let args: RestoreArgs = decode(data)?;
+                if runtime
+                    .library
+                    .version_snapshot(args.version_id)?
+                    .document_id()
+                    != document_id
+                {
+                    return Err(AppError::new(
+                        ErrorCode::Forbidden,
+                        "path document does not match request",
+                    ));
+                }
                 queued = true;
-                value(runtime.restore(decode(data)?)?)?
+                value(runtime.restore(args)?)?
             }
-            ("POST", ["documents", doc, "export"]) => {
-                bind_document(&data, id(doc)?)?;
+            ("POST", ["outputs"]) => {
                 queued = true;
-                value(runtime.export(decode(data)?)?)?
+                value(runtime.output(decode(data)?)?)?
             }
-            ("GET", ["jobs", job]) => value(runtime.library.get_job(id(job)?)?)?,
-            ("POST", ["jobs", job, "cancel"]) => value(runtime.cancel(id(job)?)?)?,
+            ("GET", ["jobs", job]) => {
+                value(runtime.job_outcome(job_args(&query, id(job)?, JobAction::Get)?)?)?
+            }
+            ("POST", ["jobs", job, "cancel"]) => {
+                value(runtime.job_outcome(job_args(&query, id(job)?, JobAction::Cancel)?)?)?
+            }
             _ => return Err(AppError::new(ErrorCode::NotFound, "route not found")),
         };
         Ok((result, queued))

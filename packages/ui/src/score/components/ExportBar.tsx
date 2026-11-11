@@ -2,33 +2,38 @@ import { Download, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 
 import { describe } from '../../errors.ts';
-import type { ExportFormat, ExportOutcome, Version } from '../../generated/protocol.ts';
+import type { OutputFormat, OutputOutcome, Version } from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
 import type { Api } from '../api.ts';
 export function ExportBar({
   api,
-  documentId,
   versions,
   onError,
 }: {
   api: Api;
-  documentId: string;
   versions: Version[];
   onError: (e: unknown) => void;
 }) {
   const { t } = useI18n();
   const [version, setVersion] = useState(versions[0]?.versionId ?? '');
-  const [format, setFormat] = useState<ExportFormat>('pdf');
+  const [format, setFormat] = useState<OutputFormat>('pdf');
   const [working, setWorking] = useState(false);
-  const [result, setResult] = useState<{ jobId: string; outcome: ExportOutcome } | null>(null);
+  const [result, setResult] = useState<{ jobId: string; outcome: OutputOutcome } | null>(null);
   const [error, setError] = useState('');
   async function run() {
     setWorking(true);
     setError('');
     setResult(null);
     try {
-      const job = await api.export({ documentId, versionId: version, format, outputPath: null });
-      const outcome = await api.waitJob<ExportOutcome>(job);
+      const job = await api.output({
+        source: { kind: 'version', versionId: version },
+        format,
+        page: null,
+        width: null,
+        outputPath: null,
+        waitMs: null,
+      });
+      const outcome = await api.waitJob<OutputOutcome>(job);
       setResult({ jobId: job.jobId, outcome });
     } catch (e) {
       setError(describe(e));
@@ -62,7 +67,7 @@ export function ExportBar({
             aria-label={t('exportFormatLabel')}
             value={format}
             disabled={working}
-            onChange={(e) => setFormat(e.target.value as ExportFormat)}
+            onChange={(e) => setFormat(e.target.value as OutputFormat)}
           >
             <option value="pdf">PDF</option>
             <option value="midi">MIDI</option>

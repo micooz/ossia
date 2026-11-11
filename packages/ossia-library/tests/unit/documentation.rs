@@ -20,13 +20,10 @@ fn pack(root: &Path) {
     }
     fs::write(root.join("manifest.json"),serde_json::to_vec(&json!({"version":"2.26.0","formatVersion":1,"archiveSha256":lock().unwrap().sha256,"contentHash":ContentHash::of(identity.as_bytes()),"files":files})).unwrap()).unwrap();
 }
-fn args(action: DocsAction) -> DocsArgs {
-    DocsArgs {
-        action,
-        query: Some("八度".into()),
-        chapter_id: None,
+fn search() -> DocsRequest {
+    DocsRequest::Search {
+        query: "八度".into(),
         limit: None,
-        offset: 0,
     }
 }
 #[test]
@@ -37,21 +34,25 @@ fn install_search_read_and_integrity_are_offline_and_bounded() {
     fs::create_dir(&home).unwrap();
     pack(&resources);
     let docs = Documentation::install(&home, &resources).unwrap();
-    let hits = docs.query(args(DocsAction::Search)).unwrap();
+    let hits = docs.query(search()).unwrap();
     assert_eq!(hits.hits.len(), 1);
     assert!(Path::new(&hits.hits[0].path).is_file());
-    let mut read = args(DocsAction::Read);
-    read.chapter_id = Some(hits.hits[0].chapter_id.clone());
-    read.limit = Some(8);
+    let mut read = DocsRequest::Read {
+        chapter_id: hits.hits[0].chapter_id.clone(),
+        offset: 0,
+        limit: Some(8),
+    };
     let first = docs.query(read.clone()).unwrap();
     assert_eq!(first.text.as_deref(), Some("Absolute"));
-    read.offset = first.next_offset.unwrap();
+    if let DocsRequest::Read { offset, .. } = &mut read {
+        *offset = first.next_offset.unwrap();
+    }
     assert!(docs.query(read).unwrap().text.is_some());
     let installed = Documentation::install(&home, &resources).unwrap();
     assert_eq!(installed.root, docs.root);
     assert!(!Documentation::inspect(&root.path().join("missing")).available);
     fs::write(docs.root.join("index.sqlite"), b"corrupt").unwrap();
-    assert!(docs.query(args(DocsAction::Search)).is_err());
+    assert!(docs.query(search()).is_err());
     assert!(Documentation::install(&home, &resources).is_err());
 }
 #[test]

@@ -9,6 +9,7 @@ pub use documentation::Documentation;
 mod lifecycle;
 mod music;
 mod recovery;
+mod source;
 mod storage;
 #[cfg(test)]
 #[path = "../tests/unit/support.rs"]
@@ -112,6 +113,79 @@ impl Library {
         ids.into_iter()
             .map(|id| self.get_document(db::parse(id)?))
             .collect()
+    }
+
+    /// List compact document metadata without loading render or check history.
+    pub fn document_page(&self, limit: usize, offset: usize) -> Result<DocumentPage> {
+        let conn = self.db()?;
+        let total: i64 = conn
+            .query_row("SELECT count(*) FROM documents", [], |r| r.get(0))
+            .map_err(storage_error)?;
+        let total = usize::try_from(total).map_err(storage_error)?;
+        let mut statement = conn
+            .prepare(
+                "SELECT document_id FROM documents ORDER BY created_at,document_id LIMIT ?1 OFFSET ?2",
+            )
+            .map_err(storage_error)?;
+        let ids = statement
+            .query_map(
+                params![
+                    i64::try_from(limit).map_err(storage_error)?,
+                    i64::try_from(offset).map_err(storage_error)?
+                ],
+                |r| r.get::<_, String>(0),
+            )
+            .map_err(storage_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        let items = ids
+            .into_iter()
+            .map(|id| {
+                let doc = db::document(&conn, db::parse(id)?)?;
+                self.document_summary(&conn, &doc)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let end = offset.saturating_add(items.len());
+        Ok(DocumentPage {
+            items,
+            total,
+            offset,
+            next_offset: (end < total).then_some(end),
+        })
+    }
+
+    fn document_summary(&self, conn: &Connection, doc: &db::Document) -> Result<DocumentSummary> {
+        let snapshot = self.snapshot(doc)?;
+        let dirty = match doc.head {
+            Some(head) => db::version(conn, head)?.source_hash != *snapshot.source_hash(),
+            None => true,
+        };
+        let pending = conn
+            .query_row(
+                "SELECT 1 FROM worktree_intents WHERE document_id=?1",
+                [doc.id.to_string()],
+                |r| r.get::<_, i32>(0),
+            )
+            .optional()
+            .map_err(storage_error)?
+            .is_some();
+        let edit_state = if pending {
+            DocumentEditState::RecoveryConflict
+        } else {
+            match db::active_edit(conn, doc.id)?.map(|e| e.status) {
+                Some(EditStatus::Active) => DocumentEditState::Active,
+                Some(EditStatus::Interrupted) => DocumentEditState::Interrupted,
+                _ => DocumentEditState::Idle,
+            }
+        };
+        Ok(DocumentSummary {
+            document_id: doc.id,
+            title: doc.title.clone(),
+            head_version_id: doc.head,
+            source_hash: snapshot.source_hash().clone(),
+            dirty,
+            edit_state,
+        })
     }
 
     pub fn import(
@@ -264,11 +338,6 @@ impl Library {
             base_version_id: doc.head,
             status: EditStatus::Active,
             started_at: db::now(),
-            source_path: self
-                .store
-                .path(&doc.source_path)?
-                .to_string_lossy()
-                .into_owned(),
             author: request.author.to_owned(),
         };
         db::save_edit(&tx, &edit)?;
@@ -340,6 +409,50 @@ impl Library {
             .map_err(storage_error)?;
         rows.map(|row| db::decode(row.map_err(storage_error)?))
             .collect()
+    }
+
+    /// Page through version nodes without loading the whole history.
+    pub fn history_page(
+        &self,
+        document: DocumentId,
+        limit: usize,
+        offset: usize,
+    ) -> Result<VersionPage> {
+        let conn = self.db()?;
+        db::document(&conn, document)?;
+        let total: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM versions WHERE document_id=?1",
+                [document.to_string()],
+                |r| r.get(0),
+            )
+            .map_err(storage_error)?;
+        let total = usize::try_from(total).map_err(storage_error)?;
+        let mut statement = conn
+            .prepare(
+                "SELECT body FROM versions WHERE document_id=?1 ORDER BY seq LIMIT ?2 OFFSET ?3",
+            )
+            .map_err(storage_error)?;
+        let rows = statement
+            .query_map(
+                params![
+                    document.to_string(),
+                    i64::try_from(limit).map_err(storage_error)?,
+                    i64::try_from(offset).map_err(storage_error)?
+                ],
+                |r| r.get::<_, String>(0),
+            )
+            .map_err(storage_error)?;
+        let items = rows
+            .map(|row| db::decode(row.map_err(storage_error)?))
+            .collect::<Result<Vec<Version>>>()?;
+        let end = offset.saturating_add(items.len());
+        Ok(VersionPage {
+            items,
+            total,
+            offset,
+            next_offset: (end < total).then_some(end),
+        })
     }
     pub fn source_snapshot(&self, document: DocumentId) -> Result<SourceSnapshot> {
         let conn = self.db()?;

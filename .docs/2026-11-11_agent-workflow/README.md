@@ -1,74 +1,49 @@
-# Agent workflow implementation
+# Agent workflow
 
-The implementation follows six independently verified stages: source analysis,
-performance reports, expectation checks, source/artifact operations, compact Agent
-responses, and bundled reference documentation. Runtime operations remain shared
-by CLI and MCP; browser state remains complete.
+Ossia exposes one Agent contract over IPC, CLI and MCP. The browser keeps full
+view snapshots; Agent transports return compact projections.
 
-## Source analysis
+## Evidence
 
-Text-command state ends at brace boundaries. Regression tests
-cover header/markup, layout, paper, named music, inline Staff, explicit Voice,
-unused variables, Unicode, BOM and CRLF. `cargo test -p ossia-score` verifies
-source indexing, pitch prediction and byte-preserving tokenization.
+Source analysis distinguishes written pitch tokens from performed MIDI note-ons.
+Unavailable coverage is not an empty score. `MusicReport` reports source and
+performance separately, and `QuarterTime` uses exact fractions of a quarter note.
 
-Music analysis availability is separate from import conversion status. Unsupported
-source must not be presented as a verified empty score.
+Explicit checks request SVG and MIDI; automatic previews request SVG only. The
+latest explicit check owns the edit receipt. Declared expectations must pass
+before commit. Preview and stale checks do not authorize a commit.
 
-## Music evidence
+## Source editing
 
-`MusicReport` separates written-source coverage from performed MIDI events.
-`QuarterTime` uses exact nonnegative fractions of a quarter note. MIDI key
-releases exclude pedal acoustics; ambiguous overlapping keys retain pitches but
-have no claimed duration. SMPTE and format-2 retain pitches without shared
-quarter-note time. `cargo test -p ossia-score -p ossia-types` passes.
+`write_source` uses the durable worktree journal and requires the active owned
+edit, the expected source hash and exact edit text. It returns the new hash
+without creating a version.
 
-## Checks and commit authorization
+`read_source` pages from a line, cursor or exact `SourceSpan`, bounded by lines
+and bytes. `write_source` accepts a whole-file replacement or up to 64
+non-overlapping edits. The compact context omits the source filesystem path.
 
-Explicit checks request SVG and MIDI and persist `CheckResult`; automatic previews
-remain SVG-only. The latest explicit check owns the edit's receipt. Declared
-expectations must pass before commit, including unchanged-source commits following
-a failed check. Preview and late older checks cannot authorize a commit.
+## Output files
 
-Application, protocol and database version numbers remain unchanged during MVP.
-Existing databases receive additive columns transactionally; old receipts are
-invalidated, while documents, versions and job history are preserved.
+`output` writes SVG, PNG, MIDI, PDF or LilyPond from a completed import/check
+snapshot or an immutable version. PNG uses bounded resvg rendering, external
+image reads are disabled, and the cache key includes SVG, dimensions, renderer
+and font metadata. Output paths never overwrite existing files.
 
-Library/runtime/type tests, Clippy, frontend checks and generated contract checks
-pass. A native LilyPond 2.26.0 macOS ARM64 test confirms the C3–C4 mismatch blocks
-commit and corrected C4–C5 with quarter-note durations passes.
+## Offline reference
 
-## Source and draft artifacts
+The bundled LilyPond 2.26.0 reference contains filtered documentation, examples,
+images and source notices with an FTS5 index. It installs by content identity and
+does not block runtime startup. Missing documentation affects documentation
+requests and status only.
 
-`write_source` uses the existing durable worktree journal and ownership/hash
-checks. It returns the computed hash without creating a version. Recovery tests
-cover failed writes after replacement and preserve the original version history.
+## Agent projections
 
-`artifact` queues outputs from completed import/check snapshots. PNG rendering
-uses resvg 0.49.0, bounds allocations, disables external image reads, and keys its
-cache by SVG, dimensions, renderer and font metadata. Library/runtime/engine tests
-and Clippy pass. Native macOS ARM64 evidence covers SVG/MIDI/PDF/PNG before commit,
-1600px PNG output, old-snapshot isolation and oversized preview rejection.
+`status` omits terminal task history, `context` omits duplicate render manifests,
+and `list`/`history` page compact records. `job` returns `{job, analysis}`;
+`section` reads immutable evidence in pages of at most 512, while
+`detail: "full"` is diagnostic-only. Browser view snapshots include full render
+manifests.
 
-## Offline LilyPond reference
-
-The locked 2.26.0 reference pack contains filtered English HTML, referenced
-examples and images, source notices, and an FTS5 index. It installs by content
-identity under the data directory and does not block runtime startup. Missing or
-damaged docs fail documentation requests and doctor diagnostics without affecting
-score operations. The current macOS pack is approximately 37 MiB.
-
-`scripts/docs.mjs` builds the pack with Node 22, parse5, native `node:sqlite` and
-system `tar`. Helper tests live under `tests/scripts/`, matching the source layout.
-Synthetic build tests verify code indentation, navigation exclusion, asset
-retention, PDF exclusion, checksum rejection and manifest identity. Native CLI/MCP
-evidence verifies offline octave search and read.
-
-## Agent response projections
-
-Agent status omits terminal task history, and context omits duplicate render
-manifests. Full results remain available with `detail: "full"`. Check summaries
-bound event/difference arrays at 64 and expose explicit totals/truncation flags.
-`analysis` reads immutable evidence in pages of at most 512. HTTP browser state
-keeps its full DTO. Runtime tests and Clippy verify compact responses, bounded
-paging, full projections and explicit legacy-evidence errors.
+`PROTOCOL_VERSION` and `SCHEMA_VERSION` are 1. An incompatible local library can
+be reset.

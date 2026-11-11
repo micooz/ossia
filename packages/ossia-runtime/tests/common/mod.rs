@@ -182,10 +182,11 @@ impl Fixture {
             .check(
                 CheckArgs {
                     expect: None,
-                    document_id: self.doc.document_id,
+                    document_id: Some(self.doc.document_id),
                     view_id: self.view,
                     edit_id: None,
                     expected_source_hash: hash,
+                    wait_ms: None,
                 },
                 false,
             )
