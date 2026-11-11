@@ -1,10 +1,11 @@
 import { Music2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { describe, locatorKey } from '../api.ts';
+import { describe } from '../../errors.ts';
+import type { Locator, RenderGeometry, RenderReference } from '../../generated/protocol.ts';
+import { useI18n } from '../../i18n.tsx';
+import { locatorKey } from '../api.ts';
 import type { Api } from '../api.ts';
-import type { Locator, RenderGeometry, RenderReference } from '../generated/protocol.ts';
-import { useI18n } from '../i18n.tsx';
 
 interface Props {
   api: Api;

@@ -1,4 +1,3 @@
-import type { Session } from './endpoint.ts';
 import type {
   DocumentState,
   EditArgs,
@@ -15,8 +14,9 @@ import type {
   StatusSnapshot,
   Version,
   ViewSnapshot,
-} from './generated/protocol.ts';
-import { jobStateKey, translate } from './i18n.tsx';
+} from '../generated/protocol.ts';
+import { jobStateKey, translate } from '../i18n.tsx';
+import type { Session } from './endpoint.ts';
 
 export class ApiError extends Error {
   constructor(publicStatus: number, code: string, message: string, detail?: unknown) {
@@ -28,12 +28,6 @@ export class ApiError extends Error {
   status: number;
   code: string;
   detail?: unknown;
-}
-export function describe(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  if (error && typeof error === 'object' && 'message' in error) return String(error.message);
-  return JSON.stringify(error) ?? String(error);
 }
 export function makeApi(session: Session, signal?: AbortSignal) {
   async function request(path: string, init: RequestInit = {}) {

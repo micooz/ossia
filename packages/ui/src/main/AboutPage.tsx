@@ -1,6 +1,6 @@
-import mark from '../assets/ossia-mark.svg';
 import type { ManagementPreferences, ManagementSnapshot } from '../generated/protocol.ts';
 import { useI18n } from '../i18n.tsx';
+import mark from './assets/ossia-mark.svg';
 import { InfoRow } from './ui.tsx';
 
 export function AboutPage({

@@ -1,11 +1,11 @@
 import { createRoot } from 'react-dom/client';
 
-import { describe } from './api.ts';
-import { App } from './App.tsx';
+import { describe } from '../errors.ts';
+import { matchSystemLanguage, translate } from '../i18n.tsx';
 import { resolveSession } from './endpoint.ts';
-import { matchSystemLanguage, translate } from './i18n.tsx';
+import { ScorePage } from './ScorePage.tsx';
 
-import './styles.css';
+import './score.css';
 
 const element = document.getElementById('root');
 if (!element) throw new Error('missing #root');
@@ -19,7 +19,7 @@ root.render(
   </main>,
 );
 resolveSession(fallbackLanguage)
-  .then(({ session }) => root.render(<App session={session} />))
+  .then(({ session }) => root.render(<ScorePage session={session} />))
   .catch((e) =>
     root.render(
       <main className="start panel">

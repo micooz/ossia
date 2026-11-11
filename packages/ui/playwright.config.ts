@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
@@ -16,7 +18,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
   },
   projects: [
-    { name: 'browser', outputDir: 'test-results/browser', testMatch: '**/browser.spec.ts' },
+    { name: 'browser', outputDir: 'test-results/browser', testMatch: '**/*.browser.spec.ts' },
     {
       name: 'native',
       outputDir: 'test-results/native',

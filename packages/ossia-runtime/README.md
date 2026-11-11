@@ -10,7 +10,7 @@ pnpm engine:verify
 pnpm dev:runtime
 ```
 
-`dev:runtime` explicitly selects the repository `.ossia`, port 3212, the prepared engine and UI dist, and permits `http://127.0.0.1:5173`. It does not start Vite or install resources. The runtime uses `library.sqlite` in the selected home. The P05 score SPA and Tauri admin window consume the same local API; `pnpm dev:desktop` also drives the development service and Vite.
+`dev:runtime` explicitly selects the repository `.ossia`, port 3212, the prepared engine and UI dist, and permits `http://127.0.0.1:5173`. It does not start Vite or install resources. The runtime uses `library.sqlite` in the selected home. The P05 score SPA and Tauri main window consume the same local API; `pnpm dev:desktop` also drives the development service and Vite.
 
 The binary is `target/debug/ossia-desktop`. Global options precede or follow the subcommand:
 

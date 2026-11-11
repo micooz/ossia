@@ -1,4 +1,9 @@
-import type { DocumentState, StatusSnapshot, Version, ViewSnapshot } from './generated/protocol.ts';
+import type {
+  DocumentState,
+  StatusSnapshot,
+  Version,
+  ViewSnapshot,
+} from '../generated/protocol.ts';
 export interface AppState {
   connection: 'connecting' | 'connected' | 'reconnecting' | 'expired';
   view: ViewSnapshot | null;

@@ -1,7 +1,7 @@
 import { History, RotateCcw } from 'lucide-react';
 
-import type { Version } from '../generated/protocol.ts';
-import { formatDate, useI18n } from '../i18n.tsx';
+import type { Version } from '../../generated/protocol.ts';
+import { formatDate, useI18n } from '../../i18n.tsx';
 export function HistoryPanel({
   versions,
   head,

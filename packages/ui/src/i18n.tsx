@@ -216,7 +216,7 @@ const messages = {
     stateConflict: 'Conflict',
     stateUnavailable: 'Unavailable',
     stateUpdateRequired: 'Update required',
-    nonNativeAdmin:
+    nonNativeMain:
       'Open the management window from the Ossia desktop app. Browser score pages do not need the desktop bridge.',
     trayClickAction: 'Click tray icon',
     trayWindow: 'Open management window',
@@ -430,7 +430,7 @@ const messages = {
     stateConflict: '冲突',
     stateUnavailable: '不可用',
     stateUpdateRequired: '需更新',
-    nonNativeAdmin: '请在 Ossia 桌面应用中打开管理窗口。浏览器谱面无需桌面桥接。',
+    nonNativeMain: '请在 Ossia 桌面应用中打开管理窗口。浏览器谱面无需桌面桥接。',
     trayClickAction: '点击托盘图标',
     trayWindow: '打开管理窗口',
     trayMenu: '显示托盘菜单',

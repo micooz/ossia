@@ -1,7 +1,7 @@
-import codexIcon from '../assets/agents/codex.svg';
-import dshIcon from '../assets/agents/dsh.svg';
 import type { AgentIntegration, AgentNotice, AgentState } from '../generated/protocol.ts';
 import type { MessageKey } from '../i18n.tsx';
+import codexIcon from './assets/agents/codex.svg';
+import dshIcon from './assets/agents/dsh.svg';
 
 export type Page = 'agents' | 'general' | 'about';
 

@@ -1,6 +1,6 @@
-import type { ExchangeResponse, ViewSnapshot } from './generated/protocol.ts';
-import type { UiLanguage } from './generated/protocol.ts';
-import { translate } from './i18n.tsx';
+import type { ExchangeResponse, ViewSnapshot } from '../generated/protocol.ts';
+import type { UiLanguage } from '../generated/protocol.ts';
+import { translate } from '../i18n.tsx';
 
 export interface Session {
   token: string;

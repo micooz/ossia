@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { describe } from '../api.ts';
+import { describe } from '../../errors.ts';
+import type { RenderReference, Version } from '../../generated/protocol.ts';
+import { useI18n } from '../../i18n.tsx';
 import type { Api } from '../api.ts';
-import type { RenderReference, Version } from '../generated/protocol.ts';
-import { useI18n } from '../i18n.tsx';
 import { ScoreView } from './ScoreView.tsx';
 
 function VersionScore({

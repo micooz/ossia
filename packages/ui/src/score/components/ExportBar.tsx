@@ -1,10 +1,10 @@
 import { Download, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 
-import { describe } from '../api.ts';
+import { describe } from '../../errors.ts';
+import type { ExportFormat, ExportOutcome, Version } from '../../generated/protocol.ts';
+import { useI18n } from '../../i18n.tsx';
 import type { Api } from '../api.ts';
-import type { ExportFormat, ExportOutcome, Version } from '../generated/protocol.ts';
-import { useI18n } from '../i18n.tsx';
 export function ExportBar({
   api,
   documentId,

@@ -1,21 +1,14 @@
 import { GitCompare, Music2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import { ApiError, delay, describe, locatorKey, makeApi } from './api.ts';
-import { CompareView, VersionScore } from './components/CompareView.tsx';
-import { DocumentDetails } from './components/DocumentDetails.tsx';
-import { HistoryPanel } from './components/HistoryPanel.tsx';
-import { ImportPanel } from './components/ImportPanel.tsx';
-import { ScoreView } from './components/ScoreView.tsx';
-import { forgetSession } from './endpoint.ts';
-import type { Session } from './endpoint.ts';
+import { describe } from '../errors.ts';
 import type {
   DocumentState,
   Locator,
   UiLanguage,
   Version,
   ViewSnapshot,
-} from './generated/protocol.ts';
+} from '../generated/protocol.ts';
 import {
   I18nProvider,
   jobKindKey,
@@ -24,10 +17,18 @@ import {
   phaseKey,
   translate,
   useI18n,
-} from './i18n.tsx';
+} from '../i18n.tsx';
+import { ApiError, delay, locatorKey, makeApi } from './api.ts';
+import { CompareView, VersionScore } from './components/CompareView.tsx';
+import { DocumentDetails } from './components/DocumentDetails.tsx';
+import { HistoryPanel } from './components/HistoryPanel.tsx';
+import { ImportPanel } from './components/ImportPanel.tsx';
+import { ScoreView } from './components/ScoreView.tsx';
+import { forgetSession } from './endpoint.ts';
+import type { Session } from './endpoint.ts';
 import { initialState, reducer } from './state.ts';
 
-export function App({ session }: { session: Session }) {
+export function ScorePage({ session }: { session: Session }) {
   const [language, setLanguage] = useState<UiLanguage>(session.language);
   useEffect(() => {
     document.documentElement.lang = language;

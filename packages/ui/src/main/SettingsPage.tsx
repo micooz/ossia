@@ -75,10 +75,7 @@ export function SettingsPage({
             <div className="settings-row">
               <div className="setting-copy">
                 <span className="setting-label">{t('trayClickAction')}</span>
-                <span
-                  className="setting-note"
-                  title={`${t('closeToTrayNote')} ${t('quitStopsRuntime')}`}
-                >
+                <span className="setting-note">
                   {t('closeToTrayNote')} {t('quitStopsRuntime')}
                 </span>
                 {platform === 'linux' && (

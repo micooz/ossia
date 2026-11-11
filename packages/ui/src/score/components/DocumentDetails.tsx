@@ -1,13 +1,13 @@
-import type { Api } from '../api.ts';
-import { locatorKey } from '../api.ts';
 import type {
   DocumentState,
   Locator,
   RenderManifest,
   Version,
   ViewSnapshot,
-} from '../generated/protocol.ts';
-import { useI18n } from '../i18n.tsx';
+} from '../../generated/protocol.ts';
+import { useI18n } from '../../i18n.tsx';
+import type { Api } from '../api.ts';
+import { locatorKey } from '../api.ts';
 import { ExportBar } from './ExportBar.tsx';
 
 export function DocumentDetails({

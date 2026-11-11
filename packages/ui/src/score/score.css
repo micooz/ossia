@@ -394,16 +394,6 @@ dialog::backdrop {
   .compare {
     grid-template-columns: minmax(0, 1fr);
   }
-  .admin {
-    padding: 1rem;
-  }
-  .admin dl {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.25rem;
-  }
-  .admin dd {
-    margin-block-end: 0.8rem;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   * {

@@ -5,15 +5,7 @@ import { Bot, Info, Settings, ShieldAlert, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import { AboutPage } from './admin/AboutPage.tsx';
-import { AgentsPage } from './admin/AgentsPage.tsx';
-import { ServiceDialog } from './admin/ServiceDialog.tsx';
-import { SettingsPage } from './admin/SettingsPage.tsx';
-import { platformName } from './admin/types.ts';
-import type { Page } from './admin/types.ts';
-import { NavItem } from './admin/ui.tsx';
-import { describe } from './api.ts';
-import mark from './assets/ossia-mark.svg';
+import { describe } from '../errors.ts';
 import type {
   AgentIntegration,
   AgentProblem,
@@ -25,12 +17,20 @@ import type {
   TrayClickAction,
   UiLanguage,
   UiTheme,
-} from './generated/protocol.ts';
-import { I18nProvider, matchSystemLanguage, useI18n } from './i18n.tsx';
+} from '../generated/protocol.ts';
+import { I18nProvider, matchSystemLanguage, useI18n } from '../i18n.tsx';
+import { AboutPage } from './AboutPage.tsx';
+import { AgentsPage } from './AgentsPage.tsx';
+import mark from './assets/ossia-mark.svg';
+import { ServiceDialog } from './ServiceDialog.tsx';
+import { SettingsPage } from './SettingsPage.tsx';
+import { platformName } from './types.ts';
+import type { Page } from './types.ts';
+import { NavItem } from './ui.tsx';
 
-import './admin.css';
+import './main.css';
 
-function Admin() {
+function Main() {
   const native = '__TAURI_INTERNALS__' in window;
   const detectedLanguage = matchSystemLanguage(navigator.languages);
   const [preferences, setPreferences] = useState<ManagementPreferences | null>(null);
@@ -79,7 +79,7 @@ function Admin() {
 
   return (
     <I18nProvider language={language}>
-      <AdminContent
+      <MainContent
         native={native}
         preferences={preferences}
         setPreferences={setPreferences}
@@ -90,7 +90,7 @@ function Admin() {
   );
 }
 
-function AdminContent({
+function MainContent({
   native,
   preferences,
   setPreferences,
@@ -370,7 +370,7 @@ function AdminContent({
           {!native && (
             <div className="alert warn" role="alert">
               <Info aria-hidden="true" />
-              <span>{t('nonNativeAdmin')}</span>
+              <span>{t('nonNativeMain')}</span>
             </div>
           )}
 
@@ -430,4 +430,4 @@ function AdminContent({
 
 const root = document.getElementById('root');
 if (!root) throw new Error('missing #root');
-createRoot(root).render(<Admin />);
+createRoot(root).render(<Main />);

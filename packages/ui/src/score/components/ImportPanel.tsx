@@ -1,10 +1,11 @@
 import { FileUp } from 'lucide-react';
 import { useState } from 'react';
 
-import { ApiError, describe } from '../api.ts';
+import { describe } from '../../errors.ts';
+import type { ImportOutcome, ImportReport, InputFormat } from '../../generated/protocol.ts';
+import { useI18n } from '../../i18n.tsx';
+import { ApiError } from '../api.ts';
 import type { Api } from '../api.ts';
-import type { ImportOutcome, ImportReport, InputFormat } from '../generated/protocol.ts';
-import { useI18n } from '../i18n.tsx';
 
 export function ImportPanel({
   api,

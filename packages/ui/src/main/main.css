@@ -1023,11 +1023,15 @@ button.service-badge:hover {
   flex: 1;
 }
 
-.settings-page .setting-label,
-.settings-page .setting-note {
+.settings-page .setting-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.settings-page .setting-note {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .settings-page .settings-row > .setting-label {
