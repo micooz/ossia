@@ -19,7 +19,10 @@ export function nextPatchTag(tags) {
 }
 
 async function refresh(root) {
-  await runGit(['fetch', '--tags', 'origin', '+refs/heads/main:refs/remotes/origin/main'], root);
+  await runGit(
+    ['fetch', '--tags', '--force', 'origin', '+refs/heads/main:refs/remotes/origin/main'],
+    root,
+  );
 }
 
 /** Push an annotated tag only for the checked main HEAD; return a reason when skipped. */
