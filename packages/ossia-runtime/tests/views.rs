@@ -34,6 +34,7 @@ async fn view_ownership_stale_selections_and_explicit_commit() {
     );
     let args = CheckArgs {
         expect: None,
+        reference: None,
         document_id: Some(f.doc.document_id),
         view_id: other,
         edit_id: Some(edit.edit_id),
@@ -49,6 +50,7 @@ async fn view_ownership_stale_selections_and_explicit_commit() {
         .check(
             CheckArgs {
                 expect: None,
+                reference: None,
                 document_id: Some(f.doc.document_id),
                 view_id: f.view,
                 edit_id: Some(edit.edit_id),

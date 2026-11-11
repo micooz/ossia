@@ -14,7 +14,18 @@ pub enum AnalysisStatus {
 
 /// Exact nonnegative time measured in quarter notes. Denominator must be nonzero.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+    ts_rs::TS,
 )]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuarterTime {
@@ -122,6 +133,166 @@ pub struct MusicExpectation {
     pub tracks: Vec<TrackExpectation>,
 }
 
+/// Immutable source addressed by an evidence or comparison request.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
+#[serde(
+    tag = "kind",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
+pub enum EvidenceSource {
+    Job { job_id: JobId },
+    Version { version_id: VersionId },
+}
+
+/// Evidence page to return, or a summary without any event arrays.
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+    ts_rs::TS,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum EvidenceSection {
+    #[default]
+    Summary,
+    Performance,
+    Source,
+}
+
+/// Compact coverage information for one immutable evidence report.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct EvidenceSummary {
+    pub source_status: AnalysisStatus,
+    pub source_reasons: Vec<String>,
+    pub measures: Option<u32>,
+    pub voices: Option<usize>,
+    pub note_tokens: Option<usize>,
+    pub source_events: usize,
+    pub performance_status: AnalysisStatus,
+    pub performance_reasons: Vec<String>,
+    pub performed_notes: usize,
+}
+
+/// Derived music evidence bound to one source snapshot and engine build.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct EvidenceReport {
+    pub document_id: DocumentId,
+    pub source_hash: ContentHash,
+    pub engine_build_id: String,
+    pub analysis_version: u32,
+    pub music: MusicReport,
+}
+
+/// Read bounded evidence from an immutable version or completed job snapshot.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct EvidenceArgs {
+    pub source: EvidenceSource,
+    #[serde(default)]
+    pub section: EvidenceSection,
+    #[serde(default)]
+    pub offset: usize,
+    pub limit: Option<usize>,
+    pub wait_ms: Option<u64>,
+}
+
+/// One bounded evidence page, including its immutable provenance.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct EvidencePage {
+    pub source: EvidenceSource,
+    pub document_id: DocumentId,
+    pub source_hash: ContentHash,
+    pub engine_build_id: String,
+    pub analysis_version: u32,
+    pub section: EvidenceSection,
+    pub summary: EvidenceSummary,
+    pub total: usize,
+    pub offset: usize,
+    pub next_offset: Option<usize>,
+    pub items: Vec<serde_json::Value>,
+}
+
+/// A cached evidence page, or a durable job that is still producing it.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct EvidenceOutcome {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub job: Option<Job>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub page: Option<EvidencePage>,
+}
+
+/// Which performed-note fields participate in reference equality.
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+    ts_rs::TS,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum ComparisonMode {
+    /// Pitch, start and duration; track order and channel are ignored.
+    #[default]
+    Performance,
+    /// Performance fields plus track and channel.
+    Tracks,
+}
+
+/// Reference performance used to verify a checked score.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReferenceExpectation {
+    pub source: EvidenceSource,
+    #[serde(default)]
+    pub comparison: ComparisonMode,
+}
+
+/// Durable reference data recorded with a check.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceMusic {
+    pub source: EvidenceSource,
+    pub source_hash: ContentHash,
+    pub engine_build_id: String,
+    pub comparison: ComparisonMode,
+    pub performance: PerformanceAnalysis,
+}
+
+/// Provenance and aggregate counts for a reference comparison.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceVerification {
+    pub source: EvidenceSource,
+    pub source_hash: ContentHash,
+    pub engine_build_id: String,
+    pub comparison: ComparisonMode,
+    pub expected_notes: usize,
+    pub actual_notes: usize,
+    pub missing: usize,
+    pub extra: usize,
+    pub differences_truncated: bool,
+}
+
 /// Compilation success does not imply that an expectation passed.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
@@ -134,10 +305,34 @@ pub enum VerificationStatus {
     Unavailable,
 }
 
+/// Machine-readable classification of one verification difference.
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+    ts_rs::TS,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum VerificationDifferenceKind {
+    #[default]
+    Mismatch,
+    Missing,
+    Extra,
+    Unavailable,
+}
+
 /// One mismatching or unavailable condition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct VerificationDifference {
+    #[serde(default)]
+    pub kind: VerificationDifferenceKind,
     pub path: String,
     pub expected: serde_json::Value,
     pub actual: serde_json::Value,
@@ -150,12 +345,17 @@ pub struct VerificationDifference {
 pub struct Verification {
     pub status: VerificationStatus,
     pub differences: Vec<VerificationDifference>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub reference: Option<ReferenceVerification>,
 }
 
 /// A check's evidence is stored separately from the engine render manifest.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckResult {
+    #[serde(default)]
+    pub analysis_version: u32,
     pub render: RenderManifest,
     pub music: MusicReport,
     pub verification: Verification,

@@ -6,7 +6,9 @@ use std::{fmt, fmt::Write as _, str::FromStr};
 use uuid::Uuid;
 
 pub const PROTOCOL_VERSION: u32 = 1;
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
+/// Semantic version of derived music evidence. Increment when evidence changes.
+pub const EVIDENCE_ANALYSIS_VERSION: u32 = 1;
 
 macro_rules! identifier {
     ($($name:ident),+ $(,)?) => {$ (
@@ -478,6 +480,8 @@ pub struct Job {
 pub struct ImportOutcome {
     #[serde(default)]
     pub music: Option<MusicReport>,
+    #[serde(default)]
+    pub verification: Option<Verification>,
     pub report: ImportReport,
     pub document: Option<DocumentState>,
     pub render: Option<RenderManifest>,

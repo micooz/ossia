@@ -15,6 +15,7 @@ async fn queued_snapshots_previews_and_explicit_checks_are_distinct() {
         .check(
             CheckArgs {
                 expect: None,
+                reference: None,
                 document_id: Some(f.doc.document_id),
                 view_id: f.view,
                 edit_id: None,
@@ -30,6 +31,7 @@ async fn queued_snapshots_previews_and_explicit_checks_are_distinct() {
         .check(
             CheckArgs {
                 expect: None,
+                reference: None,
                 document_id: Some(f.doc.document_id),
                 view_id: f.view,
                 edit_id: None,
@@ -106,6 +108,7 @@ async fn global_limit_same_document_serialization_and_cancel_cleanup() {
                 .check(
                     CheckArgs {
                         expect: None,
+                        reference: None,
                         document_id: Some(doc.document_id),
                         view_id: view,
                         edit_id: None,
@@ -150,6 +153,7 @@ async fn invalid_wait_is_rejected_before_queueing() {
         .check(
             CheckArgs {
                 expect: None,
+                reference: None,
                 document_id: Some(f.doc.document_id),
                 view_id: f.view,
                 edit_id: None,
@@ -275,6 +279,7 @@ async fn running_import_restore_output_cancellation_finishes_before_publishing()
                 confirmation: None,
                 author: Some("test".into()),
                 expect: None,
+                reference: None,
                 wait_ms: None,
             },
             SOURCE.to_vec(),

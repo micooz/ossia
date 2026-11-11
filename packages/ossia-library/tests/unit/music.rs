@@ -14,6 +14,7 @@ fn latest_explicit_check_wins_and_preview_cannot_authorize_commit() {
         .library
         .queue_check(CheckRequest {
             expect: None,
+            reference: None,
             document_id: f.doc.document_id,
             edit_id: Some(edit.edit_id),
             expected_source_hash: &hash,
@@ -24,6 +25,7 @@ fn latest_explicit_check_wins_and_preview_cannot_authorize_commit() {
         .library
         .queue_check(CheckRequest {
             expect: Some(&expectation),
+            reference: None,
             document_id: f.doc.document_id,
             edit_id: Some(edit.edit_id),
             expected_source_hash: &hash,
@@ -45,6 +47,7 @@ fn latest_explicit_check_wins_and_preview_cannot_authorize_commit() {
             &f.engine,
             CheckRequest {
                 expect: None,
+                reference: None,
                 document_id: f.doc.document_id,
                 edit_id: None,
                 expected_source_hash: &hash,

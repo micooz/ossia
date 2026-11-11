@@ -187,7 +187,7 @@ pub async fn call(endpoint: &str, method: &str, params: Value) -> Result<Value> 
     .await?;
     let response_timeout = match method {
         "docs" => Duration::from_secs(60),
-        "import" | "check" | "restore" | "output" | "job" => Duration::from_secs(45),
+        "import" | "check" | "restore" | "output" | "job" | "evidence" => Duration::from_secs(45),
         "storage-cleanup" => Duration::from_secs(120),
         _ => Duration::from_secs(15),
     };
@@ -272,6 +272,7 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
             runtime.check(decode(params)?, false)?,
         )),
         "layout" => value(runtime.layout(decode(params)?)?),
+        "evidence" => value(runtime.evidence(decode(params)?)?),
         "commit" => value(runtime.commit(decode(params)?)?),
         "history" => value(runtime.agent_history(decode(params)?)?),
         "restore" => value(runtime.restore(decode(params)?)?),

@@ -358,6 +358,7 @@ impl Library {
             "SELECT source_hash FROM jobs WHERE source_hash IS NOT NULL",
             "SELECT source_hash FROM renders",
             "SELECT source_hash FROM check_receipts",
+            "SELECT source_hash FROM evidence_runs",
         ] {
             let mut statement = conn.prepare(query).map_err(storage_error)?;
             let rows = statement

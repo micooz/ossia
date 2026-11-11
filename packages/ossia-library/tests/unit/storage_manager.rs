@@ -254,3 +254,50 @@ fn stale_staging_locks_docs_and_orphan_contents_are_removed() {
     assert!(!orphan_path.exists());
     assert!(report.removed_content_objects >= 1);
 }
+
+#[test]
+fn evidence_references_protect_content_from_cleanup() {
+    let fixture = Fixture::new();
+    let bytes = b"evidence-only";
+    let hash = fixture.library.store.put(bytes).unwrap();
+    let path = fixture
+        .library
+        .store
+        .path(&format!("contents/{hash}.gz"))
+        .unwrap();
+    {
+        let conn = fixture.library.db().unwrap();
+        conn.execute(
+            "INSERT INTO contents(hash,bytes) VALUES (?1,?2)",
+            rusqlite::params![hash.to_string(), bytes.len() as i64],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO evidence_runs(document_id,source_hash,engine_build_id,analysis_version,body,created_at,last_used_at)
+             VALUES (?1,?2,'test-engine',?3,'{}',?4,?4)",
+            rusqlite::params![
+                fixture.doc.document_id.to_string(),
+                hash.to_string(),
+                i64::from(EVIDENCE_ANALYSIS_VERSION),
+                db::now_millis()
+            ],
+        )
+        .unwrap();
+    }
+    fixture
+        .library
+        .storage_cleanup_with_policy(large_policy(), &[])
+        .unwrap();
+    assert!(path.exists());
+    let count: i64 = fixture
+        .library
+        .db()
+        .unwrap()
+        .query_row(
+            "SELECT count(*) FROM evidence_runs WHERE source_hash=?1",
+            [hash.to_string()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(count, 1);
+}

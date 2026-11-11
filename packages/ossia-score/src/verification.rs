@@ -1,6 +1,8 @@
 use ossia_types::*;
 use serde_json::{json, Value};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
+
+const MAX_REFERENCE_DIFFERENCES: usize = 512;
 
 /// Reject empty or ill-formed intent before a durable check is queued.
 pub fn validate_expectation(expect: &MusicExpectation) -> Result<(), AppError> {
@@ -39,6 +41,7 @@ pub fn verify_music(report: &MusicReport, expect: Option<&MusicExpectation>) -> 
         return Verification {
             status: VerificationStatus::NotRequested,
             differences: vec![],
+            reference: None,
         };
     };
     let mut differences = Vec::new();
@@ -49,6 +52,7 @@ pub fn verify_music(report: &MusicReport, expect: Option<&MusicExpectation>) -> 
             unavailable |= missing;
             mismatch |= !missing;
             differences.push(VerificationDifference {
+                kind: VerificationDifferenceKind::Mismatch,
                 path,
                 expected,
                 actual,
@@ -131,5 +135,156 @@ pub fn verify_music(report: &MusicReport, expect: Option<&MusicExpectation>) -> 
             VerificationStatus::Passed
         },
         differences,
+        reference: None,
     }
+}
+
+/// Compare performed notes as a multiset. Track identifiers are optional by mode.
+pub fn verify_reference(actual: &MusicReport, reference: &ReferenceMusic) -> Verification {
+    let expected = &reference.performance;
+    let actual_performance = &actual.performance;
+    let mut summary = ReferenceVerification {
+        source: reference.source,
+        source_hash: reference.source_hash.clone(),
+        engine_build_id: reference.engine_build_id.clone(),
+        comparison: reference.comparison,
+        expected_notes: expected.notes.len(),
+        actual_notes: actual_performance.notes.len(),
+        missing: 0,
+        extra: 0,
+        differences_truncated: false,
+    };
+    if expected.status == AnalysisStatus::Unavailable
+        || actual_performance.status == AnalysisStatus::Unavailable
+        || expected
+            .notes
+            .iter()
+            .any(|note| note.start.is_none() || note.duration.is_none())
+        || actual_performance
+            .notes
+            .iter()
+            .any(|note| note.start.is_none() || note.duration.is_none())
+    {
+        return Verification {
+            status: VerificationStatus::Unavailable,
+            differences: vec![VerificationDifference {
+                kind: VerificationDifferenceKind::Unavailable,
+                path: "reference.performance".into(),
+                expected: json!({
+                    "status": expected.status,
+                    "reasons": expected.reasons,
+                }),
+                actual: json!({
+                    "status": actual_performance.status,
+                    "reasons": actual_performance.reasons,
+                }),
+                message: "reference comparison requires complete performed-note timing".into(),
+            }],
+            reference: Some(summary),
+        };
+    }
+
+    type Key = (u8, (u64, u64), (u64, u64), Option<usize>, Option<u8>);
+    let key = |note: &PerformedNote| -> Key {
+        let start = note.start.expect("timing checked above");
+        let duration = note.duration.expect("timing checked above");
+        let (track, channel) = match reference.comparison {
+            ComparisonMode::Performance => (None, None),
+            ComparisonMode::Tracks => (Some(note.track), Some(note.channel)),
+        };
+        (
+            note.pitch,
+            (start.numerator, start.denominator),
+            (duration.numerator, duration.denominator),
+            track,
+            channel,
+        )
+    };
+    let mut expected_counts = BTreeMap::<Key, usize>::new();
+    let mut actual_counts = BTreeMap::<Key, usize>::new();
+    let mut expected_notes = BTreeMap::<Key, PerformedNote>::new();
+    let mut actual_notes = BTreeMap::<Key, PerformedNote>::new();
+    for note in &expected.notes {
+        *expected_counts.entry(key(note)).or_default() += 1;
+        expected_notes
+            .entry(key(note))
+            .or_insert_with(|| note.clone());
+    }
+    for note in &actual_performance.notes {
+        *actual_counts.entry(key(note)).or_default() += 1;
+        actual_notes
+            .entry(key(note))
+            .or_insert_with(|| note.clone());
+    }
+
+    let mut differences = Vec::new();
+    let mut missing_index = 0usize;
+    let mut extra_index = 0usize;
+    let scope = match reference.comparison {
+        ComparisonMode::Performance => "performance",
+        ComparisonMode::Tracks => "tracks",
+    };
+    for (note_key, expected_count) in &expected_counts {
+        let actual_count = actual_counts.get(note_key).copied().unwrap_or(0);
+        if *expected_count > actual_count {
+            let count = *expected_count - actual_count;
+            summary.missing += count;
+            for _ in 0..count {
+                if differences.len() >= MAX_REFERENCE_DIFFERENCES {
+                    summary.differences_truncated = true;
+                    break;
+                }
+                differences.push(VerificationDifference {
+                    kind: VerificationDifferenceKind::Missing,
+                    path: format!("reference.{scope}.missing[{missing_index}]"),
+                    expected: note_value(&expected_notes[note_key]),
+                    actual: Value::Null,
+                    message: "reference contains a performed note missing from the checked score"
+                        .into(),
+                });
+                missing_index += 1;
+            }
+        }
+    }
+    for (note_key, actual_count) in &actual_counts {
+        let expected_count = expected_counts.get(note_key).copied().unwrap_or(0);
+        if *actual_count > expected_count {
+            let count = *actual_count - expected_count;
+            summary.extra += count;
+            for _ in 0..count {
+                if differences.len() >= MAX_REFERENCE_DIFFERENCES {
+                    summary.differences_truncated = true;
+                    break;
+                }
+                differences.push(VerificationDifference {
+                    kind: VerificationDifferenceKind::Extra,
+                    path: format!("reference.{scope}.extra[{extra_index}]"),
+                    expected: Value::Null,
+                    actual: note_value(&actual_notes[note_key]),
+                    message: "checked score contains a performed note absent from the reference"
+                        .into(),
+                });
+                extra_index += 1;
+            }
+        }
+    }
+    Verification {
+        status: if summary.missing == 0 && summary.extra == 0 {
+            VerificationStatus::Passed
+        } else {
+            VerificationStatus::Failed
+        },
+        differences,
+        reference: Some(summary),
+    }
+}
+
+fn note_value(note: &PerformedNote) -> Value {
+    json!({
+        "track": note.track,
+        "channel": note.channel,
+        "pitch": note.pitch,
+        "start": note.start,
+        "duration": note.duration,
+    })
 }

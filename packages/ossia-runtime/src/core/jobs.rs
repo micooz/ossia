@@ -10,6 +10,7 @@ use std::{
 
 pub(super) enum Work {
     Check,
+    Evidence,
     VersionRender(DocumentId, VersionId),
     Import(ImportWork),
     Restore(RestoreArgs),
@@ -22,6 +23,7 @@ pub(super) struct ImportWork {
     author: String,
     confirmation: Option<ContentHash>,
     expect: Option<MusicExpectation>,
+    reference: Option<ReferenceMusic>,
     bytes: Vec<u8>,
 }
 
@@ -70,7 +72,7 @@ pub(super) struct Pending {
 }
 
 impl Runtime {
-    fn enqueue(&self, job: Job, work: Work, preview: bool) -> Result<Job> {
+    pub(super) fn enqueue(&self, job: Job, work: Work, preview: bool) -> Result<Job> {
         let mut state = self.state();
         if let Err(mut error) = self.available() {
             let _ = self.library.transition_job(
@@ -130,7 +132,15 @@ impl Runtime {
 
     pub fn check(&self, args: CheckArgs, preview: bool) -> Result<Job> {
         self.available()?;
+        if args.expect.is_some() && args.reference.is_some() {
+            return Err(invalid("expect and reference cannot be used together"));
+        }
         let wait_ms = validate_wait_ms(args.wait_ms)?;
+        let reference = args
+            .reference
+            .as_ref()
+            .map(|reference| self.resolve_reference(reference))
+            .transpose()?;
         let document_id = if let Some(edit_id) = args.edit_id {
             let edit = self.edit_capability(args.view_id, edit_id, false)?;
             if args
@@ -150,6 +160,7 @@ impl Runtime {
         self.observe(document_id)?;
         let job = self.library.queue_check(CheckRequest {
             expect: args.expect.as_ref(),
+            reference: reference.as_ref(),
             document_id,
             edit_id: args.edit_id,
             expected_source_hash: &args.expected_source_hash,
@@ -168,7 +179,15 @@ impl Runtime {
 
     pub fn import(&self, args: ImportArgs, bytes: Vec<u8>) -> Result<Job> {
         self.available()?;
+        if args.expect.is_some() && args.reference.is_some() {
+            return Err(invalid("expect and reference cannot be used together"));
+        }
         let wait_ms = validate_wait_ms(args.wait_ms)?;
+        let reference = args
+            .reference
+            .as_ref()
+            .map(|reference| self.resolve_reference(reference))
+            .transpose()?;
         let format = args
             .format
             .or_else(|| input_format_from_path(&args.path))
@@ -198,6 +217,7 @@ impl Runtime {
                 author,
                 confirmation: args.confirmation,
                 expect: args.expect,
+                reference,
                 bytes,
             }),
             false,
@@ -424,6 +444,21 @@ impl Runtime {
             task.context.check()?;
             match task.work {
                 Work::Check => unreachable!(),
+                Work::Evidence => {
+                    let snapshot = self
+                        .library
+                        .job_snapshot(task.job.job_id)?
+                        .ok_or_else(|| storage("evidence job has no snapshot"))?;
+                    let (report, cacheable) = self.library.derive_evidence(
+                        self.engine.as_ref(),
+                        &snapshot,
+                        &task.context,
+                    )?;
+                    if cacheable {
+                        self.library.save_evidence(&report)?;
+                    }
+                    value(report)
+                }
                 Work::VersionRender(document, version) => value(self.library.render_version(
                     self.engine.as_ref(),
                     document,
@@ -431,18 +466,28 @@ impl Runtime {
                     &task.context,
                 )?),
                 Work::Import(args) => {
-                    let outcome = self.library.import_with_expect(
-                        self.engine.as_ref(),
-                        ImportRequest {
-                            title: &args.title,
-                            input: &args.bytes,
-                            format: args.format,
-                            confirmation: args.confirmation.as_ref(),
-                            author: &args.author,
-                        },
-                        args.expect.as_ref(),
-                        &task.context,
-                    )?;
+                    let request = ImportRequest {
+                        title: &args.title,
+                        input: &args.bytes,
+                        format: args.format,
+                        confirmation: args.confirmation.as_ref(),
+                        author: &args.author,
+                    };
+                    let outcome = if let Some(reference) = args.reference.as_ref() {
+                        self.library.import_with_reference(
+                            self.engine.as_ref(),
+                            request,
+                            Some(reference),
+                            &task.context,
+                        )?
+                    } else {
+                        self.library.import_with_expect(
+                            self.engine.as_ref(),
+                            request,
+                            args.expect.as_ref(),
+                            &task.context,
+                        )?
+                    };
                     if let Some(document) = &outcome.document {
                         self.emit(
                             "document-created",

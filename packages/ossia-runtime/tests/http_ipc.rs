@@ -266,6 +266,7 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         .bearer_auth(&session.token)
         .json(&CheckArgs {
             expect: None,
+            reference: None,
             document_id: Some(document.document_id),
             view_id: session.view.view_id,
             edit_id: Some(edit.edit_id),

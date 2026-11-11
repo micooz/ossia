@@ -42,8 +42,11 @@ installed into the data directory on first use. CLI/MCP status and context
 always return compact Agent projections; `list` and `history` are paged.
 `import` and `check` return bounded job summaries; use `job` with
 `detail:"full"` for complete evidence. `job` returns `{job, analysis}` and
-supports bounded evidence sections. `layout` reports page, system and staff
-structure from a completed import or check job.
+supports bounded evidence sections. `evidence` reads or derives immutable source
+and performed-note evidence from a version or completed job without creating a
+version. Both checks accept either `expect` or `reference`; reference comparison
+uses performed notes, while `layout` separately reports page, system, staff,
+measure counts and only reliable source-measure mappings.
 
 ```sh
 target/debug/ossia-desktop --home /absolute/test-library import \

@@ -17,12 +17,33 @@ fn truncate_array(value: &mut Value, path: &[&str], limit: usize) {
         current[format!("{key}Truncated")] = json!(total > limit);
     }
 }
+fn strip_array(value: &mut Value, path: &[&str]) -> usize {
+    let mut current = value;
+    for key in &path[..path.len() - 1] {
+        let Some(next) = current.get_mut(*key) else {
+            return 0;
+        };
+        current = next;
+    }
+    let key = path[path.len() - 1];
+    current
+        .as_object_mut()
+        .and_then(|object| object.remove(key))
+        .and_then(|value| value.as_array().map(Vec::len))
+        .unwrap_or(0)
+}
 fn summarize_result(result: &mut Value) {
     for path in [
         ["music", "performance", "notes"],
         ["music", "source", "events"],
     ] {
-        truncate_array(result, &path, 64);
+        let total = strip_array(result, &path);
+        if let Some(parent) = result
+            .pointer_mut(&format!("/{}/{}", path[0], path[1]))
+            .and_then(Value::as_object_mut)
+        {
+            parent.insert(format!("{}Total", path[2]), json!(total));
+        }
     }
     truncate_array(result, &["verification", "differences"], 64);
     if let Some(diagnostics) = result
@@ -56,7 +77,13 @@ pub(crate) fn summarize_job(mut job: Job) -> Job {
                 ["music", "performance", "notes"],
                 ["music", "source", "events"],
             ] {
-                truncate_array(result, &path, 64);
+                let total = strip_array(result, &path);
+                if let Some(parent) = result
+                    .pointer_mut(&format!("/{}/{}", path[0], path[1]))
+                    .and_then(Value::as_object_mut)
+                {
+                    parent.insert(format!("{}Total", path[2]), json!(total));
+                }
             }
         }
     }
@@ -231,7 +258,7 @@ impl Runtime {
             source_bytes,
             dirty: d.dirty,
             edit_state: d.edit_state,
-            last_check: d.last_check.map(summarize_job),
+            last_check: d.last_check.and_then(agent_check_summary),
         });
         let render = view.render.map(|r| AgentRender {
             render_key: r.render_key,
@@ -319,4 +346,50 @@ impl Runtime {
             analysis: None,
         })
     }
+}
+
+fn agent_music_summary(music: &MusicReport) -> AgentMusicSummary {
+    let source = &music.source;
+    let performance = &music.performance;
+    AgentMusicSummary {
+        source_status: source.status,
+        source_reasons: source.reasons.clone(),
+        measures: source.measures,
+        voices: source.voices,
+        note_tokens: source.note_tokens,
+        source_events: source.events.len(),
+        performance_status: performance.status,
+        performance_reasons: performance.reasons.clone(),
+        performed_notes: performance.notes.len(),
+    }
+}
+
+pub(crate) fn agent_check_summary(job: Job) -> Option<AgentCheckSummary> {
+    let result = job
+        .result
+        .as_ref()
+        .and_then(|result| serde_json::from_value::<CheckResult>(result.clone()).ok());
+    Some(AgentCheckSummary {
+        job_id: job.job_id,
+        kind: job.kind,
+        state: job.state,
+        phase: job.phase,
+        source_hash: job.source_hash,
+        error: job.error,
+        verification_status: result.as_ref().map(|result| result.verification.status),
+        difference_count: result
+            .as_ref()
+            .map(|result| result.verification.differences.len())
+            .unwrap_or(0),
+        reference: result
+            .as_ref()
+            .and_then(|result| result.verification.reference.clone()),
+        music: result
+            .as_ref()
+            .map(|result| agent_music_summary(&result.music)),
+        render_pages: result
+            .as_ref()
+            .map(|result| result.render.pages.len())
+            .unwrap_or(0),
+    })
 }

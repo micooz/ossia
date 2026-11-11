@@ -165,7 +165,47 @@ pub struct AgentDocument {
     pub source_bytes: usize,
     pub dirty: bool,
     pub edit_state: DocumentEditState,
-    pub last_check: Option<Job>,
+    pub last_check: Option<AgentCheckSummary>,
+}
+
+/// Compact musical coverage without embedded source or performance event arrays.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentMusicSummary {
+    pub source_status: AnalysisStatus,
+    pub source_reasons: Vec<String>,
+    pub measures: Option<u32>,
+    pub voices: Option<usize>,
+    pub note_tokens: Option<usize>,
+    pub source_events: usize,
+    pub performance_status: AnalysisStatus,
+    pub performance_reasons: Vec<String>,
+    pub performed_notes: usize,
+}
+
+/// One completed or failed check without duplicated evidence arrays.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentCheckSummary {
+    pub job_id: JobId,
+    pub kind: String,
+    pub state: JobState,
+    pub phase: String,
+    pub source_hash: Option<ContentHash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub error: Option<AppError>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub verification_status: Option<VerificationStatus>,
+    pub difference_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub reference: Option<ReferenceVerification>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub music: Option<AgentMusicSummary>,
+    pub render_pages: usize,
 }
 
 /// Stable preview identity with a page count; use job evidence or output to read a page.

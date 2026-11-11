@@ -12,6 +12,7 @@ use std::{
 };
 use tokio::sync::Notify;
 
+mod evidence;
 mod jobs;
 mod storage;
 mod views;
@@ -109,7 +110,9 @@ impl Runtime {
                     "source-edits".into(),
                     "outputs".into(),
                     "job-evidence".into(),
+                    "version-evidence".into(),
                     "music-expectations".into(),
+                    "reference-expectations".into(),
                     "offline-docs".into(),
                     "views".into(),
                     "jobs".into(),

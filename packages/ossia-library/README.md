@@ -6,7 +6,7 @@ Local document library: immutable source snapshots, public `score.ly` files, edi
 
 `Library::open(home)` takes an explicit path, canonicalizes it and holds `library.lock` until dropped. Only the owning process opens the database for writing; a second opener receives `library-busy`. P04 owns runtime discovery and transports around this library.
 
-Schema 1 uses `library.sqlite`, SQLite application ID `0x4f535349`, WAL, foreign keys and FULL synchronization. Unknown markers or schema versions return `runtime-incompatible`.
+Schema 3 uses `library.sqlite`, SQLite application ID `0x4f535349`, WAL, foreign keys and FULL synchronization. Unknown markers or schema versions return `runtime-incompatible`.
 
 Public source is `documents/<documentId>/score.ly`. `original/input.ly`, `original/input.musicxml` or `original/input.mid` preserves the supplied input. Source bytes, including BOM and CRLF, are stored as gzip CAS objects in `contents/<SHA-256>.gz`; the hash addresses uncompressed bytes. Engine assets stay in the P02 namespace beneath `artifacts/`. Interrupted writes can leave unreferenced content or import directories; idle maintenance removes them.
 
@@ -28,6 +28,11 @@ pruned automatically. A core data directory above 2 GiB produces a warning in
 the management window. Automatic cleanup is enabled by default and can be
 disabled independently from manual cleanup.
 
+Schema 3 adds `evidence_runs`, keyed by document, immutable source hash, engine
+build and analysis version. A cache miss derives source analysis and MIDI
+performance evidence from the captured snapshot without creating a version or
+changing the current source. Transient compile failures are not cached.
+
 ## Import and editing
 
 The caller provides a verified `Engine` and a fresh `RunContext` per operation. `EngineBackend` is the seam for deterministic fault/concurrency adapters; production uses the existing native engine. Compilation runs outside the SQLite mutex.
@@ -36,7 +41,7 @@ The caller provides a verified `Engine` and a fresh `RunContext` per operation. 
 - A no-head document is dirty, but its initial snapshot is a known baseline for `begin_edit`. Unknown changes require `adopt_workspace: true` and the exact current hash. This attributes the workspace to a task without replacing the file.
 - `begin_edit` returns the edit capability without a source filesystem path. `DocumentState` separately exposes the public source path for host diagnostics, while `read_source` and `write_source` provide the Agent editing boundary. P04 uses `get_edit(editId)` to verify ownerViewId without enumerating capabilities.
 - `source_snapshot` reads stable UTF-8 bytes. `observe_source` recomputes state without creating versions. Missing, invalid or unstable source is reported without resetting it.
-- `check` binds a successful SVG receipt to the active edit, exact source, engine build and options. A preview without editId does not authorize an edit commit. PDF/MIDI failures remain independent.
+- `check` binds a successful SVG receipt to the active edit, exact source, engine build and options. A preview without editId does not authorize an edit commit. When a version capture exists without a music report, `evidence` derives it without editing. `import_with_reference` and `CheckRequest.reference` compare performed-note multisets without requiring a new version. PDF/MIDI failures remain independent.
 - `commit` requires that receipt, matching head and current bytes. It appends a version and ends the edit in one transaction without rewriting source. Unchanged source ends the task and returns the current version. A repaired no-head document receives its first `origin=import` version.
 
 ```no_run
@@ -88,6 +93,7 @@ fn edit_example(home: &Path, engine: &Engine) -> Result<Version> {
     })?;
     library.check(engine, CheckRequest {
         expect: None,
+        reference: None,
         document_id: doc.document_id,
         edit_id: Some(edit.edit_id),
         expected_source_hash: &written.source_hash,

@@ -7,6 +7,8 @@ struct CheckParameters {
     edit_id: Option<EditId>,
     #[serde(default)]
     expect: Option<MusicExpectation>,
+    #[serde(default)]
+    reference: Option<ReferenceMusic>,
     formats: Vec<RenderFormat>,
     point_and_click: bool,
 }
@@ -109,6 +111,11 @@ impl Library {
 
     /// Persist the exact input before P04 schedules execution; credentials stay out of Job.
     pub fn queue_check(&self, request: CheckRequest<'_>) -> Result<Job> {
+        if request.expect.is_some() && request.reference.is_some() {
+            return Err(AppError::invalid(
+                "expect and reference cannot be used together",
+            ));
+        }
         if let Some(expect) = request.expect {
             ossia_score::validate_expectation(expect)?;
         }
@@ -149,6 +156,7 @@ impl Library {
         }
         let parameters = CheckParameters {
             expect: request.expect.cloned(),
+            reference: request.reference.cloned(),
             edit_id: request.edit_id,
             formats: request.options.formats.clone(),
             point_and_click: request.options.point_and_click,
@@ -238,12 +246,18 @@ impl Library {
                 return Err(error);
             }
         };
-        let verification = ossia_score::verify_music(&music, parameters.expect.as_ref());
+        let verification = match (&parameters.expect, &parameters.reference) {
+            (Some(expect), None) => ossia_score::verify_music(&music, Some(expect)),
+            (None, Some(reference)) => ossia_score::verify_reference(&music, reference),
+            (None, None) => ossia_score::verify_music(&music, None),
+            (Some(_), Some(_)) => unreachable!(),
+        };
         let eligible = matches!(
             verification.status,
             VerificationStatus::NotRequested | VerificationStatus::Passed
         );
         let result = CheckResult {
+            analysis_version: EVIDENCE_ANALYSIS_VERSION,
             render: render.clone(),
             music,
             verification,
@@ -287,6 +301,8 @@ impl Library {
         };
         db::save_job(&tx, &job)?;
         tx.commit().map_err(storage_error)?;
+        drop(conn);
+        self.cache_check_evidence(snapshot.document_id(), &result)?;
         Ok(CheckOutcome {
             job,
             render,

@@ -94,6 +94,7 @@ pub struct ImportArgs {
     pub confirmation: Option<ContentHash>,
     pub author: Option<String>,
     pub expect: Option<MusicExpectation>,
+    pub reference: Option<ReferenceExpectation>,
     pub wait_ms: Option<u64>,
 }
 
@@ -145,6 +146,8 @@ fn default_author() -> String {
 pub struct CheckArgs {
     #[serde(default)]
     pub expect: Option<MusicExpectation>,
+    #[serde(default)]
+    pub reference: Option<ReferenceExpectation>,
     pub document_id: Option<DocumentId>,
     pub view_id: ViewId,
     pub edit_id: Option<EditId>,
@@ -339,7 +342,18 @@ pub struct LayoutSystem {
     pub top: f64,
     pub bot: f64,
     pub bars: usize,
+    pub measure_start: Option<u32>,
+    pub measure_end: Option<u32>,
     pub staves: Vec<LayoutStaff>,
+}
+
+/// Reliability of source-measure mapping for rendered pages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "kebab-case")]
+pub enum MeasurementCapability {
+    None,
+    Partial,
+    Complete,
 }
 
 /// Rendered page structure independent of measure regions.
@@ -351,6 +365,7 @@ pub struct LayoutPage {
     pub staff_space: f64,
     pub systems: Vec<LayoutSystem>,
     pub capability: LocationCapability,
+    pub measure_mapping: MeasurementCapability,
     pub reason: Option<String>,
 }
 
@@ -364,6 +379,7 @@ pub struct LayoutOutcome {
     pub page_count: usize,
     pub system_count: usize,
     pub staff_count: usize,
+    pub measure_mapping: MeasurementCapability,
     pub pages: Vec<LayoutPage>,
 }
 

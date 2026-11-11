@@ -140,6 +140,7 @@ impl Runtime {
             let _ = self.check(
                 CheckArgs {
                     expect: None,
+                    reference: None,
                     document_id: Some(id),
                     view_id: ViewId::new(),
                     edit_id: None,

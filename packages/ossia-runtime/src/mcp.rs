@@ -12,8 +12,9 @@ Call ossia_guide for the complete workflow, then inspect ossia_status and ossia_
 Use ossia_import, ossia_open and ossia_context before editing; keep IDs private. \
 All score mutations are explicit. Validation and asynchronous work use the returned \
 job IDs and ossia_job; use section paging instead of full job results. Use \
-ossia_layout for page/system/staff structure and ossia_output for preview/export \
-files. The browser score page is optional.";
+ossia_evidence to read immutable version or job snapshots, ossia_layout for \
+page/system/staff structure and ossia_output for preview/export files. The \
+browser score page is optional.";
 
 fn schema<T: schemars::JsonSchema>() -> serde_json::Map<String, serde_json::Value> {
     let mut schema = serde_json::to_value(schemars::schema_for!(T))
@@ -98,7 +99,7 @@ pub fn tools() -> Vec<Tool> {
         ),
         write_tool::<ImportArgs>(
             "ossia_import",
-            "Queue an absolute-path import. format/title/author are inferred or defaulted. Optional expect rejects the import before creating a document or version. Returns a bounded Job summary; pass waitMs to wait.",
+            "Queue an absolute-path import. format/title/author are inferred or defaulted. Optional expect or reference (mutually exclusive) rejects the import before publishing. Returns a bounded Job summary with top-level verification; pass waitMs to wait.",
             false,
         ),
         write_tool::<OpenArgs>(
@@ -126,7 +127,12 @@ pub fn tools() -> Vec<Tool> {
         ),
         read_tool::<LayoutArgs>(
             "ossia_layout",
-            "Inspect page, system and staff structure from a completed import or check job. Returns LayoutOutcome.",
+            "Inspect page, system, staff and reliable measure structure from a completed import or check job. Returns LayoutOutcome.",
+        ),
+        write_tool::<EvidenceArgs>(
+            "ossia_evidence",
+            "Read bounded music evidence from an immutable version or completed job. Creates a durable evidence job only on a cache miss. Returns EvidenceOutcome.",
+            false,
         ),
         read_tool::<DocsRequest>(
             "ossia_docs",
@@ -139,7 +145,7 @@ pub fn tools() -> Vec<Tool> {
         ),
         write_tool::<CheckArgs>(
             "ossia_check",
-            "Queue a check of exact expectedSourceHash; documentId is derived from editId when supplied. Returns a bounded Job summary; poll or read full evidence with ossia_job.",
+            "Queue a check of exact expectedSourceHash; documentId is derived from editId when supplied. Optional expect or reference (mutually exclusive); reference compares performed notes from immutable evidence. Returns a bounded Job summary.",
             false,
         ),
         write_tool::<CommitArgs>(
@@ -236,6 +242,7 @@ mod tests {
                 "ossia_write_source",
                 "ossia_read_source",
                 "ossia_layout",
+                "ossia_evidence",
                 "ossia_docs",
                 "ossia_job",
                 "ossia_check",

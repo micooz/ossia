@@ -69,4 +69,14 @@ CREATE TABLE check_requests (
     job_id TEXT PRIMARY KEY NOT NULL REFERENCES jobs(job_id),
     parameters TEXT NOT NULL
 );
+CREATE TABLE evidence_runs (
+    document_id TEXT NOT NULL REFERENCES documents(document_id),
+    source_hash TEXT NOT NULL REFERENCES contents(hash),
+    engine_build_id TEXT NOT NULL,
+    analysis_version INTEGER NOT NULL CHECK(analysis_version > 0),
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    last_used_at INTEGER NOT NULL,
+    PRIMARY KEY(document_id,source_hash,engine_build_id,analysis_version)
+);
 COMMIT;

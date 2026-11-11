@@ -215,6 +215,7 @@ impl Fixture {
                 &self.engine,
                 CheckRequest {
                     expect: None,
+                    reference: None,
                     document_id: self.doc.document_id,
                     edit_id: Some(edit.edit_id),
                     expected_source_hash: hash,
@@ -487,6 +488,7 @@ fn invalid_handwritten_import_survives_restart_and_first_fix_is_import_version()
             &f.engine,
             CheckRequest {
                 expect: None,
+                reference: None,
                 document_id: id,
                 edit_id: Some(edit.edit_id),
                 expected_source_hash: &hash,
@@ -653,6 +655,7 @@ fn failed_svg_and_partial_formats_have_independent_commit_gates() {
             &f.engine,
             CheckRequest {
                 expect: None,
+                reference: None,
                 document_id: f.doc.document_id,
                 edit_id: Some(edit.edit_id),
                 expected_source_hash: &hash,
@@ -818,6 +821,7 @@ fn different_documents_can_compile_without_holding_database_lock() {
                 &f.engine,
                 CheckRequest {
                     expect: None,
+                    reference: None,
                     document_id: other.document_id,
                     edit_id: Some(other_edit.edit_id),
                     expected_source_hash: &other.source_hash,
@@ -999,6 +1003,7 @@ fn job_state_changes_are_conditional_and_terminals_are_immutable() {
             &f.engine,
             CheckRequest {
                 expect: None,
+                reference: None,
                 document_id: f.doc.document_id,
                 edit_id: Some(edit.edit_id),
                 expected_source_hash: &hash,
@@ -1021,6 +1026,7 @@ fn queued_checks_execute_the_persisted_snapshot_after_later_saves() {
         .library
         .queue_check(CheckRequest {
             expect: None,
+            reference: None,
             document_id: f.doc.document_id,
             edit_id: Some(edit.edit_id),
             expected_source_hash: &hash,

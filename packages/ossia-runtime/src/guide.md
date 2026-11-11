@@ -24,6 +24,40 @@ on demand.
 An operation error does not mean MCP is unavailable. If a write loses its
 response, inspect current state before retrying through another transport.
 
+## Immutable evidence and reference checks
+
+Use `ossia_evidence` when you need to inspect an existing version or completed
+job without editing it. It accepts `{"kind":"version","versionId":"…"}` or
+`{"kind":"job","jobId":"…"}`, plus `section` (`summary`, `performance` or
+`source`), `offset`, `limit` and optional `waitMs`. The first request may create
+a durable evidence job; later requests reuse the report for the same source,
+engine build and analysis version. Evidence never creates a version or changes
+the current source, and it does not require a view.
+
+Use performance evidence to verify pitches and timing. Source evidence can be
+partial when the LilyPond input uses constructs outside the verified analysis
+subset. That limitation does not make the performed-note evidence unavailable.
+Do not parse exported MIDI or infer pitch from preview pixels when
+`ossia_evidence` can answer the question.
+
+Import and check accept either `expect` or `reference`, never both:
+
+```json
+{
+  "reference": {
+    "source": { "kind": "version", "versionId": "…" },
+    "comparison": "performance"
+  }
+}
+```
+
+`performance` compares the multiset of performed notes by pitch, quarter-note
+start and duration; track order, channel and MIDI file order are ignored.
+`tracks` also includes track and channel. Differences report missing and extra
+notes without index-based cascades. Missing start or duration makes the result
+`unavailable`; it never silently passes. A reference comparison proves performed
+equivalence, not identical notation, staff assignment or engraving.
+
 ## LilyPond reference
 
 The runtime installs the official English LilyPond 2.26.0 manuals into its data
@@ -50,11 +84,11 @@ snapshots and commit authorization, and use a check to verify the actual result.
 2. To create a score, establish the requested music and instruments, write a
    self-contained `.ly` file in the host workspace, then call `ossia_import`
    with its absolute path. `format` is inferred from the extension; `title`
-   defaults from the filename and `author` from `"Ossia"`. Pass `expect` when the
-   musical intent is known: an import that fails the expectation returns a job
-   error with `verification.differences` and actual pitches, and creates no
-   document or version. Pass `waitMs` to wait for completion, or poll
-   `ossia_job`. A successful import creates the first version and renders it.
+   defaults from the filename and `author` from `"Ossia"`. Pass `expect` or
+   `reference` when the musical intent is known: an import that fails the check
+   returns a job error with `verification.differences` and actual pitches, and
+   creates no document or version. Pass `waitMs` to wait for completion, or poll
+   `ossia_job`. The top-level import outcome also reports `verification`.
 3. Call `ossia_open` with the selected `documentId`. Open its one-time URL in the
    host's browser immediately, without printing the signed URL. Prefer an
    in-app browser action; when the host exposes none, launch the system browser
@@ -82,7 +116,7 @@ snapshots and commit authorization, and use a check to verify the actual result.
    `"preview": false` when you will call `ossia_check` immediately; otherwise the
    file watcher also compiles an SVG-only preview.
 8. Call `ossia_check` with the returned source hash and the same `editId`. Add
-   `expect` when musical intent is known. Pass `waitMs`, or poll `ossia_job`.
+   `expect` or `reference` when musical intent is known. Pass `waitMs`, or poll `ossia_job`.
    Inspect the check result and verification, then inspect a preview. Repeat
    write/check within the same edit; do not re-import drafts. A done job means the
    check ran: declared expectations must also have verification status `passed`
@@ -208,9 +242,24 @@ A check result contains `render`, `music`, and `verification`. Compilation succe
 and intent verification are independent. A failed/unavailable expectation keeps
 preview evidence but authorizes no commit. The latest explicit check supersedes
 older checks; automatic previews never authorize a commit. Do not drop an
-expectation just to make a check pass. Jobs without a recorded music report
-cannot provide evidence; check again instead of treating missing evidence as
-success.
+expectation just to make a check pass. For an older job without recorded evidence,
+call `ossia_evidence` with its `jobId`; do not treat missing evidence as success.
+
+## Reviewing an existing version
+
+1. Use `ossia_history` to choose an immutable `versionId`.
+2. Call `ossia_evidence` with `section:"summary"` to inspect source and performance
+   coverage and counts.
+3. Read `performance` pages when pitches or timing matter. Page with `offset`
+   and `nextOffset`.
+4. Compare a draft or import by passing that version as `reference` to
+   `ossia_check` or `ossia_import`.
+5. If the version is the desired base, open it and use the normal edit/check/commit
+   workflow. If it already matches the request, do not duplicate it merely to
+   prove that it exists.
+
+Use image inspection for readability, collisions, spacing and visual structure.
+It is not authoritative evidence for pitch or octave.
 
 ## Rendered structure
 
@@ -250,4 +299,9 @@ default; `detail:"full"` is available for diagnostics. Use `section`
 (`performance`, `source`, `differences`), zero-based `offset` and optional `limit`
 (1..512, default 64) to read bounded evidence from a completed import/check;
 `job.result` is then null and evidence is in `analysis`. Follow `nextOffset` until
-null. Pass `waitMs` (0..30000) to wait for a running job.
+null. Pass `waitMs` (0..30000) to wait for a running job. For a version or a
+legacy job, use `ossia_evidence` instead.
+
+`ossia_context` returns `lastCheck` as a compact summary with analysis status,
+counts, verification status and reference provenance. Use `ossia_job` or
+`ossia_evidence` for the event lists.

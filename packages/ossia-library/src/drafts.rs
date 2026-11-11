@@ -23,8 +23,12 @@ impl Library {
                 "expected a completed import or check job",
             ));
         }
-        let result = serde_json::from_value(job.result.clone().ok_or_else(not_found)?)
-            .map_err(|_| AppError::unsupported("legacy job has no music report; check again"))?;
+        let result =
+            serde_json::from_value(job.result.clone().ok_or_else(not_found)?).map_err(|_| {
+                AppError::unsupported(
+                    "job has no embedded music report; read or derive it with ossia_evidence",
+                )
+            })?;
         Ok((job, result))
     }
 }

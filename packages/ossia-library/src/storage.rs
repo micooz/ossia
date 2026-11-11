@@ -215,6 +215,21 @@ pub(crate) fn migrate(conn: &mut Connection, from: u32) -> Result<()> {
         }
         tx.commit().map_err(storage_error)?;
     }
+    if from < 3 {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS evidence_runs (
+                document_id TEXT NOT NULL REFERENCES documents(document_id),
+                source_hash TEXT NOT NULL REFERENCES contents(hash),
+                engine_build_id TEXT NOT NULL,
+                analysis_version INTEGER NOT NULL CHECK(analysis_version > 0),
+                body TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                last_used_at INTEGER NOT NULL,
+                PRIMARY KEY(document_id,source_hash,engine_build_id,analysis_version)
+            );",
+        )
+        .map_err(storage_error)?;
+    }
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)
         .map_err(storage_error)
 }

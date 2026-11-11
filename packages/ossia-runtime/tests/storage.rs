@@ -28,6 +28,7 @@ async fn cleanup_refuses_while_queued_work_exists() {
         .check(
             CheckArgs {
                 expect: None,
+                reference: None,
                 document_id: Some(f.doc.document_id),
                 view_id: f.view,
                 edit_id: None,

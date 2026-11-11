@@ -35,6 +35,10 @@ async fn compact_status_and_context_exclude_history_and_render_duplication() {
     assert!(compact["document"].get("sourcePath").is_none());
     assert_eq!(compact["document"]["sourceBytes"], json!(SOURCE.len()));
     assert!(compact["render"].get("manifest").is_none());
+    assert!(compact["document"]["lastCheck"]["music"]["performedNotes"].is_number());
+    assert!(compact["document"]["lastCheck"]["music"]
+        .get("performance")
+        .is_none());
     ipc::dispatch(&f.runtime, "status", json!({"detail":"full"})).unwrap_err();
     f.finish().await;
 }
@@ -184,6 +188,7 @@ async fn import_infers_path_metadata_and_can_wait_for_completion() {
                 confirmation: None,
                 author: None,
                 expect: None,
+                reference: None,
                 wait_ms: Some(5_000),
             },
             SOURCE.to_vec(),
@@ -257,17 +262,9 @@ async fn ipc_import_returns_a_bounded_agent_summary() {
     assert!(result["document"]["lastCheck"].is_null());
     assert!(result["document"]["lastSuccessfulRender"].is_null());
     assert!(result["job"]["result"].is_null());
-    assert_eq!(
-        result["music"]["source"]["events"]
-            .as_array()
-            .unwrap()
-            .len(),
-        64
-    );
+    assert!(result["music"]["source"].get("events").is_none());
     assert_eq!(result["music"]["source"]["eventsTotal"], 100);
-    assert!(result["music"]["source"]["eventsTruncated"]
-        .as_bool()
-        .unwrap());
+    assert!(result["verification"].is_object());
     f.finish().await;
 }
 
@@ -284,6 +281,7 @@ async fn layout_reports_page_structure_from_a_completed_job() {
                 confirmation: None,
                 author: Some("test".into()),
                 expect: None,
+                reference: None,
                 wait_ms: Some(5_000),
             },
             SOURCE.to_vec(),

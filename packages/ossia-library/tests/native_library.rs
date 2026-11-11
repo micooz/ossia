@@ -76,6 +76,7 @@ fn native_import_edit_check_commit_restore_and_reopen() {
                 &engine,
                 CheckRequest {
                     expect: None,
+                    reference: None,
                     document_id: doc.document_id,
                     edit_id: Some(edit.edit_id),
                     expected_source_hash: &hash,
@@ -226,6 +227,7 @@ fn native_import_edit_check_commit_restore_and_reopen() {
             &engine,
             CheckRequest {
                 expect: None,
+                reference: None,
                 document_id: draft.document_id,
                 edit_id: Some(repair.edit_id),
                 expected_source_hash: &hash,
@@ -336,6 +338,7 @@ fn native_scale_expectations_gate_commit_before_output() {
             &engine,
             CheckRequest {
                 expect: Some(&expect),
+                reference: None,
                 document_id: doc.document_id,
                 edit_id: Some(edit.edit_id),
                 expected_source_hash: &doc.source_hash,
@@ -411,6 +414,7 @@ fn native_scale_expectations_gate_commit_before_output() {
             &engine,
             CheckRequest {
                 expect: Some(&expect),
+                reference: None,
                 document_id: doc.document_id,
                 edit_id: Some(edit.edit_id),
                 expected_source_hash: &hash,

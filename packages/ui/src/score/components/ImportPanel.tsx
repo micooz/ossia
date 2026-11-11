@@ -45,6 +45,7 @@ export function ImportPanel({
         confirmation,
         author: null,
         expect: null,
+        reference: null,
         waitMs: null,
       });
       const result = await api.waitJob<ImportOutcome>(job);

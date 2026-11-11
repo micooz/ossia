@@ -152,6 +152,11 @@ async fn offline_docs_cli_and_mcp_complete_the_agent_music_workflow() {
         (layout.page_count, layout.system_count, layout.staff_count),
         (1, 1, 1)
     );
+    assert_eq!(layout.pages[0].systems[0].bars, 2);
+    assert_eq!(
+        layout.pages[0].measure_mapping,
+        MeasurementCapability::Complete
+    );
     let outcome: ImportOutcome = serde_json::from_value(imported.result.unwrap()).unwrap();
     let doc = outcome.document.unwrap();
     let music = outcome.music.unwrap();
@@ -229,6 +234,72 @@ async fn offline_docs_cli_and_mcp_complete_the_agent_music_workflow() {
         }
     }
     let version=call(&client,"ossia_commit",json!({"viewId":opened.view_id,"editId":edit.edit_id,"expectedSourceHash":hash,"summary":"verified C4–C5 scale"})).await;
+    let reference_check = wait(
+        &client,
+        call(
+            &client,
+            "ossia_check",
+            json!({
+                "viewId":opened.view_id,
+                "documentId":doc.document_id,
+                "expectedSourceHash":hash,
+                "reference":{
+                    "source":{"kind":"version","versionId":version["versionId"]},
+                    "comparison":"performance"
+                }
+            }),
+        )
+        .await,
+    )
+    .await;
+    let reference_result: CheckResult =
+        serde_json::from_value(reference_check.result.unwrap()).unwrap();
+    assert_eq!(
+        reference_result.verification.status,
+        VerificationStatus::Passed
+    );
+    assert!(reference_result.verification.reference.is_some());
+    let evidence: EvidenceOutcome = serde_json::from_value(
+        call(
+            &client,
+            "ossia_evidence",
+            json!({
+                "source":{"kind":"version","versionId":version["versionId"]},
+                "section":"summary",
+                "waitMs":30000
+            }),
+        )
+        .await,
+    )
+    .unwrap();
+    let evidence = evidence.page.unwrap();
+    assert_eq!(evidence.summary.performed_notes, 8);
+    assert_eq!(
+        evidence.source,
+        EvidenceSource::Version {
+            version_id: serde_json::from_value(version["versionId"].clone()).unwrap()
+        }
+    );
+    let cli_evidence: EvidenceOutcome = serde_json::from_value(
+        cli(
+            &bin,
+            &home,
+            &engine,
+            &docs,
+            "evidence",
+            json!({
+                "source":{"kind":"version","versionId":version["versionId"]},
+                "section":"performance",
+                "limit":1,
+                "waitMs":5000
+            }),
+        )
+        .await,
+    )
+    .unwrap();
+    let cli_evidence = cli_evidence.page.unwrap();
+    assert_eq!(cli_evidence.items.len(), 1);
+    assert_eq!(cli_evidence.summary.performed_notes, 8);
     wait(&client,cli(&bin,&home,&engine,&docs,"output",json!({"source":{"kind":"version","versionId":version["versionId"]},"format":"pdf","outputPath":work.path().join("scale-final.pdf")})).await).await;
     let piano="\\version \"2.26.0\"\n\\score { \\new PianoStaff << \\new Staff { c'2 e'2 | } \\new Staff { \\clef bass c2 g2 | } >> \\layout {} \\midi {} }";
     std::fs::write(&input, piano).unwrap();
@@ -263,6 +334,54 @@ async fn offline_docs_cli_and_mcp_complete_the_agent_music_workflow() {
             .len()
             >= 2
     );
+    let transposed = "\\version \"2.26.0\"\n\\score { \\new PianoStaff << \\new Staff { \\transpose c c' { c'1 | } } \\new Staff { << { c1 | } \\\\ { g,1 | } >> } >> \\layout {} \\midi {} }";
+    std::fs::write(&input, transposed).unwrap();
+    let transposed = wait(
+        &client,
+        cli(
+            &bin,
+            &home,
+            &engine,
+            &docs,
+            "import",
+            json!({"path":input,"format":"ly","title":"Transposed voices","author":"test"}),
+        )
+        .await,
+    )
+    .await;
+    let transposed_layout: LayoutOutcome = serde_json::from_value(
+        call(&client, "ossia_layout", json!({"jobId":transposed.job_id})).await,
+    )
+    .unwrap();
+    assert_eq!(transposed_layout.pages[0].systems[0].bars, 1);
+    match transposed_layout.pages[0].measure_mapping {
+        MeasurementCapability::Complete => {
+            assert_eq!(transposed_layout.pages[0].systems[0].measure_start, Some(1))
+        }
+        _ => assert_eq!(transposed_layout.pages[0].systems[0].measure_start, None),
+    }
+    let outcome: ImportOutcome = serde_json::from_value(transposed.result.unwrap()).unwrap();
+    let document = outcome.document.unwrap();
+    let evidence: EvidenceOutcome = serde_json::from_value(
+        call(
+            &client,
+            "ossia_evidence",
+            json!({
+                "source":{"kind":"version","versionId":document.head_version_id},
+                "section":"summary",
+                "waitMs":30000
+            }),
+        )
+        .await,
+    )
+    .unwrap();
+    let evidence = evidence.page.unwrap();
+    assert_ne!(evidence.summary.source_status, AnalysisStatus::Complete);
+    assert_eq!(
+        evidence.summary.performance_status,
+        AnalysisStatus::Complete
+    );
+    assert!(evidence.summary.performed_notes >= 3);
     let doctor = cli(&bin, &home, &engine, &docs, "doctor", Value::Null).await;
     assert_eq!(doctor["documentation"]["available"], true);
     if let Some(evidence) = std::env::var_os("OSSIA_AGENT_EVIDENCE_DIR") {

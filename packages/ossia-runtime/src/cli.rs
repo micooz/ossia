@@ -49,6 +49,9 @@ pub enum Command {
     Layout {
         json: String,
     },
+    Evidence {
+        json: String,
+    },
     Docs {
         json: String,
     },
@@ -223,6 +226,7 @@ pub async fn run(args: Args) -> Result<Option<serde_json::Value>> {
                 Command::WriteSource { json } => ("write_source", json),
                 Command::ReadSource { json } => ("read_source", json),
                 Command::Layout { json } => ("layout", json),
+                Command::Evidence { json } => ("evidence", json),
                 Command::Docs { json } => ("docs", json),
                 Command::Import { json } => ("import", json),
                 Command::Open { json } => ("open", json),

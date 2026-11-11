@@ -98,6 +98,14 @@ fn schema_one_migration_preserves_documents_and_adds_storage_timestamps() {
     assert_eq!(migrated.title, "migration");
     assert!(migrated.last_successful_render.is_some());
     let conn = library.db().unwrap();
+    let evidence_table: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='evidence_runs'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(evidence_table, 1);
     assert_eq!(
         conn.pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))
             .unwrap(),
@@ -118,4 +126,35 @@ fn schema_one_migration_preserves_documents_and_adds_storage_timestamps() {
             .unwrap();
         assert!(timestamp > 0, "{table}.{column}");
     }
+}
+
+#[test]
+fn schema_two_migration_adds_the_evidence_cache() {
+    let root = tempfile::tempdir().unwrap();
+    drop(Library::open(root.path()).unwrap());
+    {
+        let conn = Connection::open(root.path().join(storage::DATABASE)).unwrap();
+        conn.execute_batch(
+            "DROP TABLE evidence_runs;
+             PRAGMA user_version=2;",
+        )
+        .unwrap();
+    }
+    let library = Library::open(root.path()).unwrap();
+    let table: i32 = library
+        .db()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='evidence_runs'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(table, 1);
+    let version: u32 = library
+        .db()
+        .unwrap()
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .unwrap();
+    assert_eq!(version, SCHEMA_VERSION);
 }

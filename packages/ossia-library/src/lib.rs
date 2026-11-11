@@ -5,6 +5,7 @@ pub use artifacts::render_key;
 mod db;
 mod documentation;
 mod drafts;
+mod evidence;
 pub use documentation::Documentation;
 mod lifecycle;
 mod music;
@@ -239,7 +240,34 @@ impl Library {
         expect: Option<&MusicExpectation>,
         context: &RunContext,
     ) -> Result<ImportOutcome> {
+        self.import_checked(engine, request, expect, None, context)
+    }
+
+    /// Import and optionally verify against an immutable reference performance.
+    pub fn import_with_reference(
+        &self,
+        engine: &dyn EngineBackend,
+        request: ImportRequest<'_>,
+        reference: Option<&ReferenceMusic>,
+        context: &RunContext,
+    ) -> Result<ImportOutcome> {
+        self.import_checked(engine, request, None, reference, context)
+    }
+
+    fn import_checked(
+        &self,
+        engine: &dyn EngineBackend,
+        request: ImportRequest<'_>,
+        expect: Option<&MusicExpectation>,
+        reference: Option<&ReferenceMusic>,
+        context: &RunContext,
+    ) -> Result<ImportOutcome> {
         context.check()?;
+        if expect.is_some() && reference.is_some() {
+            return Err(AppError::invalid(
+                "expect and reference cannot be used together",
+            ));
+        }
         if let Some(expect) = expect {
             ossia_score::validate_expectation(expect)?;
         }
@@ -250,6 +278,7 @@ impl Library {
         {
             return Ok(ImportOutcome {
                 music: None,
+                verification: None,
                 report,
                 document: None,
                 render: None,
@@ -280,14 +309,22 @@ impl Library {
             return Err(compile_error(&render));
         }
         let music = self.music_report(&snapshot, &render)?;
-        let verification = ossia_score::verify_music(&music, expect);
-        if expect.is_some() && verification.status != VerificationStatus::Passed {
+        let verification = match (expect, reference) {
+            (Some(expect), None) => ossia_score::verify_music(&music, Some(expect)),
+            (None, Some(reference)) => ossia_score::verify_reference(&music, reference),
+            (None, None) => ossia_score::verify_music(&music, None),
+            (Some(_), Some(_)) => unreachable!(),
+        };
+        if (expect.is_some() || reference.is_some())
+            && verification.status != VerificationStatus::Passed
+        {
             return Err(import_expectation_error(&verification, &music));
         }
         let check_result = CheckResult {
+            analysis_version: EVIDENCE_ANALYSIS_VERSION,
             render: render.clone(),
             music: music.clone(),
-            verification,
+            verification: verification.clone(),
         };
         let hash = self.store.put(snapshot.bytes())?;
         self.hit("after-cas")?;
@@ -351,8 +388,10 @@ impl Library {
         db::save_job(&tx, &job)?;
         tx.commit().map_err(storage_error)?;
         drop(conn);
+        self.cache_check_evidence(id, &check_result)?;
         Ok(ImportOutcome {
             music: Some(music),
+            verification: Some(verification),
             report,
             document: Some(self.get_document(id)?),
             render: Some(render),

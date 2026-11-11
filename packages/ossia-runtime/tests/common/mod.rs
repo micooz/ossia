@@ -18,6 +18,7 @@ pub const SOURCE: &[u8] =
 #[derive(Default)]
 pub struct Engine {
     pub hold: AtomicBool,
+    pub midi: AtomicBool,
     pub active: AtomicUsize,
     pub peak: AtomicUsize,
     pub documents: Mutex<Vec<DocumentId>>,
@@ -102,6 +103,20 @@ impl EngineBackend for Engine {
         let path = format!("assets/{hash}.svg");
         std::fs::create_dir_all(root.join("assets")).unwrap();
         std::fs::write(root.join(&path), &bytes).unwrap();
+        let midi =
+            if self.midi.load(Ordering::Acquire) && options.formats.contains(&RenderFormat::Midi) {
+                let bytes = include_bytes!("../../../../tests/fixtures/inputs/midi-valid.mid");
+                let hash = ContentHash::of(bytes);
+                let path = format!("assets/{hash}.mid");
+                std::fs::write(root.join(&path), bytes).unwrap();
+                Some(ArtifactRef {
+                    path,
+                    sha256: hash,
+                    bytes: bytes.len() as u64,
+                })
+            } else {
+                None
+            };
         let broken = snapshot.source().contains("BROKEN");
         Ok(RenderManifest {
             source_hash: snapshot.source_hash().clone(),
@@ -120,7 +135,7 @@ impl EngineBackend for Engine {
                 }]
             },
             pdf: None,
-            midi: None,
+            midi,
             diagnostics: vec![],
             format_errors: if broken {
                 vec![FormatError {
@@ -182,6 +197,7 @@ impl Fixture {
             .check(
                 CheckArgs {
                     expect: None,
+                    reference: None,
                     document_id: Some(self.doc.document_id),
                     view_id: self.view,
                     edit_id: None,
