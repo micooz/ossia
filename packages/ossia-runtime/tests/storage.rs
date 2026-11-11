@@ -30,7 +30,6 @@ async fn cleanup_refuses_while_queued_work_exists() {
                 expect: None,
                 reference: None,
                 document_id: Some(f.doc.document_id),
-                view_id: f.view,
                 edit_id: None,
                 expected_source_hash: f.doc.source_hash.clone(),
                 wait_ms: Some(0),

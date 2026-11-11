@@ -207,6 +207,7 @@ impl Runtime {
             seq,
             jobs,
             documentation: self.documentation_status(),
+            language: self.ui_language(),
         })
     }
 
@@ -228,52 +229,44 @@ impl Runtime {
     }
 
     pub fn agent_open(&self, document_id: Option<DocumentId>) -> Result<AgentOpenOutcome> {
-        let open = self.open_view(document_id)?;
-        let context = self.agent_context(open.view_id)?;
-        Ok(AgentOpenOutcome {
-            view_id: open.view_id,
-            url: open.url,
-            context,
-        })
+        let url = self.open_url(document_id)?;
+        let context = document_id
+            .map(|document_id| self.agent_context(document_id))
+            .transpose()?;
+        Ok(AgentOpenOutcome { url, context })
     }
 
-    pub fn agent_context(&self, view_id: ViewId) -> Result<AgentView> {
-        let view = self.context(view_id)?;
-        let source_bytes = view
-            .document
-            .as_ref()
-            .map(|document| {
-                std::fs::metadata(&document.source_path)
-                    .map(|metadata| metadata.len())
-                    .map_err(storage)
-            })
-            .transpose()?
-            .and_then(|bytes| usize::try_from(bytes).ok())
-            .unwrap_or_default();
-        let document = view.document.map(|d| AgentDocument {
-            document_id: d.document_id,
-            title: d.title,
-            head_version_id: d.head_version_id,
-            source_hash: d.source_hash,
+    pub fn agent_context(&self, document_id: DocumentId) -> Result<AgentDocumentContext> {
+        let context = self.context(document_id)?;
+        let source_bytes = std::fs::metadata(&context.document.source_path)
+            .map(|metadata| metadata.len())
+            .map_err(storage)
+            .and_then(|bytes| {
+                usize::try_from(bytes).map_err(|_| storage("source size exceeds usize"))
+            })?;
+        let document = AgentDocument {
+            document_id: context.document.document_id,
+            title: context.document.title,
+            head_version_id: context.document.head_version_id,
+            source_hash: context.document.source_hash,
             source_bytes,
-            dirty: d.dirty,
-            edit_state: d.edit_state,
-            last_check: d.last_check.and_then(agent_check_summary),
+            dirty: context.document.dirty,
+            edit_state: context.document.edit_state,
+            last_check: context.document.last_check.and_then(agent_check_summary),
+        };
+        let render = context.render.map(|reference| AgentRender {
+            render_key: reference.render_key,
+            source_hash: reference.manifest.source_hash,
+            pages: reference.manifest.pages.len(),
         });
-        let render = view.render.map(|r| AgentRender {
-            render_key: r.render_key,
-            source_hash: r.manifest.source_hash,
-            pages: r.manifest.pages.len(),
-        });
-        Ok(AgentView {
-            instance_id: view.instance_id,
-            seq: view.seq,
-            view_id: view.view_id,
+        Ok(AgentDocumentContext {
+            instance_id: context.instance_id,
+            seq: context.seq,
             document,
-            selection: view.selection,
-            regions: view.regions,
+            selection: context.selection,
+            regions: context.regions,
             render,
-            edit_activity: view.edit_activity,
+            edit_activity: context.edit_activity,
         })
     }
 

@@ -344,7 +344,7 @@
   },
   {
     "name": "ossia_open",
-    "description": "Create an isolated view and one-use browser URL. Returns AgentOpenOutcome with the initial compact context; the ticket is not exposed separately.",
+    "description": "Return the direct browser URL for one document and its initial compact context. Opens the score chooser when documentId is omitted. Returns AgentOpenOutcome.",
     "inputSchema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
@@ -361,29 +361,29 @@
       "type": "object"
     },
     "annotations": {
-      "readOnlyHint": false,
+      "readOnlyHint": true,
       "destructiveHint": false,
-      "idempotentHint": false,
+      "idempotentHint": true,
       "openWorldHint": false
     }
   },
   {
     "name": "ossia_context",
-    "description": "Read this explicit view's compact document, selection, source spans and event cursor. Returns AgentView.",
+    "description": "Read this document's compact selection, source spans and event cursor. Returns AgentDocumentContext.",
     "inputSchema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
-      "description": "Identify one isolated view for a context read.",
+      "description": "Identify one document for a context read.",
       "properties": {
-        "viewId": {
+        "documentId": {
           "format": "uuid",
           "type": "string"
         }
       },
       "required": [
-        "viewId"
+        "documentId"
       ],
-      "title": "ViewArgs",
+      "title": "ContextArgs",
       "type": "object"
     },
     "annotations": {
@@ -446,16 +446,11 @@
         },
         "expectedSourceHash": {
           "$ref": "#/$defs/ContentHash"
-        },
-        "viewId": {
-          "format": "uuid",
-          "type": "string"
         }
       },
       "required": [
         "action",
         "documentId",
-        "viewId",
         "expectedSourceHash"
       ],
       "title": "EditArgs",
@@ -609,14 +604,9 @@
         "preview": {
           "default": true,
           "type": "boolean"
-        },
-        "viewId": {
-          "format": "uuid",
-          "type": "string"
         }
       },
       "required": [
-        "viewId",
         "editId",
         "expectedSourceHash",
         "change"
@@ -781,15 +771,10 @@
               "type": "null"
             }
           ]
-        },
-        "viewId": {
-          "format": "uuid",
-          "type": "string"
         }
       },
       "required": [
         "documentId",
-        "viewId",
         "expectedSourceHash"
       ],
       "title": "ReadSourceArgs",
@@ -1323,10 +1308,6 @@
           ],
           "default": null
         },
-        "viewId": {
-          "format": "uuid",
-          "type": "string"
-        },
         "waitMs": {
           "format": "uint64",
           "minimum": 0,
@@ -1337,7 +1318,6 @@
         }
       },
       "required": [
-        "viewId",
         "expectedSourceHash"
       ],
       "title": "CheckArgs",
@@ -1371,14 +1351,9 @@
         },
         "summary": {
           "type": "string"
-        },
-        "viewId": {
-          "format": "uuid",
-          "type": "string"
         }
       },
       "required": [
-        "viewId",
         "editId",
         "expectedSourceHash",
         "summary"

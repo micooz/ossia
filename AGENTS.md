@@ -14,7 +14,7 @@ browser score page; Tauri owns the management window.
 - `packages/ossia-library`: SQLite, content-addressed snapshots, the public
   `score.ly`, edit ownership, versions and recovery.
 - `packages/ossia-runtime`: single-instance runtime, IPC, loopback HTTP, jobs,
-  file watching, views/events, CLI and MCP.
+  file watching, document contexts/events, CLI and MCP.
 - `packages/ossia-integrations`: host detection and configuration plans; it stays
   independent of the runtime's HTTP/IPC implementation.
 - `packages/ui`: score SPA (`score.html`) and separate management entry

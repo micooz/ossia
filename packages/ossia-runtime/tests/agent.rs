@@ -30,7 +30,12 @@ async fn compact_status_and_context_exclude_history_and_render_duplication() {
     assert_eq!(after["documentCount"], 1);
     assert_eq!(after["jobs"].as_array().unwrap().len(), 0);
     assert!(after["documentation"]["available"].is_boolean());
-    let compact = ipc::dispatch(&f.runtime, "context", json!({"viewId":f.view})).unwrap();
+    let compact = ipc::dispatch(
+        &f.runtime,
+        "context",
+        json!({"documentId":f.doc.document_id}),
+    )
+    .unwrap();
     assert!(compact["document"].get("lastSuccessfulRender").is_none());
     assert!(compact["document"].get("sourcePath").is_none());
     assert_eq!(compact["document"]["sourceBytes"], json!(SOURCE.len()));
@@ -208,19 +213,15 @@ async fn stale_source_errors_carry_recovery_context() {
     let f = Fixture::new(false).await;
     let error = f
         .runtime
-        .edit(
-            EditArgs {
-                action: EditAction::Begin,
-                document_id: f.doc.document_id,
-                view_id: f.view,
-                base_version_id: f.doc.head_version_id,
-                expected_source_hash: ContentHash::of(b"stale"),
-                edit_id: None,
-                adopt_workspace: false,
-                author: "test".into(),
-            },
-            true,
-        )
+        .edit(EditArgs {
+            action: EditAction::Begin,
+            document_id: f.doc.document_id,
+            base_version_id: f.doc.head_version_id,
+            expected_source_hash: ContentHash::of(b"stale"),
+            edit_id: None,
+            adopt_workspace: false,
+            author: "test".into(),
+        })
         .unwrap_err();
     assert_eq!(error.code, ErrorCode::Conflict);
     let detail = error.detail.unwrap();

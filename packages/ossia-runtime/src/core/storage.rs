@@ -32,9 +32,8 @@ impl Runtime {
             .lock()
             .expect("maintenance clock poisoned") = Instant::now();
         let result = (|| {
-            let manifests = self.view_manifests()?;
             let limit = crate::preferences::load(self.library.home())?.storage_cache_limit;
-            self.library.storage_cleanup(limit, &manifests)
+            self.library.storage_cleanup(limit)
         })();
         self.maintenance.store(false, Ordering::Release);
         self.changed.notify_one();
@@ -125,24 +124,6 @@ impl Runtime {
             }
             tokio::time::sleep(remaining.min(Duration::from_secs(1))).await;
         }
-    }
-
-    fn view_manifests(&self) -> Result<Vec<RenderManifest>> {
-        let documents = {
-            let state = self.state();
-            state
-                .views
-                .values()
-                .filter_map(|view| view.document)
-                .collect::<std::collections::HashSet<_>>()
-        };
-        let mut manifests = Vec::new();
-        for document in documents {
-            if let Some(manifest) = self.library.get_document(document)?.last_successful_render {
-                manifests.push(manifest);
-            }
-        }
-        Ok(manifests)
     }
 
     fn automatic_cleanup_enabled(&self) -> bool {

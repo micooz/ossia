@@ -17,7 +17,6 @@ pub struct RuntimeInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Selection {
-    pub view_id: ViewId,
     pub document_id: DocumentId,
     pub source_hash: ContentHash,
     pub locators: Vec<Locator>,
@@ -32,11 +31,10 @@ pub struct RenderReference {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct ViewSnapshot {
+pub struct DocumentContext {
     pub instance_id: String,
     pub seq: u64,
-    pub view_id: ViewId,
-    pub document: Option<DocumentState>,
+    pub document: DocumentState,
     pub selection: Option<Selection>,
     pub regions: Vec<LocatedRegion>,
     pub render: Option<RenderReference>,
@@ -45,37 +43,10 @@ pub struct ViewSnapshot {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct OpenView {
-    pub view_id: ViewId,
-    pub url: String,
-    pub ticket: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct ExchangeRequest {
-    pub ticket: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct ExchangeResponse {
-    pub token: String,
-    pub view: ViewSnapshot,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub language: Option<UiLanguage>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "camelCase")]
 pub struct RuntimeEvent {
     pub instance_id: String,
     pub seq: u64,
     pub r#type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub view_id: Option<ViewId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub document_id: Option<DocumentId>,
@@ -104,11 +75,11 @@ pub struct OpenArgs {
     pub document_id: Option<DocumentId>,
 }
 
-/// Identify one isolated view for a context read.
+/// Identify one document for a context read.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ViewArgs {
-    pub view_id: ViewId,
+pub struct ContextArgs {
+    pub document_id: DocumentId,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, TS)]
@@ -126,7 +97,6 @@ pub enum EditAction {
 pub struct EditArgs {
     pub action: EditAction,
     pub document_id: DocumentId,
-    pub view_id: ViewId,
     pub base_version_id: Option<VersionId>,
     pub expected_source_hash: ContentHash,
     pub edit_id: Option<EditId>,
@@ -149,7 +119,6 @@ pub struct CheckArgs {
     #[serde(default)]
     pub reference: Option<ReferenceExpectation>,
     pub document_id: Option<DocumentId>,
-    pub view_id: ViewId,
     pub edit_id: Option<EditId>,
     pub expected_source_hash: ContentHash,
     pub wait_ms: Option<u64>,
@@ -157,7 +126,6 @@ pub struct CheckArgs {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CommitArgs {
-    pub view_id: ViewId,
     pub edit_id: EditId,
     pub expected_source_hash: ContentHash,
     pub summary: String,
@@ -290,7 +258,6 @@ pub struct RpcResponse {
 pub struct EditActivity {
     pub author: String,
     pub status: EditStatus,
-    pub owned_by_view: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]

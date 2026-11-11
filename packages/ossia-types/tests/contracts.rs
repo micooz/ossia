@@ -63,7 +63,7 @@ fn runtime_examples_and_omitted_credentials_match_current_protocol() {
     assert_eq!(runtime.protocol_version, PROTOCOL_VERSION);
     let _: RenderManifest = serde_json::from_value(examples["renderManifest"].clone()).unwrap();
     let _: Selection = serde_json::from_value(examples["selection"].clone()).unwrap();
-    let _: ViewSnapshot = serde_json::from_value(examples["viewSnapshot"].clone()).unwrap();
+    let _: DocumentContext = serde_json::from_value(examples["documentContext"].clone()).unwrap();
     for (code, wire) in [
         (ErrorCode::Unauthorized, "unauthorized"),
         (ErrorCode::Forbidden, "forbidden"),
@@ -86,7 +86,6 @@ fn omitted_edit_author_defaults_to_ossia() {
     let edit: EditArgs = serde_json::from_value(json!({
         "action": "begin",
         "documentId": "10000000-0000-4000-8000-000000000001",
-        "viewId": "00000000-0000-4000-8000-000000000001",
         "baseVersionId": null,
         "expectedSourceHash": "7182e8457ad62ba44f2fa762b486525056fd0e73ff862f1fcc73dae207e84727",
         "editId": null,

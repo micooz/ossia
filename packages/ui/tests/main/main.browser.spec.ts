@@ -2,11 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { mockManagement } from './management.ts';
 
-test('no ticket explains how to open; browser management cannot invoke native commands', async ({
-  page,
-}) => {
-  await page.goto('/score.html');
-  await expect(page.getByRole('alert')).toContainText('ossia_open');
+test('browser management cannot invoke native commands', async ({ page }) => {
   await page.goto('/main.html');
   await expect(page.locator('.toast-region')).toContainText('桌面应用');
   await page.getByRole('button', { name: '服务未连接' }).click();

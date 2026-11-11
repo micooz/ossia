@@ -101,7 +101,6 @@ impl Runtime {
                     self.emit_locked(
                         &mut state,
                         "job-changed",
-                        None,
                         old.job.document_id,
                         old.job.source_hash,
                         json!({"jobId":old.job.job_id,"state":"cancelled"}),
@@ -121,7 +120,6 @@ impl Runtime {
         self.emit_locked(
             &mut state,
             "job-changed",
-            None,
             job.document_id,
             job.source_hash.clone(),
             json!({"jobId":job.job_id,"state":"queued"}),
@@ -142,7 +140,7 @@ impl Runtime {
             .map(|reference| self.resolve_reference(reference))
             .transpose()?;
         let document_id = if let Some(edit_id) = args.edit_id {
-            let edit = self.edit_capability(args.view_id, edit_id, false)?;
+            let edit = self.edit_capability(edit_id)?;
             if args
                 .document_id
                 .is_some_and(|document| document != edit.document_id)
@@ -154,9 +152,6 @@ impl Runtime {
             args.document_id
                 .ok_or_else(|| invalid("check requires documentId or editId"))?
         };
-        if !preview {
-            self.document_in_view(args.view_id, document_id)?;
-        }
         self.observe(document_id)?;
         let job = self.library.queue_check(CheckRequest {
             expect: args.expect.as_ref(),
@@ -330,7 +325,6 @@ impl Runtime {
         self.emit_locked(
             &mut state,
             "job-changed",
-            None,
             job.document_id,
             job.source_hash.clone(),
             json!({"jobId":id,"state":job.state,"phase":job.phase}),

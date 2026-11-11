@@ -1,16 +1,17 @@
 import type { BrowserContext } from '@playwright/test';
 
 import type {
-  DocumentSummary,
+  DocumentContext,
   DocumentState,
+  DocumentSummary,
   RenderGeometry,
   RenderReference,
-  ViewSnapshot,
+  Selection,
 } from '../../src/generated/protocol.ts';
 
 export const hash = 'a'.repeat(64),
   newer = 'b'.repeat(64);
-const documentId = '11111111-1111-4111-8111-111111111111';
+export const firstId = '11111111-1111-4111-8111-111111111111';
 export const secondId = '22222222-2222-4222-8222-222222222222';
 const versionId = '33333333-3333-4333-8333-333333333333';
 const reference: RenderReference = {
@@ -26,10 +27,10 @@ const reference: RenderReference = {
     formatErrors: [],
   },
 };
-export function scoreDocument(id = documentId): DocumentState {
+export function scoreDocument(id = firstId): DocumentState {
   return {
     documentId: id,
-    title: id === documentId ? '合成钢琴练习' : '另一份乐谱',
+    title: id === firstId ? '合成钢琴练习' : '另一份乐谱',
     sourcePath: '/synthetic/score.ly',
     headVersionId: versionId,
     sourceHash: hash,
@@ -66,22 +67,36 @@ function geometry(): RenderGeometry {
     })),
   };
 }
-/** Install a synthetic runtime with controllable documents, views and events. */
+
+/** Install a synthetic document-scoped runtime with controllable selections and events. */
 export async function mockScoreRuntime(
   context: BrowserContext,
   options: { languageEvent?: 'en-US' } = {},
 ) {
   let seq = 1;
-  let exchanges = 0;
-  let expired = false;
   let loseEvents = false;
-  const views = new Map<string, ViewSnapshot>();
-  const states = [scoreDocument(), scoreDocument(secondId)];
-  const docs = states.map(scoreSummary);
-  const points: { page: number; x: number; y: number }[] = [];
-  const mutations: { expectedSourceHash: string }[] = [];
   let rejectSelection = false;
   let conflict = false;
+  const states = [scoreDocument(), scoreDocument(secondId)];
+  const docs = states.map(scoreSummary);
+  const selections = new Map<string, Selection | null>();
+  const points: { page: number; x: number; y: number }[] = [];
+  const mutations: { expectedSourceHash: string }[] = [];
+  const contextFor = (documentId: string): DocumentContext | null => {
+    const document = states.find((state) => state.documentId === documentId);
+    if (!document) return null;
+    return {
+      instanceId: 'instance',
+      seq,
+      document,
+      selection: selections.get(documentId) ?? null,
+      regions: [],
+      render: document.lastSuccessfulRender
+        ? { renderKey: hash, manifest: document.lastSuccessfulRender }
+        : null,
+      editActivity: null,
+    };
+  };
   await context.route('**/api/v1/**', async (route) => {
     const req = route.request();
     const url = new URL(req.url());
@@ -92,26 +107,6 @@ export async function mockScoreRuntime(
         : {};
     const reply = (body: unknown, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
-    if (path === '/sessions/exchange') {
-      exchanges++;
-      const id = payload.ticket;
-      const view: ViewSnapshot = {
-        viewId: id,
-        instanceId: 'instance',
-        seq,
-        document: states[0]!,
-        selection: null,
-        regions: [],
-        render: reference,
-        editActivity: null,
-      };
-      views.set(id, view);
-      return reply({ token: id, view });
-    }
-    if (expired) return reply({ error: { code: 'unauthorized', message: 'expired' } }, 401);
-    const id = req.headers().authorization?.replace('Bearer ', '') ?? '';
-    const view = views.get(id);
-    if (!view) return reply({ error: { code: 'unauthorized', message: 'no session' } }, 401);
     if (path === '/events') {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       if (loseEvents) return route.abort();
@@ -132,11 +127,11 @@ export async function mockScoreRuntime(
         runtime: {
           runtimeVersion: '0.1.0',
           protocolVersion: 1,
-          schemaVersion: 2,
+          schemaVersion: 1,
           instanceId: 'instance',
           home: '/synthetic/library',
-          webBaseUrl: 'http://127.0.0.1',
-          capabilities: [],
+          webBaseUrl: 'http://localhost:3211',
+          capabilities: ['document-context'],
         },
         engineBuildId: 'test',
         documentCount: docs.length,
@@ -144,13 +139,21 @@ export async function mockScoreRuntime(
         seq,
         jobs: [],
         documentation: { available: true, version: '2.26.0', root: '/synthetic/docs', error: null },
+        language: null,
       });
+    const documentId = path.split('/')[2] ?? '';
+    if (path.endsWith('/context')) {
+      const context = contextFor(documentId);
+      return context
+        ? reply(context)
+        : reply({ error: { code: 'not-found', message: 'document not found' } }, 404);
+    }
     if (path.endsWith('/versions'))
       return reply({
         items: [
           {
             versionId,
-            documentId: view.document?.documentId,
+            documentId,
             seq: 1,
             parentVersionId: null,
             sourceHash: hash,
@@ -164,13 +167,6 @@ export async function mockScoreRuntime(
         offset: 0,
         nextOffset: null,
       });
-    if (path === `/views/${id}`) return reply({ ...view, seq });
-    if (path.endsWith('/document')) {
-      view.document = states.find((d) => d.documentId === payload.documentId)!;
-      view.selection = null;
-      seq++;
-      return reply({ ...view, seq });
-    }
     if (path.endsWith('/geometry')) return reply(geometry());
     if (path.includes('/pages/'))
       return route.fulfill({
@@ -201,9 +197,9 @@ export async function mockScoreRuntime(
     if (path.endsWith('/selection')) {
       if (rejectSelection)
         return reply({ error: { code: 'stale-selection', message: 'source changed' } }, 409);
-      view.selection = payload.locators.length ? payload : null;
+      selections.set(documentId, payload.locators.length ? payload : null);
       seq++;
-      return reply({ ...view, seq });
+      return reply(contextFor(documentId));
     }
     if (path.endsWith('/edits') || path.endsWith('/restore')) {
       mutations.push(payload);
@@ -222,13 +218,9 @@ export async function mockScoreRuntime(
   return {
     points,
     mutations,
-    views,
+    selections,
     docs,
     states,
-    exchanges: () => exchanges,
-    expire: () => {
-      expired = true;
-    },
     disconnect: (value: boolean) => {
       loseEvents = value;
     },
@@ -245,7 +237,7 @@ export async function mockScoreRuntime(
       docs[0]!.dirty = true;
       states[0]!.lastCheck = {
         jobId: 'check',
-        documentId,
+        documentId: firstId,
         kind: 'check',
         state: 'error',
         sourceHash: newer,
@@ -255,7 +247,7 @@ export async function mockScoreRuntime(
         },
         error: { code: 'compile-failed', message: '排版失败' },
       };
-      for (const v of views.values()) v.selection = null;
+      selections.clear();
       seq++;
     },
   };

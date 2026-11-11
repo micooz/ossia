@@ -195,7 +195,6 @@ impl Fixture {
         self.library
             .begin_edit(BeginEditRequest {
                 document_id: state.document_id,
-                view_id: ViewId::new(),
                 base_version_id: state.head_version_id,
                 expected_source_hash: &state.source_hash,
                 author: "agent",
@@ -474,7 +473,6 @@ fn invalid_handwritten_import_survives_restart_and_first_fix_is_import_version()
     let edit = library
         .begin_edit(BeginEditRequest {
             document_id: id,
-            view_id: ViewId::new(),
             base_version_id: None,
             expected_source_hash: &state.source_hash,
             author: "fixer",
@@ -519,7 +517,6 @@ fn ownership_unchanged_commits_and_explicit_workspace_adoption() {
         f.library
             .begin_edit(BeginEditRequest {
                 document_id: f.doc.document_id,
-                view_id: ViewId::new(),
                 base_version_id: f.doc.head_version_id,
                 expected_source_hash: &f.doc.source_hash,
                 author: "other",
@@ -546,7 +543,6 @@ fn ownership_unchanged_commits_and_explicit_workspace_adoption() {
         f.library
             .begin_edit(BeginEditRequest {
                 document_id: f.doc.document_id,
-                view_id: ViewId::new(),
                 base_version_id: f.doc.head_version_id,
                 expected_source_hash: &hash,
                 author: "agent",
@@ -560,7 +556,6 @@ fn ownership_unchanged_commits_and_explicit_workspace_adoption() {
         .library
         .begin_edit(BeginEditRequest {
             document_id: f.doc.document_id,
-            view_id: ViewId::new(),
             base_version_id: f.doc.head_version_id,
             expected_source_hash: &hash,
             author: "agent",
@@ -797,7 +792,6 @@ fn different_documents_can_compile_without_holding_database_lock() {
         .library
         .begin_edit(BeginEditRequest {
             document_id: other.document_id,
-            view_id: ViewId::new(),
             base_version_id: other.head_version_id,
             expected_source_hash: &other.source_hash,
             author: "test",
@@ -902,15 +896,15 @@ fn restart_preserves_edits_jobs_and_requires_explicit_capability_resume() {
     );
     assert_eq!(
         library
-            .resume_edit(EditId::new(), ViewId::new(), edit.base_version_id, &hash)
+            .resume_edit(EditId::new(), edit.base_version_id, &hash)
             .unwrap_err()
             .code,
         ErrorCode::NotFound
     );
     let resumed = library
-        .resume_edit(edit.edit_id, ViewId::new(), edit.base_version_id, &hash)
+        .resume_edit(edit.edit_id, edit.base_version_id, &hash)
         .unwrap();
-    assert_ne!(resumed.owner_view_id, edit.owner_view_id);
+    assert_eq!(resumed.edit_id, edit.edit_id);
     assert_eq!(
         library
             .commit(CommitRequest {

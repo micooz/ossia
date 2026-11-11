@@ -53,26 +53,26 @@ target/debug/ossia-desktop --home /absolute/test-library import \
   '{"path":"/absolute/input.ly","title":"Example","format":"ly","author":"Ossia"}'
 
 target/debug/ossia-desktop --home /absolute/test-library context \
-  '{"viewId":"00000000-0000-4000-8000-000000000001"}'
+  '{"documentId":"00000000-0000-4000-8000-000000000001"}'
 ```
 
 Import, check, restore and output return a durable Job. Poll `job '{"jobId":"…","action":"get"}'`, or pass `waitMs` on the originating tool; cancel with action=cancel. Running cancellation reports phase=cancelling until the worker finishes process cleanup. If a durable operation has completed, its done result wins. The import request job contains its ImportOutcome and library import record. Refused or unconfirmed reports have no document and must be inspected before continuing.
 
-`open` returns a viewId, a URL with a one-use ticket, and the initial compact context. All context/edit/check/commit calls use an explicit viewId; edit credentials stay private to the caller. Resume transfers an interrupted edit to a new view only over trusted IPC with the original editId. End preserves files; discard and recovery acknowledgment are separate hash-guarded actions.
+`open` returns a stable `score.html?documentId=…` URL and the initial compact context when a document is selected. All context, selection and edit operations use an explicit documentId. Edit credentials stay private to the caller; resume requires the interrupted editId. End preserves files; discard and recovery acknowledgment are separate hash-guarded actions.
 
 ## HTTP and events
 
-HTTP binds only 127.0.0.1; the default port is 3211, and tests may request 0. The actual address comes from RuntimeInfo. An occupied explicit port fails without probing alternatives.
+HTTP binds only loopback (`localhost`, `127.0.0.1` and `::1`); the default port is 3211, and tests may request 0. RuntimeInfo exposes the canonical `http://localhost:<port>` base URL. An occupied explicit port fails without probing alternatives.
 
-`/health` returns only alive/protocolVersion. Data routes are beneath `/api/v1` and validate exact loopback Host, allowed Origin and bearer. POST sessions/exchange accepts a 5-minute one-use ticket and returns a 24-hour view-bound token; browser clients keep it only in sessionStorage and remove the ticket fragment. Runtime restarts invalidate both views and tokens.
+`/health` returns only alive/protocolVersion. Data routes are beneath `/api/v1` and validate loopback Host and an allowed Origin. There is no bearer token: any local process that knows a documentId can access that document. Browser cross-origin calls remain blocked.
 
-GET views/{viewId} returns a snapshot with instanceId and seq. Subscribe to GET events?instanceId=…&after=… using an Authorization-bearing fetch stream. Events use increasing instance-wide sequence numbers; private view events are filtered. Initial connection and reconnection both start with a fresh snapshot. A missing/old cursor returns conflict; a stream that falls behind emits resync-required. Token expiry emits session-expired. Neither event requires guessing a replacement view.
+GET documents/{id}/context returns a snapshot with instanceId and seq. PUT documents/{id}/selection updates the document's shared selection; POST documents/{id}/locate resolves page coordinates. Subscribe to GET events?instanceId=…&after=…[&documentId=…]. Events use increasing instance-wide sequence numbers and can be filtered to a document. Initial connection and reconnection both start with a fresh snapshot. A missing/old cursor returns conflict; a stream that falls behind emits resync-required. Runtime restarts preserve direct document URLs because documents are persistent.
 
 JSON request bodies are limited to 1 MiB. Multipart import accepts one `metadata` JSON field (title, format, confirmation?, author) and one `file`; local filesystem paths are rejected in metadata. File inputs are capped at 32 MiB. Inputs and native operations remain local.
 
 A content poll every second complements native filesystem notifications, including environments where FSEvents cannot start. Changes have a further 300 ms debounce; atomic replacement and deletion/recreation are supported. Only pending previews coalesce, and superseded job IDs remain cancelled and queryable. Explicit checks keep their captured snapshots. Context/check/commit reread source even without a watcher event.
 
-Render keys include document ownership, source hash, engine build and options hash. SVG is served only through a stored manifest and verified artifact; authenticated geometry returns page viewBox, locator capability and staff rectangles from the shared index. `POST /outputs` accepts a completed job or immutable version source, supports SVG/PNG/PDF/MIDI/LilyPond, uses the captured snapshot and never overwrites destinations. Missing outputPath selects a unique file under the system Downloads/Ossia directory. `POST /documents/{id}/versions/{versionId}/render` renders a fixed version without changing the public source or preview. `POST /jobs/{jobId}/reveal` accepts only the verified result path of a successful output job.
+Render keys include document ownership, source hash, engine build and options hash. SVG is served only through a stored manifest and verified artifact; geometry returns page viewBox, locator capability and staff rectangles from the shared index. `POST /outputs` accepts a completed job or immutable version source, supports SVG/PNG/PDF/MIDI/LilyPond, uses the captured snapshot and never overwrites destinations. Missing outputPath selects a unique file under the system Downloads/Ossia directory. `POST /documents/{id}/versions/{versionId}/render` renders a fixed version without changing the public source or preview. `POST /jobs/{jobId}/reveal` accepts only the verified result path of a successful output job.
 
 ## Contracts and validation
 

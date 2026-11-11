@@ -16,10 +16,10 @@ import type {
   Selection,
   Version,
   VersionPage,
-  ViewSnapshot,
+  DocumentContext,
+  UiLanguage,
 } from '../generated/protocol.ts';
 import { jobStateKey, translate } from '../i18n.tsx';
-import type { Session } from './endpoint.ts';
 
 export class ApiError extends Error {
   constructor(publicStatus: number, code: string, message: string, detail?: unknown) {
@@ -32,13 +32,10 @@ export class ApiError extends Error {
   code: string;
   detail?: unknown;
 }
-export function makeApi(session: Session, signal?: AbortSignal) {
+export function makeApi(language: () => UiLanguage, signal?: AbortSignal) {
   async function request(path: string, init: RequestInit = {}) {
-    const headers = new Headers(init.headers);
-    headers.set('Authorization', `Bearer ${session.token}`);
     const response = await fetch(`/api/v1${path}`, {
       ...init,
-      headers,
       signal: init.signal ?? signal,
     });
     if (!response.ok) {
@@ -47,7 +44,7 @@ export function makeApi(session: Session, signal?: AbortSignal) {
       throw new ApiError(
         response.status,
         error?.code ?? 'http-error',
-        error?.message ?? translate(session.language, 'requestFailed', { status: response.status }),
+        error?.message ?? translate(language(), 'requestFailed', { status: response.status }),
         error?.detail,
       );
     }
@@ -69,8 +66,7 @@ export function makeApi(session: Session, signal?: AbortSignal) {
       body: JSON.stringify(body),
     });
   return {
-    session,
-    context: () => json<ViewSnapshot>(`/views/${session.viewId}`),
+    context: (documentId: string) => json<DocumentContext>(`/documents/${documentId}/context`),
     status: () => json<AgentStatus>('/status'),
     documents: async () => {
       const items: DocumentSummary[] = [];
@@ -94,10 +90,10 @@ export function makeApi(session: Session, signal?: AbortSignal) {
         offset = page.nextOffset;
       }
     },
-    selectDocument: (documentId: string | null) =>
-      put<ViewSnapshot>(`/views/${session.viewId}/document`, { documentId }),
-    selection: (body: Selection) => put<ViewSnapshot>(`/views/${session.viewId}/selection`, body),
-    locate: (body: LocateArgs) => post<LocateOutcome>(`/views/${session.viewId}/locate`, body),
+    selection: (documentId: string, body: Selection) =>
+      put<DocumentContext>(`/documents/${documentId}/selection`, body),
+    locate: (documentId: string, body: LocateArgs) =>
+      post<LocateOutcome>(`/documents/${documentId}/locate`, body),
     geometry: (key: string) => json<RenderGeometry>(`/renders/${key}/geometry`),
     page: async (key: string, page: number) =>
       (await request(`/renders/${key}/pages/${page}`)).blob(),
@@ -127,20 +123,23 @@ export function makeApi(session: Session, signal?: AbortSignal) {
           422,
           job.error?.code ?? job.state,
           job.error?.message ??
-            translate(session.language, 'jobState', {
-              state: translate(session.language, jobStateKey(job.state)),
+            translate(language(), 'jobState', {
+              state: translate(language(), jobStateKey(job.state)),
             }),
           job.error?.detail,
         );
       return job.result as T;
     },
-    async events(snapshot: ViewSnapshot, onEvent: (event: RuntimeEvent) => void) {
+    async events(
+      snapshot: { instanceId: string; seq: number },
+      onEvent: (event: RuntimeEvent) => void,
+    ) {
       const query = new URLSearchParams({
         instanceId: snapshot.instanceId,
         after: String(snapshot.seq),
       });
       const response = await request(`/events?${query}`);
-      if (!response.body) throw new Error(translate(session.language, 'eventsUnsupported'));
+      if (!response.body) throw new Error(translate(language(), 'eventsUnsupported'));
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -159,17 +158,10 @@ export function makeApi(session: Session, signal?: AbortSignal) {
               if (line.startsWith('event:')) kind = line.slice(6).trim();
               if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''));
             }
-            if (kind === 'session-expired')
-              throw new ApiError(
-                401,
-                'unauthorized',
-                translate(session.language, 'sessionExpired'),
-              );
             if (kind === 'resync-required') return;
             if (kind === 'runtime' && data.length) onEvent(JSON.parse(data.join('\n')));
           }
-          if (buffer.length > 1024 * 1024)
-            throw new Error(translate(session.language, 'eventTooLarge'));
+          if (buffer.length > 1024 * 1024) throw new Error(translate(language(), 'eventTooLarge'));
         }
       } finally {
         await reader.cancel().catch(() => {});

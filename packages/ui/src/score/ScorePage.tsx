@@ -3,11 +3,11 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 
 import { describe } from '../errors.ts';
 import type {
+  DocumentContext,
   DocumentState,
   Locator,
   UiLanguage,
   Version,
-  ViewSnapshot,
 } from '../generated/protocol.ts';
 import {
   I18nProvider,
@@ -18,48 +18,44 @@ import {
   translate,
   useI18n,
 } from '../i18n.tsx';
-import { ApiError, delay, locatorKey, makeApi } from './api.ts';
+import { delay, locatorKey, makeApi } from './api.ts';
 import { CompareView, VersionScore } from './components/CompareView.tsx';
 import { DocumentDetails } from './components/DocumentDetails.tsx';
 import { HistoryPanel } from './components/HistoryPanel.tsx';
 import { ImportPanel } from './components/ImportPanel.tsx';
 import { ScoreView } from './components/ScoreView.tsx';
-import { forgetSession } from './endpoint.ts';
-import type { Session } from './endpoint.ts';
+import { documentIdFromLocation, setDocumentIdInLocation } from './endpoint.ts';
 import { initialState, reducer } from './state.ts';
 
-export function ScorePage({ session }: { session: Session }) {
-  const [language, setLanguage] = useState<UiLanguage>(session.language);
+export function ScorePage({ fallbackLanguage }: { fallbackLanguage: UiLanguage }) {
+  const [language, setLanguage] = useState<UiLanguage>(fallbackLanguage);
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
   return (
     <I18nProvider language={language}>
-      <ScoreApp session={session} language={language} onLanguage={setLanguage} />
+      <ScoreApp language={language} onLanguage={setLanguage} />
     </I18nProvider>
   );
 }
 
 function ScoreApp({
-  session,
   language,
   onLanguage,
 }: {
-  session: Session;
   language: UiLanguage;
   onLanguage: (language: UiLanguage) => void;
 }) {
   const { t } = useI18n();
-  const liveSession = useMemo(() => ({ ...session }), [session]);
   const languageRef = useRef(language);
   useEffect(() => {
-    liveSession.language = language;
     languageRef.current = language;
-  }, [language, liveSession]);
-  const lifetime = useMemo(() => new AbortController(), [session]);
-  const api = useMemo(() => makeApi(liveSession, lifetime.signal), [liveSession, lifetime]);
+  }, [language]);
+  const lifetime = useMemo(() => new AbortController(), []);
+  const api = useMemo(() => makeApi(() => languageRef.current, lifetime.signal), [lifetime]);
   const [state, dispatch] = useReducer(reducer, initialState);
-  const viewRef = useRef<ViewSnapshot | null>(null);
+  const contextRef = useRef<DocumentContext | null>(null);
+  const documentIdRef = useRef(documentIdFromLocation());
   const serial = useRef(0);
   const [working, setWorking] = useState(false);
   const selecting = useRef(false);
@@ -74,39 +70,44 @@ function ScoreApp({
   const onError = useCallback(
     (error: unknown) => {
       if (lifetime.signal.aborted) return;
-      if (error instanceof ApiError && error.status === 401) {
-        forgetSession(session);
-        dispatch({ type: 'connection', connection: 'expired' });
-        dispatch({ type: 'error', message: translate(languageRef.current, 'sessionExpired') });
-        lifetime.abort();
-      } else dispatch({ type: 'error', message: describe(error) });
+      dispatch({ type: 'error', message: describe(error) });
     },
-    [lifetime, session],
+    [lifetime],
   );
-  const applyView = useCallback((view: ViewSnapshot) => {
-    viewRef.current = view;
-    dispatch({ type: 'view', view });
+  const applyContext = useCallback((context: DocumentContext) => {
+    contextRef.current = context;
+    dispatch({ type: 'context', context });
   }, []);
   const refresh = useCallback(async () => {
     const generation = ++serial.current;
-    const view = await api.context();
-    const [documents, status, versions] = await Promise.all([
-      api.documents(),
-      api.status(),
-      view.document ? api.history(view.document.documentId) : Promise.resolve([]),
-    ]);
+    const documentId = documentIdRef.current;
+    const [documents, status] = await Promise.all([api.documents(), api.status()]);
+    let context: DocumentContext | null = null;
+    let contextError: unknown = null;
+    if (documentId) {
+      try {
+        context = await api.context(documentId);
+      } catch (error) {
+        contextError = error;
+      }
+    }
+    const versions = context ? await api.history(context.document.documentId) : [];
     if (generation !== serial.current || lifetime.signal.aborted) return null;
-    const previous = viewRef.current;
+    if (status.language) onLanguage(status.language);
+    const previous = contextRef.current;
     if (
-      previous?.document?.documentId === view.document?.documentId &&
-      previous?.document?.sourceHash !== view.document?.sourceHash
+      previous?.document.documentId === context?.document.documentId &&
+      previous?.document.sourceHash !== context?.document.sourceHash
     ) {
       setNotice(translate(languageRef.current, 'sourceChanged'));
     }
-    viewRef.current = view;
-    dispatch({ type: 'sync', view, documents, status, versions });
-    return view;
-  }, [api, lifetime]);
+    contextRef.current = context;
+    dispatch({ type: 'sync', context, documents, status, versions });
+    if (contextError) {
+      dispatch({ type: 'error', message: describe(contextError) });
+    }
+    return { context, status };
+  }, [api, lifetime, onLanguage]);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let refreshing = false;
@@ -139,7 +140,11 @@ function ScoreApp({
             await delay(100, lifetime.signal);
             continue;
           }
-          await api.events(snapshot, (event) => {
+          const cursor = {
+            instanceId: snapshot.context?.instanceId ?? snapshot.status.instanceId,
+            seq: snapshot.context?.seq ?? snapshot.status.seq,
+          };
+          await api.events(cursor, (event) => {
             if (event.type === 'ui-language-changed') {
               const next = (event.payload as { language?: UiLanguage | null }).language;
               onLanguage(next ?? matchSystemLanguage(navigator.languages));
@@ -162,7 +167,7 @@ function ScoreApp({
       lifetime.abort();
     };
   }, [api, lifetime, refresh, onError, onLanguage]);
-  const doc = state.view?.document;
+  const doc = state.context?.document;
   const documentId = doc?.documentId;
   useEffect(() => {
     setHistoryVersion(null);
@@ -189,24 +194,22 @@ function ScoreApp({
   }
   async function openDocument(id: string) {
     ++serial.current;
+    documentIdRef.current = id || null;
+    setDocumentIdInLocation(id || null);
     setNotice('');
-    await operate(async () => {
-      applyView(await api.selectDocument(id));
-      setHistoryVersion(null);
-      setComparing(false);
-    });
+    await operate(async () => {});
   }
   async function choose(locator?: Locator, point?: { page: number; x: number; y: number }) {
-    const view = viewRef.current;
-    const document = view?.document;
-    if (!view || !document || selecting.current || state.connection !== 'connected') return;
+    const context = contextRef.current;
+    const document = context?.document;
+    if (!context || !document || selecting.current || state.connection !== 'connected') return;
     const hash = document.sourceHash;
-    if (view.render?.manifest.sourceHash !== hash) return;
+    if (context.render?.manifest.sourceHash !== hash) return;
     selecting.current = true;
     try {
       let chosen = locator;
       if (point) {
-        const result = await api.locate({ sourceHash: hash, ...point });
+        const result = await api.locate(document.documentId, { sourceHash: hash, ...point });
         if (result.capability !== 'measure' || !result.region) {
           if (result.reason && result.reason !== 'no-hit')
             setNotice(t('cannotSelect', { reason: result.reason }));
@@ -214,11 +217,11 @@ function ScoreApp({
         }
         chosen = result.region.locator;
       }
-      const current = viewRef.current;
+      const current = contextRef.current;
       if (
-        current?.document?.documentId !== document.documentId ||
+        current?.document.documentId !== document.documentId ||
         current.document.sourceHash !== hash ||
-        current.render?.renderKey !== view.render?.renderKey
+        current.render?.renderKey !== context.render?.renderKey
       )
         return;
       const selected = current.selection?.locators ?? [];
@@ -228,18 +231,17 @@ function ScoreApp({
         : selected.some((l) => locatorKey(l) === key)
           ? selected.filter((l) => locatorKey(l) !== key)
           : [...selected, chosen];
-      const result = await api.selection({
-        viewId: session.viewId,
+      const result = await api.selection(document.documentId, {
         documentId: document.documentId,
         sourceHash: hash,
         locators,
       });
       if (
-        viewRef.current?.document?.documentId === document.documentId &&
-        viewRef.current.document.sourceHash === hash
+        contextRef.current?.document.documentId === document.documentId &&
+        contextRef.current.document.sourceHash === hash
       ) {
         ++serial.current;
-        applyView(result);
+        applyContext(result);
       }
     } catch (e) {
       onError(e);
@@ -249,7 +251,7 @@ function ScoreApp({
     }
   }
   function requestConfirmation(target: Version | 'discard') {
-    const document = viewRef.current?.document;
+    const document = contextRef.current?.document;
     if (document) setConfirm({ target, document });
   }
   async function destructive() {
@@ -263,7 +265,6 @@ function ScoreApp({
         await api.edit({
           action: 'discard',
           documentId: current.documentId,
-          viewId: session.viewId,
           baseVersionId: current.headVersionId,
           expectedSourceHash: current.sourceHash,
           editId: null,
@@ -285,21 +286,13 @@ function ScoreApp({
       }
     });
   }
-  if (state.connection === 'expired')
-    return (
-      <main className="start panel">
-        <h1>{t('viewExpiredTitle')}</h1>
-        <p role="alert">{state.error}</p>
-        <p>{t('viewExpiredBody')}</p>
-      </main>
-    );
-  const render = state.view?.render;
+  const render = state.context?.render;
   const stale = !!doc && !!render && doc.sourceHash !== render.manifest.sourceHash;
   const jobs =
     state.status?.jobs.filter(
       (j) => j.documentId === documentId && ['queued', 'running'].includes(j.state),
     ) ?? [];
-  const selected = state.view?.selection?.locators ?? [];
+  const selected = state.context?.selection?.locators ?? [];
   const connected = state.connection === 'connected';
   return (
     <main className="app">
@@ -377,11 +370,8 @@ function ScoreApp({
                   <span className={doc.dirty ? 'warn' : 'hint'}>
                     {doc.dirty ? t('dirtyWorkspace') : t('cleanWorkspace')}
                   </span>
-                  {state.view?.editActivity && (
-                    <span>
-                      {t('editor', { author: state.view.editActivity.author })} ·{' '}
-                      {state.view.editActivity.ownedByView ? t('currentView') : t('otherView')}
-                    </span>
+                  {state.context?.editActivity && (
+                    <span>{t('editor', { author: state.context.editActivity.author })}</span>
                   )}
                   {doc.editState === 'active' && <span>{t('editOccupied')}</span>}
                   {['interrupted', 'recovery-conflict'].includes(doc.editState) && (

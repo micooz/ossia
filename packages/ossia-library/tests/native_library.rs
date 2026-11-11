@@ -51,7 +51,6 @@ fn native_import_edit_check_commit_restore_and_reopen() {
         let edit = library
             .begin_edit(BeginEditRequest {
                 document_id: doc.document_id,
-                view_id: ViewId::new(),
                 base_version_id: Some(initial),
                 expected_source_hash: &doc.source_hash,
                 author: "native-agent",
@@ -212,7 +211,6 @@ fn native_import_edit_check_commit_restore_and_reopen() {
     let repair = library
         .begin_edit(BeginEditRequest {
             document_id: draft.document_id,
-            view_id: ViewId::new(),
             base_version_id: None,
             expected_source_hash: &draft.source_hash,
             author: "native-fixer",
@@ -322,7 +320,6 @@ fn native_scale_expectations_gate_commit_before_output() {
     let edit = library
         .begin_edit(BeginEditRequest {
             document_id: doc.document_id,
-            view_id: ViewId::new(),
             base_version_id: doc.head_version_id,
             expected_source_hash: &doc.source_hash,
             author: "test",
@@ -360,7 +357,6 @@ fn native_scale_expectations_gate_commit_before_output() {
     let page = library
         .read_source(&ReadSourceArgs {
             document_id: doc.document_id,
-            view_id: edit.owner_view_id,
             expected_source_hash: doc.source_hash.clone(),
             start: Some(SourceReadStart::Start),
             max_lines: None,
@@ -394,7 +390,6 @@ fn native_scale_expectations_gate_commit_before_output() {
         .unwrap();
     let written = library
         .write_source(&WriteSourceArgs {
-            view_id: edit.owner_view_id,
             edit_id: edit.edit_id,
             expected_source_hash: doc.source_hash.clone(),
             change: SourceWriteChange::Edit {

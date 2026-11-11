@@ -153,7 +153,6 @@ pub struct Fixture {
     pub runtime: Arc<Runtime>,
     pub engine: Arc<Engine>,
     pub doc: DocumentState,
-    pub view: ViewId,
     pub root: tempfile::TempDir,
     pub scheduler: Option<tokio::task::JoinHandle<()>>,
 }
@@ -179,14 +178,12 @@ impl Fixture {
             .document
             .unwrap();
         let runtime = Runtime::new(library, engine.clone(), "http://127.0.0.1:3211".into());
-        let view = runtime.open_view(Some(doc.document_id)).unwrap().view_id;
-        runtime.context(view).unwrap();
+        runtime.context(doc.document_id).unwrap();
         let scheduler = schedule.then(|| tokio::spawn(runtime.clone().schedule()));
         Self {
             runtime,
             engine,
             doc,
-            view,
             root,
             scheduler,
         }
@@ -199,7 +196,6 @@ impl Fixture {
                     expect: None,
                     reference: None,
                     document_id: Some(self.doc.document_id),
-                    view_id: self.view,
                     edit_id: None,
                     expected_source_hash: hash,
                     wait_ms: None,
@@ -217,19 +213,15 @@ impl Fixture {
     pub fn begin(&self) -> EditSession {
         serde_json::from_value(
             self.runtime
-                .edit(
-                    EditArgs {
-                        action: EditAction::Begin,
-                        document_id: self.doc.document_id,
-                        view_id: self.view,
-                        base_version_id: self.doc.head_version_id,
-                        expected_source_hash: self.doc.source_hash.clone(),
-                        edit_id: None,
-                        adopt_workspace: false,
-                        author: "test-agent".into(),
-                    },
-                    true,
-                )
+                .edit(EditArgs {
+                    action: EditAction::Begin,
+                    document_id: self.doc.document_id,
+                    base_version_id: self.doc.head_version_id,
+                    expected_source_hash: self.doc.source_hash.clone(),
+                    edit_id: None,
+                    adopt_workspace: false,
+                    author: "test-agent".into(),
+                })
                 .unwrap(),
         )
         .unwrap()

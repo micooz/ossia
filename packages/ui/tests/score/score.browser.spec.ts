@@ -1,13 +1,20 @@
 import { expect, test } from '@playwright/test';
 
-import { hash, newer, secondId, scoreDocument, mockScoreRuntime } from './score-runtime.ts';
+import {
+  firstId,
+  hash,
+  newer,
+  secondId,
+  scoreDocument,
+  mockScoreRuntime,
+} from './score-runtime.ts';
 
 test('live language events update an open score and browser color scheme is independent', async ({
   context,
   page,
 }) => {
   await mockScoreRuntime(context, { languageEvent: 'en-US' });
-  await page.goto('/score.html#ticket=language-view');
+  await page.goto(`/score.html?documentId=${firstId}`);
   await expect(page.getByText('Local service connected')).toBeVisible();
   await expect(page.getByLabel('Current score')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Workspace score' })).toBeVisible();
@@ -19,26 +26,29 @@ test('live language events update an open score and browser color scheme is inde
   ).toBe('#1c1c20');
 });
 
-test('ticket is single-use, refresh and independent views preserve selection', async ({
-  context,
-  page,
-}) => {
-  const h = await mockScoreRuntime(context);
-  await page.goto('/score.html#ticket=view-one');
+test('score page without documentId opens the score chooser', async ({ context, page }) => {
+  await mockScoreRuntime(context);
+  await page.goto('/score.html');
+  await expect(page.getByRole('heading', { name: '选择或导入一份乐谱' })).toBeVisible();
+  await expect(page.getByLabel('当前乐谱')).toBeVisible();
+});
+
+test('document links, refresh and tabs share selection', async ({ context, page }) => {
+  await mockScoreRuntime(context);
+  await page.goto(`/score.html?documentId=${firstId}`);
   await expect(page.getByText('本地服务已连接')).toBeVisible();
-  expect(page.url()).not.toContain('ticket=');
-  expect(h.exchanges()).toBe(1);
   await page.getByText('使用键盘选择小节').click();
   await page.getByRole('button', { name: '谱表 1 · 第 1 小节', exact: true }).click();
   await expect(page.locator('.selection li')).toHaveText('谱表 1 · 第 1 小节');
   const other = await context.newPage();
-  await other.goto('/score.html#ticket=view-two');
+  await other.goto(`/score.html?documentId=${firstId}`);
+  await expect(other.locator('.selection li')).toHaveText('谱表 1 · 第 1 小节');
   await other.getByLabel('当前乐谱').selectOption(secondId);
   await expect(other.locator('.document-status h2')).toHaveText('另一份乐谱');
+  expect(other.url()).toContain(`documentId=${secondId}`);
   await expect(page.locator('.document-status h2')).toHaveText('合成钢琴练习');
   await page.reload();
   await expect(page.locator('.selection li')).toHaveText('谱表 1 · 第 1 小节');
-  expect(h.exchanges()).toBe(2);
   await page.getByRole('button', { name: '清空选区' }).click();
   await expect(page.locator('.selection')).toContainText('尚未选择小节');
 });
@@ -47,7 +57,7 @@ test('SVG transforms, staff boxes, pages, zoom and keyboard work at narrow and w
   page,
 }) => {
   const h = await mockScoreRuntime(context);
-  await page.goto('/score.html#ticket=geometry');
+  await page.goto(`/score.html?documentId=${firstId}`);
   await expect(page.locator('.score-image')).toBeVisible();
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
@@ -78,7 +88,7 @@ test('failed compilation retains old pages, clears selection, reports positions 
   page,
 }) => {
   const h = await mockScoreRuntime(context);
-  await page.goto('/score.html#ticket=failure');
+  await page.goto(`/score.html?documentId=${firstId}`);
   await page.getByText('使用键盘选择小节').click();
   await page.getByRole('button', { name: '谱表 1 · 第 1 小节', exact: true }).click();
   h.change();
@@ -97,12 +107,12 @@ test('failed compilation retains old pages, clears selection, reports positions 
   await expect(page.locator('.message.error')).toContainText('另一任务正在编辑');
   await expect(page.locator('.document-status')).toContainText('工作区有未提交修改');
 });
-test('stale selection is reported; reconnect preserves state and a restarted runtime needs a new link', async ({
+test('stale selection is reported and reconnect preserves document state', async ({
   context,
   page,
 }) => {
   const h = await mockScoreRuntime(context);
-  await page.goto('/score.html#ticket=reconnect');
+  await page.goto(`/score.html?documentId=${firstId}`);
   await page.getByText('使用键盘选择小节').click();
   h.stale();
   await page.getByRole('button', { name: '谱表 1 · 第 1 小节', exact: true }).click();
@@ -111,8 +121,8 @@ test('stale selection is reported; reconnect preserves state and a restarted run
   await expect(page.getByText('连接中断，正在重连…')).toBeVisible();
   h.disconnect(false);
   await expect(page.getByText('本地服务已连接')).toBeVisible();
-  h.expire();
-  await expect(page.getByRole('heading', { name: '视图已失效' })).toBeVisible();
+  await page.reload();
+  await expect(page.locator('.document-status h2')).toHaveText('合成钢琴练习');
 });
 
 test('discard confirmation keeps the original hash when source changes while the dialog is open', async ({
@@ -121,7 +131,7 @@ test('discard confirmation keeps the original hash when source changes while the
 }) => {
   const h = await mockScoreRuntime(context);
   h.states[0]!.dirty = true;
-  await page.goto('/score.html#ticket=confirm-hash');
+  await page.goto(`/score.html?documentId=${firstId}`);
   await page.getByRole('button', { name: '丢弃工作区修改' }).click();
   h.change();
   await expect(page.locator('.document-status')).toContainText(newer.slice(0, 12));
@@ -176,7 +186,7 @@ test('import presents precise losses, carries confirmation and never bypasses re
       }),
     });
   });
-  await page.goto('/score.html#ticket=import');
+  await page.goto(`/score.html?documentId=${firstId}`);
   expect(await page.evaluate(() => '__TAURI_INTERNALS__' in window)).toBe(false);
   await page.getByLabel('单文件 LilyPond / MusicXML / MIDI').setInputFiles({
     name: 'synthetic.musicxml',

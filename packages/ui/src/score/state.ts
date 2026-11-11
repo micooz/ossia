@@ -1,7 +1,12 @@
-import type { AgentStatus, DocumentSummary, Version, ViewSnapshot } from '../generated/protocol.ts';
+import type {
+  AgentStatus,
+  DocumentContext,
+  DocumentSummary,
+  Version,
+} from '../generated/protocol.ts';
 export interface AppState {
-  connection: 'connecting' | 'connected' | 'reconnecting' | 'expired';
-  view: ViewSnapshot | null;
+  connection: 'connecting' | 'connected' | 'reconnecting';
+  context: DocumentContext | null;
   documents: DocumentSummary[];
   versions: Version[];
   status: AgentStatus | null;
@@ -9,7 +14,7 @@ export interface AppState {
 }
 export const initialState: AppState = {
   connection: 'connecting',
-  view: null,
+  context: null,
   documents: [],
   versions: [],
   status: null,
@@ -18,12 +23,12 @@ export const initialState: AppState = {
 export type Action =
   | {
       type: 'sync';
-      view: ViewSnapshot;
+      context: DocumentContext | null;
       documents: DocumentSummary[];
       versions: Version[];
       status: AgentStatus;
     }
-  | { type: 'view'; view: ViewSnapshot }
+  | { type: 'context'; context: DocumentContext }
   | { type: 'connection'; connection: AppState['connection'] }
   | { type: 'error'; message: string | null };
 export function reducer(state: AppState, action: Action): AppState {
@@ -31,14 +36,14 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'sync':
       return {
         ...state,
-        view: action.view,
+        context: action.context,
         documents: action.documents,
         versions: action.versions,
         status: action.status,
         connection: 'connected',
       };
-    case 'view':
-      return { ...state, view: action.view };
+    case 'context':
+      return { ...state, context: action.context };
     case 'connection':
       return { ...state, connection: action.connection };
     case 'error':

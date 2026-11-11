@@ -1,6 +1,8 @@
 use crate::*;
 use serde_json::json;
 use std::{
+    io::ErrorKind,
+    net::{Ipv4Addr, Ipv6Addr},
     path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
@@ -71,7 +73,7 @@ pub async fn serve(config: Config) -> Result<()> {
     )?;
     let ui_preferences = crate::preferences::load(library.home())?;
     if ui_preferences.storage_auto_cleanup {
-        if let Err(error) = library.storage_cleanup(ui_preferences.storage_cache_limit, &[]) {
+        if let Err(error) = library.storage_cleanup(ui_preferences.storage_cache_limit) {
             eprintln!("ossia: startup storage cleanup failed: {error}");
         }
     }
@@ -83,7 +85,7 @@ pub async fn serve(config: Config) -> Result<()> {
     })
     .await
     .map_err(storage)??;
-    let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, config.port))
+    let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, config.port))
         .await
         .map_err(|e| {
             AppError::new(
@@ -91,7 +93,25 @@ pub async fn serve(config: Config) -> Result<()> {
                 format!("cannot bind requested loopback port {}: {e}", config.port),
             )
         })?;
-    let url = format!("http://{}", listener.local_addr().map_err(storage)?);
+    let port = listener.local_addr().map_err(storage)?.port();
+    let listener6 = match tokio::net::TcpListener::bind((Ipv6Addr::LOCALHOST, port)).await {
+        Ok(listener) => Some(listener),
+        Err(error)
+            if matches!(
+                error.kind(),
+                ErrorKind::AddrNotAvailable | ErrorKind::Unsupported
+            ) =>
+        {
+            None
+        }
+        Err(error) => {
+            return Err(AppError::new(
+                ErrorCode::RuntimeUnavailable,
+                format!("cannot bind requested loopback IPv6 port {port}: {error}"),
+            ))
+        }
+    };
+    let url = format!("http://localhost:{port}");
     let runtime = Runtime::new(library, Arc::new(engine), url);
     runtime.initialize_documentation(&config.docs_root);
     runtime.initialize_ui_language(ui_preferences.language);
@@ -130,25 +150,46 @@ pub async fn serve(config: Config) -> Result<()> {
     let ipc_task = tokio::spawn(async move { ipc::serve(ipc_runtime, ipc_listener).await });
     let web = crate::http::router(runtime.clone(), config.static_dir, config.dev_origin);
     let stop_runtime = runtime.clone();
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    let shutdown = tokio::spawn(async move {
+        let signal = shutdown_signal();
+        tokio::pin!(signal);
+        loop {
+            if stop_runtime
+                .stopping
+                .load(std::sync::atomic::Ordering::Acquire)
+            {
+                break;
+            }
+            tokio::select! {
+                _ = &mut signal => { let _ = stop_runtime.stop(); break; }
+                _ = tokio::time::sleep(Duration::from_millis(50)) => {}
+            }
+        }
+        let _ = shutdown_tx.send(true);
+    });
+    let mut shutdown4 = shutdown_rx.clone();
+    let http6 = listener6.map(|listener| {
+        let mut shutdown6 = shutdown_rx;
+        let web = web.clone();
+        tokio::spawn(async move {
+            axum::serve(listener, web)
+                .with_graceful_shutdown(async move {
+                    let _ = shutdown6.wait_for(|stopping| *stopping).await;
+                })
+                .await
+        })
+    });
     let http_result = axum::serve(listener, web)
         .with_graceful_shutdown(async move {
-            let signal = shutdown_signal();
-            tokio::pin!(signal);
-            loop {
-                if stop_runtime
-                    .stopping
-                    .load(std::sync::atomic::Ordering::Acquire)
-                {
-                    break;
-                }
-                tokio::select! {
-                    _ = &mut signal => { let _ = stop_runtime.stop(); break; }
-                    _ = tokio::time::sleep(Duration::from_millis(50)) => {}
-                }
-            }
+            let _ = shutdown4.wait_for(|stopping| *stopping).await;
         })
         .await;
     let _ = runtime.stop();
+    let _ = shutdown.await;
+    if let Some(http6) = http6 {
+        http6.await.map_err(storage)?.map_err(storage)?;
+    }
     let _ = scheduler.await;
     let _ = maintenance.await;
     let _ = watcher.await;
@@ -188,76 +229,90 @@ async fn ensure_runtime_inner(
         Err(error) if error.code == ErrorCode::RuntimeIncompatible => return Err(error),
         _ => {}
     }
-    let startup = tempfile::NamedTempFile::new().map_err(storage)?;
-    let mut command = tokio::process::Command::new(executable);
-    command
-        .arg("--home")
-        .arg(&config.home)
-        .arg("--port")
-        .arg(config.port.to_string())
-        .arg("--engine-root")
-        .arg(&config.engine_root);
-    command.arg("--docs-root").arg(&config.docs_root);
-    if let Some(dir) = &config.static_dir {
-        command.arg("--static-dir").arg(dir);
-    }
-    if let Some(origin) = &config.dev_origin {
-        command.arg("--dev-origin").arg(origin);
-    }
-    if let Some(pid) = parent_pid {
-        command.env("OSSIA_PARENT_PID", pid.to_string());
-    }
-    command
-        .arg("serve")
-        .stdin(std::process::Stdio::null())
-        .stdout(startup.as_file().try_clone().map_err(storage)?)
-        .stderr(startup.as_file().try_clone().map_err(storage)?);
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.as_std_mut().process_group(0);
-    }
-    #[cfg(windows)]
-    command.creation_flags(0x00000008 | 0x00000200 | 0x08000000);
-    let mut child = command.spawn().map_err(storage)?;
-    let started = Instant::now();
-    let mut exit = None;
+    let deadline = Instant::now() + Duration::from_secs(15);
     loop {
-        match ipc::connect(&config.home).await {
-            Ok(info) => {
-                watch_existing_parent(&info, parent_pid).await?;
-                tokio::spawn(async move {
-                    let _ = child.wait().await;
-                });
-                return Ok(info);
-            }
-            Err(error) if error.code == ErrorCode::RuntimeIncompatible => return Err(error),
-            _ => {}
+        let startup = tempfile::NamedTempFile::new().map_err(storage)?;
+        let mut command = tokio::process::Command::new(executable);
+        command
+            .arg("--home")
+            .arg(&config.home)
+            .arg("--port")
+            .arg(config.port.to_string())
+            .arg("--engine-root")
+            .arg(&config.engine_root);
+        command.arg("--docs-root").arg(&config.docs_root);
+        if let Some(dir) = &config.static_dir {
+            command.arg("--static-dir").arg(dir);
         }
-        if exit.is_none() {
-            exit = child.try_wait().map_err(storage)?;
+        if let Some(origin) = &config.dev_origin {
+            command.arg("--dev-origin").arg(origin);
         }
-        if exit.is_some() {
-            // A losing concurrent launcher may exit while the lock winner is still starting.
-            let log = std::fs::read_to_string(startup.path()).unwrap_or_default();
-            if let Some(error) = log
-                .lines()
-                .filter_map(|line| {
-                    serde_json::from_str::<RpcResponse>(line)
-                        .ok()
-                        .and_then(|r| r.error)
-                })
-                .next_back()
-            {
-                if error.code != ErrorCode::LibraryBusy {
-                    return Err(error);
+        if let Some(pid) = parent_pid {
+            command.env("OSSIA_PARENT_PID", pid.to_string());
+        }
+        command
+            .arg("serve")
+            .stdin(std::process::Stdio::null())
+            .stdout(startup.as_file().try_clone().map_err(storage)?)
+            .stderr(startup.as_file().try_clone().map_err(storage)?);
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            command.as_std_mut().process_group(0);
+        }
+        #[cfg(windows)]
+        command.creation_flags(0x00000008 | 0x00000200 | 0x08000000);
+        let mut child = command.spawn().map_err(storage)?;
+        let started = Instant::now();
+        let mut exit = None;
+        let mut busy = false;
+        loop {
+            match ipc::connect(&config.home).await {
+                Ok(info) => {
+                    watch_existing_parent(&info, parent_pid).await?;
+                    tokio::spawn(async move {
+                        let _ = child.wait().await;
+                    });
+                    return Ok(info);
                 }
+                Err(error) if error.code == ErrorCode::RuntimeIncompatible => return Err(error),
+                _ => {}
             }
+            if exit.is_none() {
+                exit = child.try_wait().map_err(storage)?;
+            }
+            if exit.is_some() {
+                // A losing concurrent launcher may exit while the lock winner is still starting.
+                // If no winner appears, retry after the prior owner releases the library lock.
+                let log = std::fs::read_to_string(startup.path()).unwrap_or_default();
+                if let Some(error) = log
+                    .lines()
+                    .filter_map(|line| {
+                        serde_json::from_str::<RpcResponse>(line)
+                            .ok()
+                            .and_then(|r| r.error)
+                    })
+                    .next_back()
+                {
+                    if error.code != ErrorCode::LibraryBusy {
+                        return Err(error);
+                    }
+                    busy = true;
+                }
+                break;
+            }
+            if started.elapsed() > Duration::from_secs(15) {
+                return Err(AppError::new(ErrorCode::RuntimeUnavailable,format!("runtime failed to start or another process holds the library; child exit: {exit:?}")));
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
         }
-        if started.elapsed() > Duration::from_secs(15) {
-            return Err(AppError::new(ErrorCode::RuntimeUnavailable,format!("runtime failed to start or another process holds the library; child exit: {exit:?}")));
+        if !busy || Instant::now() >= deadline {
+            return Err(AppError::new(
+                ErrorCode::RuntimeUnavailable,
+                format!("runtime failed to start; child exit: {exit:?}"),
+            ));
         }
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
     }
 }
 

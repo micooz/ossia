@@ -8,8 +8,8 @@ use std::{path::Path, time::Duration};
 async fn missing_watcher_events_are_reconciled_and_failed_checks_keep_old_render() {
     let f = Fixture::new(true).await;
     let broken = f.save(b"BROKEN");
-    let context = f.runtime.context(f.view).unwrap();
-    assert_eq!(context.document.unwrap().source_hash, broken);
+    let context = f.runtime.context(f.doc.document_id).unwrap();
+    assert_eq!(context.document.source_hash, broken);
     let job = f.check(broken);
     assert_eq!(
         common::wait_job(&f.runtime, job.job_id).await.state,
@@ -79,7 +79,6 @@ async fn write_source_can_suppress_the_automatic_preview() {
     let written = f
         .runtime
         .write_source(WriteSourceArgs {
-            view_id: f.view,
             edit_id: edit.edit_id,
             expected_source_hash: f.doc.source_hash.clone(),
             change: SourceWriteChange::Replace {

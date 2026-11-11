@@ -154,7 +154,7 @@
       </svg>
       <h1>从 Agent 打开你的乐谱</h1>
       <p class="intro">
-        Ossia 本地服务已运行。请通过 Agent 或命令行打开谱面，获取专属的浏览器链接。
+        Ossia 本地服务已运行。请通过 Agent 或命令行打开谱面，获取可重复使用的文档直链。
       </p>
       <ol>
         <li>
@@ -163,7 +163,7 @@
         </li>
         <li>
           <strong>让 Agent 打开乐谱</strong><br />告诉它「用 Ossia 打开我的乐谱」，Agent 会使用
-          <code>ossia_open</code> 创建谱面视图。
+          <code>ossia_open</code> 返回包含文档 ID 的谱面链接。
         </li>
         <li>
           <strong>在浏览器中创作</strong><br />打开返回的链接，即可查看谱面、选择小节，并与 Agent
@@ -172,7 +172,7 @@
       </ol>
       <p>使用命令行？运行 <code>ossia open</code>，再打开返回的链接。</p>
       <footer>
-        每个链接对应一个独立视图。链接失效后，请让 Agent 重新打开。<br />Open scores through your
+        链接可以收藏、刷新或在新标签页打开；同一文档的标签页共享选区。<br />Open scores through your
         connected Agent with <code>ossia_open</code>, or run <code>ossia open</code> in a terminal.
       </footer>
     </main>

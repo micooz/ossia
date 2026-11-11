@@ -242,7 +242,7 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
         }
         "list" => value(runtime.agent_list(decode(params)?)?),
         "open" => value(runtime.agent_open(decode::<OpenArgs>(params)?.document_id)?),
-        "context" => value(runtime.agent_context(decode::<ViewArgs>(params)?.view_id)?),
+        "context" => value(runtime.agent_context(decode::<ContextArgs>(params)?.document_id)?),
         "import" => {
             let args: ImportArgs = decode(params)?;
             let path = Path::new(&args.path);
@@ -267,7 +267,7 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
         }
         "write_source" => value(runtime.write_source(decode(params)?)?),
         "read_source" => value(runtime.read_source(decode(params)?)?),
-        "edit" => runtime.edit(decode(params)?, true),
+        "edit" => runtime.edit(decode(params)?),
         "check" => value(crate::agent::summarize_job(
             runtime.check(decode(params)?, false)?,
         )),

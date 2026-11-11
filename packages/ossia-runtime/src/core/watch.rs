@@ -142,7 +142,6 @@ impl Runtime {
                     expect: None,
                     reference: None,
                     document_id: Some(id),
-                    view_id: ViewId::new(),
                     edit_id: None,
                     expected_source_hash: doc.source_hash,
                     wait_ms: None,

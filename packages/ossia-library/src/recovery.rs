@@ -83,13 +83,10 @@ impl Library {
             let doc = db::document(&tx, document_id)?;
             self.no_intent(&tx, doc.id)?;
             let edit = db::edit(&tx, args.edit_id)?;
-            if edit.document_id != doc.id
-                || edit.owner_view_id != args.view_id
-                || edit.status != EditStatus::Active
-            {
+            if edit.document_id != doc.id || edit.status != EditStatus::Active {
                 return Err(AppError::new(
                     ErrorCode::Forbidden,
-                    "source write requires the active owned edit",
+                    "source write requires the active edit",
                 ));
             }
             self.expect_head(&doc, edit.base_version_id)?;

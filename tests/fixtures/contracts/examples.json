@@ -161,7 +161,6 @@
   "editSession": {
     "editId": "30000000-0000-4000-8000-000000000001",
     "documentId": "10000000-0000-4000-8000-000000000001",
-    "ownerViewId": "00000000-0000-4000-8000-000000000001",
     "baseVersionId": "20000000-0000-4000-8000-000000000001",
     "status": "active",
     "startedAt": "2026-11-10T00:01:00Z",
@@ -173,10 +172,10 @@
     "schemaVersion": 1,
     "instanceId": "synthetic-instance",
     "home": "/synthetic/ossia",
-    "webBaseUrl": "http://127.0.0.1:3211",
+    "webBaseUrl": "http://localhost:3211",
     "capabilities": [
       "documents",
-      "views",
+      "document-context",
       "jobs",
       "events",
       "cli",
@@ -184,7 +183,6 @@
     ]
   },
   "selection": {
-    "viewId": "00000000-0000-4000-8000-000000000001",
     "documentId": "10000000-0000-4000-8000-000000000001",
     "sourceHash": "7182e8457ad62ba44f2fa762b486525056fd0e73ff862f1fcc73dae207e84727",
     "locators": [
@@ -196,13 +194,23 @@
       }
     ]
   },
-  "viewSnapshot": {
+  "documentContext": {
     "instanceId": "synthetic-instance",
     "seq": 1,
-    "viewId": "00000000-0000-4000-8000-000000000001",
-    "document": null,
+    "document": {
+      "documentId": "10000000-0000-4000-8000-000000000001",
+      "title": "Synthetic rest",
+      "sourcePath": "/synthetic/ossia/documents/10000000-0000-4000-8000-000000000001/score.ly",
+      "headVersionId": "20000000-0000-4000-8000-000000000001",
+      "sourceHash": "7182e8457ad62ba44f2fa762b486525056fd0e73ff862f1fcc73dae207e84727",
+      "dirty": false,
+      "editState": "idle",
+      "lastSuccessfulRender": null,
+      "lastCheck": null
+    },
     "selection": null,
     "regions": [],
-    "render": null
+    "render": null,
+    "editActivity": null
   }
 }

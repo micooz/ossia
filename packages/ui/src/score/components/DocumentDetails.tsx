@@ -4,7 +4,7 @@ import type {
   CheckResult,
   RenderManifest,
   Version,
-  ViewSnapshot,
+  DocumentContext,
 } from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
 import type { Api } from '../api.ts';
@@ -24,7 +24,7 @@ export function DocumentDetails({
 }: {
   api: Api;
   doc: DocumentState;
-  render: ViewSnapshot['render'] | undefined;
+  render: DocumentContext['render'] | undefined;
   versions: Version[];
   selected: Locator[];
   stale: boolean;
@@ -87,7 +87,7 @@ function Diagnostics({
   stale,
 }: {
   doc: DocumentState;
-  render: ViewSnapshot['render'] | undefined;
+  render: DocumentContext['render'] | undefined;
   stale: boolean;
 }) {
   const { t } = useI18n();

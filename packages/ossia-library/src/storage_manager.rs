@@ -98,18 +98,13 @@ impl Library {
     }
 
     /// Apply retention and cache limits while preserving all user-visible sources.
-    pub fn storage_cleanup(
-        &self,
-        limit: StorageCacheLimit,
-        view_manifests: &[RenderManifest],
-    ) -> Result<StorageCleanupReport> {
-        self.storage_cleanup_with_policy(StoragePolicy::from_limit(limit), view_manifests)
+    pub fn storage_cleanup(&self, limit: StorageCacheLimit) -> Result<StorageCleanupReport> {
+        self.storage_cleanup_with_policy(StoragePolicy::from_limit(limit))
     }
 
     pub(crate) fn storage_cleanup_with_policy(
         &self,
         policy: StoragePolicy,
-        view_manifests: &[RenderManifest],
     ) -> Result<StorageCleanupReport> {
         let before = directory_size(self.home())?;
         let now = db::now_millis();
@@ -118,9 +113,9 @@ impl Library {
         self.cleanup_docs(&mut report)?;
         self.cleanup_stale_locks(policy.lock_retention, &mut report)?;
         self.prune_jobs(policy, now, &mut report)?;
-        self.prune_renders(policy, now, view_manifests, &mut report)?;
-        self.cleanup_orphan_cache(view_manifests, &mut report)?;
-        self.enforce_cache_limit(policy, view_manifests, &mut report)?;
+        self.prune_renders(policy, now, &mut report)?;
+        self.cleanup_orphan_cache(&mut report)?;
+        self.enforce_cache_limit(policy, &mut report)?;
         self.cleanup_contents(&mut report)?;
         self.vacuum_database()?;
         let after = directory_size(self.home())?;

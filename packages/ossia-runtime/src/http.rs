@@ -2,7 +2,7 @@ use crate::*;
 use axum::{
     body::to_bytes,
     extract::{DefaultBodyLimit, FromRequest, Multipart, Request, State},
-    http::{header, HeaderValue, StatusCode},
+    http::{header, HeaderValue, StatusCode, Uri},
     middleware::{self, Next},
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -75,24 +75,29 @@ pub fn router(
 }
 
 async fn boundary(State(state): State<WebState>, request: Request, next: Next) -> Response {
-    let expected = state
-        .runtime
-        .info
-        .web_base_url
-        .trim_start_matches("http://");
-    if request
+    let base = state.runtime.info.web_base_url.as_str();
+    let expected_port = Uri::try_from(base)
+        .ok()
+        .and_then(|uri| uri.port_u16())
+        .unwrap_or(80);
+    let valid_host = request
         .headers()
         .get(header::HOST)
-        .and_then(|h| h.to_str().ok())
-        != Some(expected)
-    {
+        .and_then(|host| host.to_str().ok())
+        .is_some_and(|host| loopback_host(host, expected_port));
+    if !valid_host {
         return AppErrorResponse(AppError::new(ErrorCode::Forbidden, "invalid loopback Host"))
             .into_response();
     }
     let origin = request.headers().get(header::ORIGIN).cloned();
     if let Some(origin) = &origin {
         let allowed = origin.to_str().ok().is_some_and(|s| {
-            s == state.runtime.info.web_base_url || state.dev_origin.as_deref() == Some(s)
+            loopback_origin(s, expected_port)
+                || state
+                    .dev_origin
+                    .as_deref()
+                    .and_then(loopback_origin_port)
+                    .is_some_and(|port| loopback_origin(s, port))
         });
         if !allowed {
             return AppErrorResponse(AppError::new(ErrorCode::Forbidden, "Origin is not allowed"))
@@ -104,10 +109,7 @@ async fn boundary(State(state): State<WebState>, request: Request, next: Next) -
             StatusCode::NO_CONTENT,
             [
                 (header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT"),
-                (
-                    header::ACCESS_CONTROL_ALLOW_HEADERS,
-                    "Authorization, Content-Type",
-                ),
+                (header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type"),
             ],
         )
             .into_response()
@@ -133,23 +135,31 @@ async fn boundary(State(state): State<WebState>, request: Request, next: Next) -
     response
 }
 
-fn bearer(request: &Request) -> Result<&str> {
-    request
-        .headers()
-        .get(header::AUTHORIZATION)
-        .and_then(|h| h.to_str().ok())
-        .and_then(|s| s.strip_prefix("Bearer "))
-        .ok_or_else(|| AppError::new(ErrorCode::Unauthorized, "bearer token required"))
+fn loopback_host(host: &str, port: u16) -> bool {
+    let Some((name, actual)) = host.rsplit_once(':') else {
+        return false;
+    };
+    actual.parse::<u16>().ok() == Some(port)
+        && matches!(
+            name.to_ascii_lowercase().as_str(),
+            "localhost" | "127.0.0.1" | "::1" | "[::1]"
+        )
 }
-fn same_view(actual: ViewId, requested: ViewId) -> Result<()> {
-    if actual != requested {
-        Err(AppError::new(
-            ErrorCode::Forbidden,
-            "cross-view operation rejected",
-        ))
-    } else {
-        Ok(())
+
+fn loopback_origin_port(origin: &str) -> Option<u16> {
+    let uri = Uri::try_from(origin).ok()?;
+    if uri.scheme_str() != Some("http") {
+        return None;
     }
+    let host = uri.host()?.to_ascii_lowercase();
+    if !matches!(host.as_str(), "localhost" | "127.0.0.1" | "::1") {
+        return None;
+    }
+    uri.port_u16()
+}
+
+fn loopback_origin(origin: &str, port: u16) -> bool {
+    loopback_origin_port(origin) == Some(port)
 }
 fn id<T: std::str::FromStr>(text: &str) -> Result<T> {
     text.parse().map_err(|_| invalid("invalid identifier"))
@@ -230,14 +240,8 @@ async fn api(
     let parts: Vec<_> = path.split('/').collect();
     let method = request.method().clone();
     let pagination = page_args(request.uri().query().unwrap_or(""))?;
-    if parts == ["sessions", "exchange"] && method == "POST" {
-        let args: ExchangeRequest = decode(body(request).await?)?;
-        return Ok(axum::Json(state.runtime.exchange(&args.ticket)?).into_response());
-    }
-    let token = bearer(&request)?.to_owned();
-    let view = state.runtime.authenticate(&token)?;
     if parts == ["events"] && method == "GET" {
-        return events(state, view, token, request.uri().query().unwrap_or("")).map_err(Into::into);
+        return events(state, request.uri().query().unwrap_or("")).map_err(Into::into);
     }
     if parts == ["documents"] && method == "POST" {
         return upload(state.runtime, request).await.map_err(Into::into);
@@ -295,34 +299,25 @@ async fn api(
                     })?
                 })
             }
-            ("GET", ["views", v]) => {
-                let v = id(v)?;
-                same_view(view, v)?;
-                value(runtime.context(v)?)?
+            ("GET", ["documents", doc, "context"]) => value(runtime.context(id(doc)?)?)?,
+            ("POST", ["documents", doc, "locate"]) => {
+                value(runtime.locate(id(doc)?, decode(data)?)?)?
             }
-            ("PUT", ["views", v, "document"]) => {
-                let v = id(v)?;
-                same_view(view, v)?;
-                let args: OpenArgs = decode(data)?;
-                value(runtime.select_document(v, args.document_id)?)?
-            }
-            ("POST", ["views", v, "locate"]) => {
-                let v = id(v)?;
-                same_view(view, v)?;
-                value(runtime.locate(v, decode(data)?)?)?
-            }
-            ("PUT", ["views", v, "selection"]) => {
-                let v = id(v)?;
-                same_view(view, v)?;
+            ("PUT", ["documents", doc, "selection"]) => {
+                let document_id = id(doc)?;
                 let args: Selection = decode(data)?;
-                same_view(view, args.view_id)?;
+                if args.document_id != document_id {
+                    return Err(AppError::new(
+                        ErrorCode::Forbidden,
+                        "path document does not match request",
+                    ));
+                }
                 value(runtime.selection(args)?)?
             }
             ("POST", ["documents", doc, "edits"]) => {
                 bind_document(&data, id(doc)?)?;
                 let args: EditArgs = decode(data)?;
-                same_view(view, args.view_id)?;
-                runtime.edit(args, false)?
+                runtime.edit(args)?
             }
             ("POST", ["documents", doc, "check"]) => {
                 let document_id = id(doc)?;
@@ -337,7 +332,6 @@ async fn api(
                     ));
                 }
                 args.document_id = Some(document_id);
-                same_view(view, args.view_id)?;
                 queued = true;
                 value(runtime.check(args, false)?)?
             }
@@ -350,7 +344,6 @@ async fn api(
                         "path document does not match request",
                     ));
                 }
-                same_view(view, args.view_id)?;
                 value(runtime.commit(args)?)?
             }
             ("GET", ["documents", doc, "versions"]) => {
@@ -452,25 +445,26 @@ async fn upload(runtime: Arc<Runtime>, request: Request) -> Result<Response> {
     Ok((StatusCode::ACCEPTED, axum::Json(job)).into_response())
 }
 
-fn events(state: WebState, view: ViewId, token: String, query: &str) -> Result<Response> {
+fn events(state: WebState, query: &str) -> Result<Response> {
     let mut instance = None;
     let mut after = None;
+    let mut document = None;
     for pair in query.split('&') {
         if let Some((key, value)) = pair.split_once('=') {
             match key {
                 "instanceId" => instance = Some(value.to_string()),
                 "after" => after = Some(id::<u64>(value)?),
+                "documentId" => document = Some(id::<DocumentId>(value)?),
                 _ => {}
             }
         }
     }
     let instance = instance.ok_or_else(|| invalid("events requires snapshot instanceId"))?;
     let mut after = after.ok_or_else(|| invalid("events requires snapshot cursor after"))?;
-    state.runtime.events(view, &instance, after)?;
+    state.runtime.events(document, &instance, after)?;
     let stream = async_stream::stream! {loop{
         let notified=state.runtime.changed.notified();
-        if state.runtime.authenticate(&token).is_err(){yield Ok::<_,Infallible>(Event::default().event("session-expired").data("{}"));break;}
-        match state.runtime.events(view,&instance,after){Ok(events)=>{for event in events{after=event.seq;yield Ok(Event::default().id(event.seq.to_string()).event("runtime").data(serde_json::to_string(&event).expect("event serialization")));}},Err(_)=>{yield Ok(Event::default().event("resync-required").data("{}"));break;}}
+        match state.runtime.events(document,&instance,after){Ok(events)=>{for event in events{after=event.seq;yield Ok::<_,Infallible>(Event::default().id(event.seq.to_string()).event("runtime").data(serde_json::to_string(&event).expect("event serialization")));}},Err(_)=>{yield Ok(Event::default().event("resync-required").data("{}"));break;}}
         if state.runtime.stopping.load(std::sync::atomic::Ordering::Acquire){break;}
         tokio::select!{_=notified=>{},_=tokio::time::sleep(Duration::from_secs(1))=>{}}
     }};

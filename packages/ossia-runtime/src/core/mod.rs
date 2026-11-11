@@ -12,35 +12,17 @@ use std::{
 };
 use tokio::sync::Notify;
 
+mod context;
 mod evidence;
 mod jobs;
 mod storage;
-mod views;
 mod watch;
 use jobs::Pending;
 
 const EVENT_CAPACITY: usize = 512;
 
-#[derive(Clone)]
-struct View {
-    document: Option<DocumentId>,
-    selection: Option<Selection>,
-}
-
-struct Ticket {
-    view: ViewId,
-    expires: Instant,
-}
-
-struct Token {
-    view: ViewId,
-    expires: Instant,
-}
-
 struct State {
-    views: HashMap<ViewId, View>,
-    tickets: HashMap<String, Ticket>,
-    tokens: HashMap<String, Token>,
+    selections: HashMap<DocumentId, Selection>,
     seq: u64,
     events: VecDeque<RuntimeEvent>,
     pending: VecDeque<Pending>,
@@ -65,15 +47,8 @@ pub struct Runtime {
     last_maintenance: Mutex<Instant>,
 }
 
-fn secret() -> String {
-    hex::encode(rand::random::<[u8; 32]>())
-}
-
 fn forbidden() -> AppError {
-    AppError::new(
-        ErrorCode::Forbidden,
-        "view or edit belongs to a different session",
-    )
+    AppError::new(ErrorCode::Forbidden, "edit belongs to a different document")
 }
 
 fn stale() -> AppError {
@@ -114,7 +89,7 @@ impl Runtime {
                     "music-expectations".into(),
                     "reference-expectations".into(),
                     "offline-docs".into(),
-                    "views".into(),
+                    "document-context".into(),
                     "jobs".into(),
                     "events".into(),
                     "cli".into(),
@@ -129,9 +104,7 @@ impl Runtime {
             library: Arc::new(library),
             engine,
             state: Mutex::new(State {
-                views: HashMap::new(),
-                tickets: HashMap::new(),
-                tokens: HashMap::new(),
+                selections: HashMap::new(),
                 seq: 0,
                 events: VecDeque::new(),
                 pending: VecDeque::new(),
@@ -202,7 +175,6 @@ impl Runtime {
         &self,
         state: &mut State,
         kind: &str,
-        view: Option<ViewId>,
         document: Option<DocumentId>,
         hash: Option<ContentHash>,
         payload: Value,
@@ -213,7 +185,6 @@ impl Runtime {
             instance_id: self.info.instance_id.clone(),
             seq,
             r#type: kind.into(),
-            view_id: view,
             document_id: document,
             source_hash: hash,
             payload,
@@ -231,13 +202,12 @@ impl Runtime {
         hash: Option<ContentHash>,
         payload: Value,
     ) {
-        self.emit_locked(&mut self.state(), kind, None, document, hash, payload);
+        self.emit_locked(&mut self.state(), kind, document, hash, payload);
     }
 
     pub fn write_source(&self, args: WriteSourceArgs) -> Result<WriteSourceOutcome> {
         self.available()?;
-        let edit = self.edit_capability(args.view_id, args.edit_id, false)?;
-        self.document_in_view(args.view_id, edit.document_id)?;
+        let edit = self.edit_capability(args.edit_id)?;
         let result = self.library.write_source(&args)?;
         self.observe(edit.document_id)?;
         if !args.preview {
@@ -250,42 +220,26 @@ impl Runtime {
 
     pub fn read_source(&self, args: ReadSourceArgs) -> Result<ReadSourceOutcome> {
         self.available()?;
-        self.document_in_view(args.view_id, args.document_id)?;
+        self.library.get_document(args.document_id)?;
         self.library.read_source(&args)
     }
 
-    fn owned_edit(
-        &self,
-        document: DocumentId,
-        view: ViewId,
-        edit: EditId,
-        transfer: bool,
-    ) -> Result<EditSession> {
+    fn owned_edit(&self, document: DocumentId, edit: EditId) -> Result<EditSession> {
         let edit = self.library.get_edit(edit)?;
-        if edit.document_id != document || (!transfer && edit.owner_view_id != view) {
+        if edit.document_id != document {
             return Err(forbidden());
         }
         Ok(edit)
     }
 
-    fn edit_capability(&self, view: ViewId, edit: EditId, transfer: bool) -> Result<EditSession> {
-        let edit = self.library.get_edit(edit)?;
-        if !transfer && edit.owner_view_id != view {
-            return Err(forbidden());
-        }
-        Ok(edit)
+    fn edit_capability(&self, edit: EditId) -> Result<EditSession> {
+        self.library.get_edit(edit)
     }
 
-    pub fn edit(&self, args: EditArgs, trusted: bool) -> Result<Value> {
+    pub fn edit(&self, args: EditArgs) -> Result<Value> {
         self.available()?;
-        self.document_in_view(args.view_id, args.document_id)?;
         if let Some(id) = args.edit_id {
-            self.owned_edit(
-                args.document_id,
-                args.view_id,
-                id,
-                trusted && matches!(args.action, EditAction::Resume),
-            )?;
+            self.owned_edit(args.document_id, id)?;
         }
         let doc = self.observe(args.document_id)?;
         if doc.source_hash != args.expected_source_hash {
@@ -300,7 +254,6 @@ impl Runtime {
         let edit = match args.action {
             EditAction::Begin => Some(self.library.begin_edit(BeginEditRequest {
                 document_id: args.document_id,
-                view_id: args.view_id,
                 base_version_id: args.base_version_id,
                 expected_source_hash: &args.expected_source_hash,
                 author: &args.author,
@@ -310,23 +263,22 @@ impl Runtime {
                 let id = args
                     .edit_id
                     .ok_or_else(|| invalid("resume requires editId"))?;
-                self.owned_edit(args.document_id, args.view_id, id, trusted)?;
+                self.owned_edit(args.document_id, id)?;
                 Some(self.library.resume_edit(
                     id,
-                    args.view_id,
                     args.base_version_id,
                     &args.expected_source_hash,
                 )?)
             }
             EditAction::End => {
                 let id = args.edit_id.ok_or_else(|| invalid("end requires editId"))?;
-                self.owned_edit(args.document_id, args.view_id, id, false)?;
+                self.owned_edit(args.document_id, id)?;
                 self.library.end_edit(id)?;
                 None
             }
             EditAction::Discard => {
                 if let Some(id) = args.edit_id {
-                    self.owned_edit(args.document_id, args.view_id, id, false)?;
+                    self.owned_edit(args.document_id, id)?;
                 }
                 self.library.discard(
                     args.document_id,
@@ -348,8 +300,7 @@ impl Runtime {
 
     pub fn commit(&self, args: CommitArgs) -> Result<Version> {
         self.available()?;
-        let edit = self.edit_capability(args.view_id, args.edit_id, false)?;
-        self.document_in_view(args.view_id, edit.document_id)?;
+        let edit = self.edit_capability(args.edit_id)?;
         self.observe(edit.document_id)?;
         let version = self.library.commit(CommitRequest {
             edit_id: args.edit_id,
@@ -364,69 +315,5 @@ impl Runtime {
             value(&version)?,
         );
         Ok(version)
-    }
-}
-
-#[cfg(test)]
-mod expiry_tests {
-    use super::*;
-    use ossia_engine::CompileOptions;
-
-    #[test]
-    fn tickets_and_tokens_expire_without_recovery_or_reuse() {
-        struct UnusedEngine;
-        impl EngineBackend for UnusedEngine {
-            fn build_id(&self) -> &str {
-                "unused"
-            }
-            fn convert(
-                &self,
-                _: &[u8],
-                _: InputFormat,
-                _: Option<&ContentHash>,
-                _: &RunContext,
-            ) -> Result<ImportReport> {
-                unreachable!()
-            }
-            fn compile(
-                &self,
-                _: &SourceSnapshot,
-                _: &CompileOptions,
-                _: &std::path::Path,
-                _: &RunContext,
-            ) -> Result<RenderManifest> {
-                unreachable!()
-            }
-        }
-        let root = tempfile::tempdir().unwrap();
-        let runtime = Runtime::new(
-            Library::open(root.path()).unwrap(),
-            Arc::new(UnusedEngine),
-            "http://127.0.0.1:3211".into(),
-        );
-        let open = runtime.open_view(None).unwrap();
-        runtime
-            .state()
-            .tickets
-            .get_mut(&open.ticket)
-            .unwrap()
-            .expires = Instant::now();
-        assert_eq!(
-            runtime.exchange(&open.ticket).unwrap_err().code,
-            ErrorCode::Unauthorized
-        );
-        let open = runtime.open_view(None).unwrap();
-        let session = runtime.exchange(&open.ticket).unwrap();
-        assert!(runtime.authenticate(&session.token).is_ok());
-        runtime
-            .state()
-            .tokens
-            .get_mut(&session.token)
-            .unwrap()
-            .expires = Instant::now();
-        assert_eq!(
-            runtime.authenticate(&session.token).unwrap_err().code,
-            ErrorCode::Unauthorized
-        );
     }
 }

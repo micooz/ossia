@@ -102,14 +102,13 @@ pub fn tools() -> Vec<Tool> {
             "Queue an absolute-path import. format/title/author are inferred or defaulted. Optional expect or reference (mutually exclusive) rejects the import before publishing. Returns a bounded Job summary with top-level verification; pass waitMs to wait.",
             false,
         ),
-        write_tool::<OpenArgs>(
+        read_tool::<OpenArgs>(
             "ossia_open",
-            "Create an isolated view and one-use browser URL. Returns AgentOpenOutcome with the initial compact context; the ticket is not exposed separately.",
-            false,
+            "Return the direct browser URL for one document and its initial compact context. Opens the score chooser when documentId is omitted. Returns AgentOpenOutcome.",
         ),
-        read_tool::<ViewArgs>(
+        read_tool::<ContextArgs>(
             "ossia_context",
-            "Read this explicit view's compact document, selection, source spans and event cursor. Returns AgentView.",
+            "Read this document's compact selection, source spans and event cursor. Returns AgentDocumentContext.",
         ),
         write_tool::<EditArgs>(
             "ossia_edit",

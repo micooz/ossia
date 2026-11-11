@@ -36,16 +36,10 @@ impl Library {
         if previous_schema.is_none() {
             storage::initialize(&store)?;
         }
-        let mut conn = Connection::open(store.path(storage::DATABASE)?).map_err(storage_error)?;
-        let mut schema: u32 = conn
+        let conn = Connection::open(store.path(storage::DATABASE)?).map_err(storage_error)?;
+        let schema: u32 = conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(storage_error)?;
-        if schema < SCHEMA_VERSION {
-            storage::migrate(&mut conn, schema)?;
-            schema = conn
-                .pragma_query_value(None, "user_version", |r| r.get(0))
-                .map_err(storage_error)?;
-        }
         if schema != SCHEMA_VERSION {
             return Err(AppError::new(
                 ErrorCode::RuntimeIncompatible,

@@ -425,7 +425,6 @@ impl Library {
         let edit = EditSession {
             edit_id: EditId::new(),
             document_id: doc.id,
-            owner_view_id: request.view_id,
             base_version_id: doc.head,
             status: EditStatus::Active,
             started_at: db::now(),
@@ -436,7 +435,6 @@ impl Library {
         Ok(edit)
     }
 
-    /// Look up ownership only when the caller already holds the edit capability.
     pub fn get_edit(&self, id: EditId) -> Result<EditSession> {
         db::edit(&*self.db()?, id)
     }
@@ -444,7 +442,6 @@ impl Library {
     pub fn resume_edit(
         &self,
         id: EditId,
-        view: ViewId,
         base: Option<VersionId>,
         expected: &ContentHash,
     ) -> Result<EditSession> {
@@ -461,7 +458,6 @@ impl Library {
             return Err(conflict("edit base changed"));
         }
         self.expect_snapshot(&doc, expected)?;
-        edit.owner_view_id = view;
         edit.status = EditStatus::Active;
         db::save_edit(&tx, &edit)?;
         tx.execute(

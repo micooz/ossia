@@ -13,16 +13,11 @@ pub fn render_key(document: DocumentId, render: &RenderManifest) -> ContentHash 
 }
 
 impl Library {
-    pub fn edit_activity(
-        &self,
-        document: DocumentId,
-        view: ViewId,
-    ) -> Result<Option<EditActivity>> {
+    pub fn edit_activity(&self, document: DocumentId) -> Result<Option<EditActivity>> {
         Ok(
             db::active_edit(&*self.db()?, document)?.map(|edit| EditActivity {
                 author: edit.author,
                 status: edit.status,
-                owned_by_view: edit.owner_view_id == view,
             }),
         )
     }

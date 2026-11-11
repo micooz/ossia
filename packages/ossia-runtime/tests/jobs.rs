@@ -17,7 +17,6 @@ async fn queued_snapshots_previews_and_explicit_checks_are_distinct() {
                 expect: None,
                 reference: None,
                 document_id: Some(f.doc.document_id),
-                view_id: f.view,
                 edit_id: None,
                 expected_source_hash: old.clone(),
                 wait_ms: None,
@@ -33,7 +32,6 @@ async fn queued_snapshots_previews_and_explicit_checks_are_distinct() {
                 expect: None,
                 reference: None,
                 document_id: Some(f.doc.document_id),
-                view_id: f.view,
                 edit_id: None,
                 expected_source_hash: latest.clone(),
                 wait_ms: None,
@@ -102,7 +100,6 @@ async fn global_limit_same_document_serialization_and_cancel_cleanup() {
     let second = f.check(f.doc.source_hash.clone());
     let mut jobs = vec![first.clone(), second.clone()];
     for doc in docs.iter().skip(1) {
-        let view = f.runtime.open_view(Some(doc.document_id)).unwrap().view_id;
         jobs.push(
             f.runtime
                 .check(
@@ -110,7 +107,6 @@ async fn global_limit_same_document_serialization_and_cancel_cleanup() {
                         expect: None,
                         reference: None,
                         document_id: Some(doc.document_id),
-                        view_id: view,
                         edit_id: None,
                         expected_source_hash: doc.source_hash.clone(),
                         wait_ms: None,
@@ -155,7 +151,6 @@ async fn invalid_wait_is_rejected_before_queueing() {
                 expect: None,
                 reference: None,
                 document_id: Some(f.doc.document_id),
-                view_id: f.view,
                 edit_id: None,
                 expected_source_hash: f.doc.source_hash.clone(),
                 wait_ms: Some(30_001),
@@ -337,7 +332,10 @@ async fn running_import_restore_output_cancellation_finishes_before_publishing()
     );
     assert!(!path.exists());
     assert_eq!(
-        f.runtime.open_view(None).unwrap_err().code,
+        f.runtime
+            .open_url(Some(f.doc.document_id))
+            .unwrap_err()
+            .code,
         ErrorCode::RuntimeUnavailable
     );
     f.finish().await;

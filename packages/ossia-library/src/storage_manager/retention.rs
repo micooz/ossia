@@ -130,7 +130,6 @@ impl Library {
         &self,
         policy: StoragePolicy,
         now: i64,
-        _view_manifests: &[RenderManifest],
         report: &mut StorageCleanupReport,
     ) -> Result<()> {
         let current = self.current_sources()?;
@@ -165,13 +164,12 @@ impl Library {
     pub(super) fn enforce_cache_limit(
         &self,
         policy: StoragePolicy,
-        view_manifests: &[RenderManifest],
         report: &mut StorageCleanupReport,
     ) -> Result<()> {
         let artifacts = self.store.path("artifacts")?;
-        let protected = self.protected_assets(view_manifests)?;
+        let protected = self.protected_assets()?;
         let sizes = asset_sizes(&artifacts)?;
-        self.cleanup_orphan_cache(view_manifests, report)?;
+        self.cleanup_orphan_cache(report)?;
         let mut previous = u64::MAX;
         loop {
             let current = directory_size(&artifacts)?;
@@ -228,13 +226,13 @@ impl Library {
             tx.commit().map_err(storage_error)?;
             drop(conn);
             report.removed_renders += selected.len() as u64;
-            self.cleanup_orphan_cache(view_manifests, report)?;
+            self.cleanup_orphan_cache(report)?;
         }
         let current = directory_size(&artifacts)?;
         if current > policy.cache_target() {
-            self.evict_png_cache(policy, view_manifests, report)?;
+            self.evict_png_cache(policy, report)?;
         }
-        self.cleanup_orphan_cache(view_manifests, report)?;
+        self.cleanup_orphan_cache(report)?;
         let retain_after = db::now_millis().saturating_sub(policy.render_retention_ms);
         remove_old_files(&artifacts.join("renders"), retain_after, report, |name| {
             valid_cache_file(name, "json")
@@ -242,7 +240,7 @@ impl Library {
         Ok(())
     }
 
-    fn protected_assets(&self, views: &[RenderManifest]) -> Result<HashSet<String>> {
+    fn protected_assets(&self) -> Result<HashSet<String>> {
         let conn = self.db()?;
         let receipt_rows = receipt_renders(&conn)?;
         let mut protected = HashSet::new();
@@ -262,19 +260,12 @@ impl Library {
                 protected.extend(manifest_assets(&row.body));
             }
         }
-        for manifest in views {
-            protected.extend(manifest_assets(manifest));
-        }
         Ok(protected)
     }
 
-    pub(super) fn cleanup_orphan_cache(
-        &self,
-        views: &[RenderManifest],
-        report: &mut StorageCleanupReport,
-    ) -> Result<()> {
+    pub(super) fn cleanup_orphan_cache(&self, report: &mut StorageCleanupReport) -> Result<()> {
         let artifacts = self.store.path("artifacts")?;
-        let mut referenced = self.protected_assets(views)?;
+        let mut referenced = self.protected_assets()?;
         {
             let conn = self.db()?;
             for row in render_rows(&conn)? {
@@ -310,7 +301,6 @@ impl Library {
     fn evict_png_cache(
         &self,
         policy: StoragePolicy,
-        views: &[RenderManifest],
         report: &mut StorageCleanupReport,
     ) -> Result<()> {
         let root = self.store.path("artifacts/png")?;
@@ -333,7 +323,7 @@ impl Library {
                 break;
             }
             delete_file(&path, report)?;
-            self.cleanup_orphan_cache(views, report)?;
+            self.cleanup_orphan_cache(report)?;
         }
         Ok(())
     }

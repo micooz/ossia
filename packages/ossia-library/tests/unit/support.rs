@@ -187,7 +187,6 @@ impl Fixture {
         self.library
             .begin_edit(BeginEditRequest {
                 document_id: state.document_id,
-                view_id: ViewId::new(),
                 base_version_id: state.head_version_id,
                 expected_source_hash: &state.source_hash,
                 author: "agent",

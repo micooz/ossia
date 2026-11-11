@@ -15,7 +15,6 @@ pub enum SourceReadStart {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReadSourceArgs {
     pub document_id: DocumentId,
-    pub view_id: ViewId,
     pub expected_source_hash: ContentHash,
     pub start: Option<SourceReadStart>,
     pub max_lines: Option<usize>,
@@ -58,7 +57,6 @@ pub enum SourceWriteChange {
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WriteSourceArgs {
-    pub view_id: ViewId,
     pub edit_id: EditId,
     pub expected_source_hash: ContentHash,
     pub change: SourceWriteChange,
@@ -152,6 +150,7 @@ pub struct AgentStatus {
     pub seq: u64,
     pub jobs: Vec<Job>,
     pub documentation: DocumentationStatus,
+    pub language: Option<UiLanguage>,
 }
 
 /// Current document metadata without duplicated render manifests.
@@ -217,27 +216,27 @@ pub struct AgentRender {
     pub pages: usize,
 }
 
-/// Isolated view metadata for an Agent task.
+/// Compact document context for an Agent task.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
-pub struct AgentView {
+pub struct AgentDocumentContext {
     pub instance_id: String,
     pub seq: u64,
-    pub view_id: ViewId,
-    pub document: Option<AgentDocument>,
+    pub document: AgentDocument,
     pub selection: Option<Selection>,
     pub regions: Vec<LocatedRegion>,
     pub render: Option<AgentRender>,
     pub edit_activity: Option<EditActivity>,
 }
 
-/// A newly isolated Agent view and its initial compact context.
+/// A direct browser URL and the initial compact context when a document is selected.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentOpenOutcome {
-    pub view_id: ViewId,
     pub url: String,
-    pub context: AgentView,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub context: Option<AgentDocumentContext>,
 }
 
 /// Which immutable evidence to page through.

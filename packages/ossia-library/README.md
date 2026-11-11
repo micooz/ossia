@@ -6,19 +6,20 @@ Local document library: immutable source snapshots, public `score.ly` files, edi
 
 `Library::open(home)` takes an explicit path, canonicalizes it and holds `library.lock` until dropped. Only the owning process opens the database for writing; a second opener receives `library-busy`. P04 owns runtime discovery and transports around this library.
 
-Schema 3 uses `library.sqlite`, SQLite application ID `0x4f535349`, WAL, foreign keys and FULL synchronization. Unknown markers or schema versions return `runtime-incompatible`.
+Schema 1 uses `library.sqlite`, SQLite application ID `0x4f535349`, WAL, foreign keys and FULL synchronization. Unknown markers, older databases or other schema versions return `runtime-incompatible`; MVP data is reset rather than migrated.
+To reset, stop Ossia and remove the selected `.ossia` library directory before reopening it.
 
 Public source is `documents/<documentId>/score.ly`. `original/input.ly`, `original/input.musicxml` or `original/input.mid` preserves the supplied input. Source bytes, including BOM and CRLF, are stored as gzip CAS objects in `contents/<SHA-256>.gz`; the hash addresses uncompressed bytes. Engine assets stay in the P02 namespace beneath `artifacts/`. Interrupted writes can leave unreferenced content or import directories; idle maintenance removes them.
 
 ## Storage maintenance
 
-Schema 2 records job and render timestamps so maintenance can apply age and count
-retention without deleting current sources or committed versions. The runtime
+Schema 1 records job, render and evidence timestamps so maintenance can apply age
+and count retention without deleting current sources or committed versions. The runtime
 cleans regenerable data only: terminal jobs older than 30 days (or beyond 200 per
 document), render records older than 90 days (or beyond 500 per document), stale
 locks, abandoned imports, old scratch directories, and unreferenced content
 objects. Every document keeps its latest 20 jobs and renders, its current render,
-active edit receipts and open-view artifacts.
+active edit receipts and current artifacts.
 
 The default `artifacts/` cache budget is 1 GiB and can be set to 512 MiB,
 3 GiB or 10 GiB. Exceeding the budget evicts the least-recently-used
@@ -28,10 +29,10 @@ pruned automatically. A core data directory above 2 GiB produces a warning in
 the management window. Automatic cleanup is enabled by default and can be
 disabled independently from manual cleanup.
 
-Schema 3 adds `evidence_runs`, keyed by document, immutable source hash, engine
-build and analysis version. A cache miss derives source analysis and MIDI
-performance evidence from the captured snapshot without creating a version or
-changing the current source. Transient compile failures are not cached.
+`evidence_runs` is keyed by document, immutable source hash, engine build and
+analysis version. A cache miss derives source analysis and MIDI performance
+evidence from the captured snapshot without creating a version or changing the
+current source. Transient compile failures are not cached.
 
 ## Import and editing
 
@@ -39,7 +40,7 @@ The caller provides a verified `Engine` and a fresh `RunContext` per operation. 
 
 - `import` returns an `ImportOutcome`. Refused or unconfirmed reports have no document. Retry losses with the exact confirmation hash. Converted input without a successful SVG is not published; a handwritten `.ly` with compiler diagnostics remains a repairable document with no head.
 - A no-head document is dirty, but its initial snapshot is a known baseline for `begin_edit`. Unknown changes require `adopt_workspace: true` and the exact current hash. This attributes the workspace to a task without replacing the file.
-- `begin_edit` returns the edit capability without a source filesystem path. `DocumentState` separately exposes the public source path for host diagnostics, while `read_source` and `write_source` provide the Agent editing boundary. P04 uses `get_edit(editId)` to verify ownerViewId without enumerating capabilities.
+- `begin_edit` returns the edit capability without a source filesystem path. `DocumentState` separately exposes the public source path for host diagnostics, while `read_source` and `write_source` provide the Agent editing boundary. P04 uses `get_edit(editId)` without enumerating capabilities.
 - `source_snapshot` reads stable UTF-8 bytes. `observe_source` recomputes state without creating versions. Missing, invalid or unstable source is reported without resetting it.
 - `check` binds a successful SVG receipt to the active edit, exact source, engine build and options. A preview without editId does not authorize an edit commit. When a version capture exists without a music report, `evidence` derives it without editing. `import_with_reference` and `CheckRequest.reference` compare performed-note multisets without requiring a new version. PDF/MIDI failures remain independent.
 - `commit` requires that receipt, matching head and current bytes. It appends a version and ends the edit in one transaction without rewriting source. Unchanged source ends the task and returns the current version. A repaired no-head document receives its first `origin=import` version.
@@ -61,7 +62,6 @@ fn edit_example(home: &Path, engine: &Engine) -> Result<Version> {
         AppError::new(ErrorCode::ImportConfirmRequired, "review import report"))?;
     let edit = library.begin_edit(BeginEditRequest {
         document_id: doc.document_id,
-        view_id: ViewId::new(),
         base_version_id: doc.head_version_id,
         expected_source_hash: &doc.source_hash,
         author: "agent",
@@ -69,7 +69,6 @@ fn edit_example(home: &Path, engine: &Engine) -> Result<Version> {
     })?;
     let page = library.read_source(&ReadSourceArgs {
         document_id: doc.document_id,
-        view_id: edit.owner_view_id,
         expected_source_hash: doc.source_hash.clone(),
         start: Some(SourceReadStart::Start),
         max_lines: None,
@@ -79,7 +78,6 @@ fn edit_example(home: &Path, engine: &Engine) -> Result<Version> {
     let span = ossia_score::SourceMap::new(&page.content)
         .span(start, start + 3)?;
     let written = library.write_source(&WriteSourceArgs {
-        view_id: edit.owner_view_id,
         edit_id: edit.edit_id,
         expected_source_hash: doc.source_hash,
         change: SourceWriteChange::Edit {
@@ -124,7 +122,7 @@ A successful old check remains queryable by jobId, with `current=false`, and can
 
 File-changing operations first commit a worktree intent, then replace the public file using a synchronized same-directory temporary file, then finalize the database transaction. On open:
 
-- Queued/running jobs become interrupted; active edits become interrupted and require `resume_edit` with the original capability and explicit new owner view. Successful old receipts are cleared so resumption requires a new check.
+- Queued/running jobs become interrupted; active edits become interrupted and require `resume_edit` with the original capability. Successful old receipts are cleared so resumption requires a new check.
 - A pending intent with the old file hash is cancelled. A target hash with the expected head finalizes the planned operation. Any other state preserves the file and reports `recovery-conflict` through the document's editState.
 - `resolve_recovery_conflict(document, expectedHash)` explicitly acknowledges that conflict without changing source or head. Then resume an interrupted edit, adopt the unknown workspace or discard it as appropriate.
 

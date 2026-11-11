@@ -7,28 +7,31 @@ use serde_json::{json, Value};
 use std::{sync::Arc, time::Duration};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn http_auth_upload_routes_events_and_cross_view_rejection() {
+async fn http_document_routes_support_localhost_without_tokens_or_views() {
     let root = tempfile::tempdir().unwrap();
     let library = Library::open(root.path()).unwrap();
     let engine = Arc::new(Engine::default());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let base = format!("http://{}", listener.local_addr().unwrap());
+    let port = listener.local_addr().unwrap().port();
+    let base = format!("http://localhost:{port}");
+    let ipv4 = format!("http://127.0.0.1:{port}");
     let runtime = Runtime::new(library, engine, base.clone());
     let scheduler = tokio::spawn(runtime.clone().schedule());
     let app = http::router(runtime.clone(), None, Some("http://127.0.0.1:5173".into()));
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let client = reqwest::Client::new();
     let api = format!("{base}/api/v1");
-    let landing = client.get(&base).send().await.unwrap();
-    assert_eq!(landing.status(), 200);
-    assert!(landing.headers()["content-type"]
-        .to_str()
-        .unwrap()
-        .starts_with("text/html"));
-    let landing = landing.text().await.unwrap();
-    assert!(landing.contains("ossia_open"));
-    assert!(landing.contains("ossia open"));
-    assert!(landing.contains("<svg"));
+    for origin in [&base, &ipv4] {
+        let landing = client.get(origin).send().await.unwrap();
+        assert_eq!(landing.status(), 200);
+        assert!(landing.headers()["content-type"]
+            .to_str()
+            .unwrap()
+            .starts_with("text/html"));
+        let landing = landing.text().await.unwrap();
+        assert!(landing.contains("ossia_open"));
+        assert!(landing.contains("<svg"));
+    }
     let health: Value = client
         .get(format!("{base}/health"))
         .send()
@@ -43,7 +46,7 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
     );
     assert_eq!(
         client
-            .get(format!("{base}/health"))
+            .get(format!("{ipv4}/health"))
             .header("Host", "evil.example")
             .send()
             .await
@@ -58,7 +61,7 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
             .await
             .unwrap()
             .status(),
-        401
+        200
     );
     assert_eq!(
         client
@@ -70,50 +73,34 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
             .status(),
         403
     );
-    let opened = runtime.open_view(None).unwrap();
-    let response = client
-        .post(format!("{api}/sessions/exchange"))
-        .json(&ExchangeRequest {
-            ticket: opened.ticket.clone(),
-        })
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(response.status(), 200);
-    let session: ExchangeResponse = response.json().await.unwrap();
-    assert_eq!(
-        client
-            .post(format!("{api}/sessions/exchange"))
-            .json(&ExchangeRequest {
-                ticket: opened.ticket
-            })
-            .send()
-            .await
-            .unwrap()
-            .status(),
-        401
-    );
-    let other = runtime.open_view(None).unwrap();
-    assert_eq!(
-        client
-            .get(format!("{api}/views/{}", other.view_id))
-            .bearer_auth(&session.token)
-            .send()
-            .await
-            .unwrap()
-            .status(),
-        403
-    );
     let response = client
         .get(format!("{api}/status"))
         .header("Origin", "http://127.0.0.1:5173")
-        .bearer_auth(&session.token)
         .send()
         .await
         .unwrap();
     assert_eq!(
         response.headers()["access-control-allow-origin"],
         "http://127.0.0.1:5173"
+    );
+    assert_eq!(
+        client
+            .post(format!("{api}/sessions/exchange"))
+            .json(&json!({"ticket":"old"}))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+    assert_eq!(
+        client
+            .get(format!("{api}/views/old"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
     );
     let multipart = reqwest::multipart::Form::new()
         .text(
@@ -126,7 +113,6 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         );
     let response = client
         .post(format!("{api}/documents"))
-        .bearer_auth(&session.token)
         .multipart(multipart)
         .send()
         .await
@@ -137,17 +123,19 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
     assert_eq!(imported.state, JobState::Done);
     let imported: ImportOutcome = serde_json::from_value(imported.result.unwrap()).unwrap();
     let document = imported.document.unwrap();
-    let response = client
-        .put(format!("{api}/views/{}/document", session.view.view_id))
-        .bearer_auth(&session.token)
-        .json(&OpenArgs {
-            document_id: Some(document.document_id),
-        })
+    assert_eq!(
+        runtime.open_url(Some(document.document_id)).unwrap(),
+        format!("{base}/score.html?documentId={}", document.document_id)
+    );
+    let context: DocumentContext = client
+        .get(format!("{api}/documents/{}/context", document.document_id))
         .send()
         .await
+        .unwrap()
+        .json()
+        .await
         .unwrap();
-    let snapshot: ViewSnapshot = response.json().await.unwrap();
-    assert_eq!(snapshot.document.unwrap().document_id, document.document_id);
+    assert_eq!(context.document.document_id, document.document_id);
     let key = ossia_library::render_key(
         document.document_id,
         document.last_successful_render.as_ref().unwrap(),
@@ -155,16 +143,14 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
     assert_eq!(
         client
             .get(format!("{api}/renders/{key}/pages/1"))
-            .bearer_auth(&session.token)
             .send()
             .await
             .unwrap()
             .status(),
         200
     );
-    let response = client
-        .post(format!("{api}/views/{}/locate", session.view.view_id))
-        .bearer_auth(&session.token)
+    let located = client
+        .post(format!("{api}/documents/{}/locate", document.document_id))
         .json(&LocateArgs {
             source_hash: document.source_hash.clone(),
             page: 1,
@@ -174,14 +160,13 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         .send()
         .await
         .unwrap();
-    let located: LocateOutcome = response.json().await.unwrap();
+    let located: LocateOutcome = located.json().await.unwrap();
     assert_eq!(located.capability, LocationCapability::None);
     let mut stream = client
         .get(format!(
-            "{api}/events?instanceId={}&after={}",
-            snapshot.instance_id, snapshot.seq
+            "{api}/events?instanceId={}&after={}&documentId={}",
+            context.instance_id, context.seq, document.document_id
         ))
-        .bearer_auth(&session.token)
         .send()
         .await
         .unwrap();
@@ -203,7 +188,6 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         assert_eq!(
             client
                 .get(format!("{api}/{route}"))
-                .bearer_auth(&session.token)
                 .send()
                 .await
                 .unwrap()
@@ -213,7 +197,6 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
     }
     let documents: DocumentPage = client
         .get(format!("{api}/documents?limit=1&offset=0"))
-        .bearer_auth(&session.token)
         .send()
         .await
         .unwrap()
@@ -226,7 +209,6 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
             "{api}/documents/{}/versions?limit=1&offset=0",
             document.document_id
         ))
-        .bearer_auth(&session.token)
         .send()
         .await
         .unwrap()
@@ -234,41 +216,33 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         .await
         .unwrap();
     assert_eq!(versions.items.len(), 1);
-    let job: JobOutcome = client
-        .get(format!("{api}/jobs/{}", job.job_id))
-        .bearer_auth(&session.token)
+    let mut edit: EditSession = client
+        .post(format!("{api}/documents/{}/edits", document.document_id))
+        .json(&json!({"action":"begin","documentId":document.document_id,"baseVersionId":document.head_version_id,"expectedSourceHash":document.source_hash}))
         .send()
         .await
         .unwrap()
         .json()
         .await
         .unwrap();
-    assert!(job.analysis.is_none());
-    let mut edit: EditSession=client.post(format!("{api}/documents/{}/edits",document.document_id)).bearer_auth(&session.token).json(&json!({"action":"begin","documentId":document.document_id,"viewId":session.view.view_id,"baseVersionId":document.head_version_id,"expectedSourceHash":document.source_hash})).send().await.unwrap().json().await.unwrap();
     let status = client
         .get(format!("{api}/status"))
-        .bearer_auth(&session.token)
         .send()
         .await
         .unwrap()
         .text()
         .await
         .unwrap();
-    assert!(
-        !status.contains(&edit.edit_id.to_string()),
-        "status must not enumerate edit capabilities"
-    );
+    assert!(!status.contains(&edit.edit_id.to_string()));
     let changed = b"\\score { \\new Staff { e'1 | d'1 | } \\layout {} }";
     std::fs::write(&document.source_path, changed).unwrap();
     let hash = ContentHash::of(changed);
     let checked = client
         .post(format!("{api}/documents/{}/check", document.document_id))
-        .bearer_auth(&session.token)
         .json(&CheckArgs {
             expect: None,
             reference: None,
             document_id: Some(document.document_id),
-            view_id: session.view.view_id,
             edit_id: Some(edit.edit_id),
             expected_source_hash: hash.clone(),
             wait_ms: None,
@@ -284,9 +258,7 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
     );
     let version: Version = client
         .post(format!("{api}/documents/{}/commit", document.document_id))
-        .bearer_auth(&session.token)
         .json(&CommitArgs {
-            view_id: session.view.view_id,
             edit_id: edit.edit_id,
             expected_source_hash: hash.clone(),
             summary: "HTTP commit".into(),
@@ -300,7 +272,6 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
     assert_eq!(version.seq, 2);
     let exported = client
         .post(format!("{api}/outputs"))
-        .bearer_auth(&session.token)
         .json(&OutputArgs {
             source: OutputSource::Version {
                 version_id: version.version_id,
@@ -327,7 +298,6 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
     );
     let restored = client
         .post(format!("{api}/documents/{}/restore", document.document_id))
-        .bearer_auth(&session.token)
         .json(&RestoreArgs {
             version_id: document.head_version_id.unwrap(),
             base_version_id: Some(version.version_id),
@@ -346,26 +316,28 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
         JobState::Done
     );
     let current = runtime.library.get_document(document.document_id).unwrap();
-    edit=client.post(format!("{api}/documents/{}/edits",document.document_id)).bearer_auth(&session.token).json(&json!({"action":"begin","documentId":document.document_id,"viewId":session.view.view_id,"baseVersionId":current.head_version_id,"expectedSourceHash":current.source_hash})).send().await.unwrap().json().await.unwrap();
-    let ended=client.post(format!("{api}/documents/{}/edits",document.document_id)).bearer_auth(&session.token).json(&json!({"action":"end","documentId":document.document_id,"viewId":session.view.view_id,"editId":edit.edit_id,"baseVersionId":current.head_version_id,"expectedSourceHash":current.source_hash})).send().await.unwrap();
-    assert_eq!(ended.status(), 200);
-    let cancelled = client
-        .post(format!("{api}/jobs/{}/cancel", checked.job_id))
-        .bearer_auth(&session.token)
-        .json(&json!({}))
+    edit = client
+        .post(format!("{api}/documents/{}/edits", document.document_id))
+        .json(&json!({"action":"begin","documentId":document.document_id,"baseVersionId":current.head_version_id,"expectedSourceHash":current.source_hash}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let ended = client
+        .post(format!("{api}/documents/{}/edits", document.document_id))
+        .json(&json!({"action":"end","documentId":document.document_id,"editId":edit.edit_id,"baseVersionId":current.head_version_id,"expectedSourceHash":current.source_hash}))
         .send()
         .await
         .unwrap();
-    assert_eq!(cancelled.status(), 200);
-    let cancelled: JobOutcome = cancelled.json().await.unwrap();
-    assert_eq!(cancelled.job.state, JobState::Done);
+    assert_eq!(ended.status(), 200);
     let malformed = reqwest::multipart::Form::new()
         .text("metadata", "[]")
         .part("file", reqwest::multipart::Part::bytes(SOURCE.to_vec()));
     assert_eq!(
         client
             .post(format!("{api}/documents"))
-            .bearer_auth(&session.token)
             .multipart(malformed)
             .send()
             .await
@@ -388,7 +360,7 @@ fn ipc_handshake_rejects_wrong_home_schema_and_protocol() {
         schema_version: SCHEMA_VERSION,
         instance_id: "test".into(),
         home: home.to_string_lossy().into_owned(),
-        web_base_url: "http://127.0.0.1:3211".into(),
+        web_base_url: "http://localhost:3211".into(),
         capabilities: vec![],
     };
     assert!(ipc::verify_handshake(&home, &info).is_ok());

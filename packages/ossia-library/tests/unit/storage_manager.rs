@@ -74,10 +74,7 @@ fn retention_prunes_terminal_jobs_but_keeps_newest_and_active_receipts() {
     policy.job_retention_ms = 24 * 60 * 60 * 1000;
     policy.jobs_per_document = 5;
     policy.latest_per_document = 2;
-    let report = fixture
-        .library
-        .storage_cleanup_with_policy(policy, &[])
-        .unwrap();
+    let report = fixture.library.storage_cleanup_with_policy(policy).unwrap();
     let remaining: i64 = fixture
         .library
         .db()
@@ -118,10 +115,7 @@ fn active_edit_job_and_render_survive_retention_and_cleanup_can_still_commit() {
     policy.jobs_per_document = 0;
     policy.renders_per_document = 0;
     policy.latest_per_document = 0;
-    fixture
-        .library
-        .storage_cleanup_with_policy(policy, &[])
-        .unwrap();
+    fixture.library.storage_cleanup_with_policy(policy).unwrap();
     fixture.commit(&edit, &hash).unwrap();
 }
 
@@ -180,10 +174,7 @@ fn cache_limit_evicts_lru_assets_without_breaking_the_current_preview() {
     let mut policy = large_policy();
     policy.cache_limit_bytes = 4096;
     policy.latest_per_document = 0;
-    let report = fixture
-        .library
-        .storage_cleanup_with_policy(policy, &[])
-        .unwrap();
+    let report = fixture.library.storage_cleanup_with_policy(policy).unwrap();
     assert!(report.removed_renders >= 4, "{report:?}");
     let remaining: Vec<_> = old_assets
         .iter()
@@ -244,7 +235,7 @@ fn stale_staging_locks_docs_and_orphan_contents_are_removed() {
     assert!(orphan_path.exists());
     let report = fixture
         .library
-        .storage_cleanup_with_policy(large_policy(), &[])
+        .storage_cleanup_with_policy(large_policy())
         .unwrap();
     assert!(!imports.exists());
     assert!(!scratch.exists());
@@ -286,7 +277,7 @@ fn evidence_references_protect_content_from_cleanup() {
     }
     fixture
         .library
-        .storage_cleanup_with_policy(large_policy(), &[])
+        .storage_cleanup_with_policy(large_policy())
         .unwrap();
     assert!(path.exists());
     let count: i64 = fixture

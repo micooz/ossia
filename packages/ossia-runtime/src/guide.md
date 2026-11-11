@@ -32,7 +32,7 @@ job without editing it. It accepts `{"kind":"version","versionId":"…"}` or
 `source`), `offset`, `limit` and optional `waitMs`. The first request may create
 a durable evidence job; later requests reuse the report for the same source,
 engine build and analysis version. Evidence never creates a version or changes
-the current source, and it does not require a view.
+the current source.
 
 Use performance evidence to verify pitches and timing. Source evidence can be
 partial when the LilyPond input uses constructs outside the verified analysis
@@ -89,18 +89,15 @@ snapshots and commit authorization, and use a check to verify the actual result.
    returns a job error with `verification.differences` and actual pitches, and
    creates no document or version. Pass `waitMs` to wait for completion, or poll
    `ossia_job`. The top-level import outcome also reports `verification`.
-3. Call `ossia_open` with the selected `documentId`. Open its one-time URL in the
-   host's browser immediately, without printing the signed URL. Prefer an
-   in-app browser action; when the host exposes none, launch the system browser
-   (`open <url>` on macOS, `xdg-open <url>` on Linux, or `Start-Process <url>` on
-   Windows). The URL contains a one-use credential that hosts may redact from
-   assistant text. Do not paste or reconstruct it after opening. If the host
-   cannot launch a browser, tell the user to open the URL shown in the
-   `ossia_open` result. The result already includes the initial compact
-   context; keep `viewId` for this task.
-4. Call `ossia_context` with that exact `viewId` when you need to refresh the
-   document, selection, source spans and edit state. Do not use another session's
-   recent selection. The compact response has no source filesystem path.
+3. Call `ossia_open` with the selected `documentId`. The result is a stable
+   `score.html?documentId=…` URL plus the initial compact context. Open it in an
+   in-app browser when available; otherwise launch the system browser (`open
+   <url>` on macOS, `xdg-open <url>` on Linux, or `Start-Process <url>` on
+   Windows). The URL contains no credential and can be reused after restarts.
+4. Call `ossia_context` with that `documentId` when you need to refresh the
+   document, shared selection, source spans and edit state. Selections belong to
+   the document and are shared by its browser tabs. The compact response has no
+   source filesystem path.
 5. Call `ossia_edit` with action `begin`, the current `baseVersionId`, and the
    exact `expectedSourceHash`. Keep `editId` private.
 6. Use `ossia_read_source` with that source hash. Start with
@@ -131,8 +128,8 @@ snapshots and commit authorization, and use a check to verify the actual result.
 10. Report the committed version, what was actually checked, and any output path.
 
 End preserves files; discard is explicit and hash-guarded. Resume requires the
-original interrupted `editId`. Runtime restarts invalidate views and page tokens;
-re-open, then explicitly resume interrupted work.
+original interrupted `editId`. Runtime restarts preserve document URLs and
+workspaces; reopen the document, then explicitly resume interrupted work.
 
 ## New score example
 

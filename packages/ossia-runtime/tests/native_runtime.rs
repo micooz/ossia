@@ -36,7 +36,12 @@ async fn job(client: &Client, id: JobId) -> Job {
     let start = Instant::now();
     loop {
         let outcome: JobOutcome = serde_json::from_value(
-            call(client, "ossia_job", json!({"jobId":id,"action":"get"})).await,
+            call(
+                client,
+                "ossia_job",
+                json!({"jobId":id,"action":"get","detail":"full"}),
+            )
+            .await,
         )
         .unwrap();
         let job = outcome.job;
@@ -186,19 +191,10 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
             call(&client, "ossia_open", json!({"documentId":doc.document_id})).await,
         )
         .unwrap();
-        assert!(open.url.contains("/score.html#ticket="));
-        let ticket = open.url.split("#ticket=").nth(1).unwrap();
-        let response = web
-            .post(format!("{api}/sessions/exchange"))
-            .json(&ExchangeRequest {
-                ticket: ticket.into(),
-            })
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(response.status(), 200);
-        let session: ExchangeResponse = response.json().await.unwrap();
-        let edit:EditSession=serde_json::from_value(call(&client,"ossia_edit",json!({"action":"begin","documentId":doc.document_id,"viewId":open.view_id,"baseVersionId":initial,"expectedSourceHash":doc.source_hash,"author":"native-agent"})).await).unwrap();
+        assert!(open
+            .url
+            .contains(&format!("/score.html?documentId={}", doc.document_id)));
+        let edit:EditSession=serde_json::from_value(call(&client,"ossia_edit",json!({"action":"begin","documentId":doc.document_id,"baseVersionId":initial,"expectedSourceHash":doc.source_hash,"author":"native-agent"})).await).unwrap();
         let original = std::fs::read(&doc.source_path).unwrap();
         let mut changed = String::from_utf8(original.clone()).unwrap();
         if format == InputFormat::Ly {
@@ -213,9 +209,8 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         let hash = ContentHash::of(changed.as_bytes());
         let preview_start = Instant::now();
         loop {
-            let context: ViewSnapshot = web
-                .get(format!("{api}/views/{}", open.view_id))
-                .bearer_auth(&session.token)
+            let context: DocumentContext = web
+                .get(format!("{api}/documents/{}/context", doc.document_id))
                 .send()
                 .await
                 .unwrap()
@@ -224,7 +219,6 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
                 .unwrap();
             if context
                 .document
-                .unwrap()
                 .last_successful_render
                 .is_some_and(|render| render.source_hash == hash)
             {
@@ -241,7 +235,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
             call(
                 &client,
                 "ossia_check",
-                json!({"viewId":open.view_id,"editId":edit.edit_id,"expectedSourceHash":hash}),
+                json!({"editId":edit.edit_id,"expectedSourceHash":hash}),
             )
             .await,
         )
@@ -251,11 +245,10 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         let render = result.render;
         assert_eq!(render.source_hash, hash);
         assert!(!render.pages.is_empty());
-        let version:Version=serde_json::from_value(call(&client,"ossia_commit",json!({"viewId":open.view_id,"editId":edit.edit_id,"expectedSourceHash":hash,"summary":"native runtime edit"})).await).unwrap();
+        let version:Version=serde_json::from_value(call(&client,"ossia_commit",json!({"editId":edit.edit_id,"expectedSourceHash":hash,"summary":"native runtime edit"})).await).unwrap();
         assert_eq!(version.seq, 2);
-        let context: ViewSnapshot = web
-            .get(format!("{api}/views/{}", open.view_id))
-            .bearer_auth(&session.token)
+        let context: DocumentContext = web
+            .get(format!("{api}/documents/{}/context", doc.document_id))
             .send()
             .await
             .unwrap()
@@ -265,7 +258,6 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         let key = context.render.unwrap().render_key;
         let response = web
             .get(format!("{api}/renders/{key}/pages/1"))
-            .bearer_auth(&session.token)
             .send()
             .await
             .unwrap();
@@ -331,7 +323,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         &home,
         &engine,
         "context",
-        Some(json!({"viewId":ViewId::new()})),
+        Some(json!({"documentId":DocumentId::new()})),
     )
     .await;
     assert_ne!(code, 0);
@@ -345,7 +337,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
     let restart = cli(&executable, &home, &engine, "status", None).await;
-    assert_eq!(restart.0, 0);
+    assert_eq!(restart.0, 0, "{:?}", restart.1);
     assert_ne!(
         restart.1["runtime"]["instanceId"],
         json!(discovery.runtime.instance_id)
@@ -388,9 +380,13 @@ async fn ipc_job(endpoint: &str, id: JobId) -> Job {
     let start = Instant::now();
     loop {
         let outcome: JobOutcome = serde_json::from_value(
-            ipc::call(endpoint, "job", json!({"jobId":id,"action":"get"}))
-                .await
-                .unwrap(),
+            ipc::call(
+                endpoint,
+                "job",
+                json!({"jobId":id,"action":"get","detail":"full"}),
+            )
+            .await
+            .unwrap(),
         )
         .unwrap();
         let job = outcome.job;
@@ -480,23 +476,11 @@ async fn native_crash_stale_endpoint_edit_recovery_port_conflict() {
             .unwrap(),
     )
     .unwrap();
-    let ticket = view.url.split("#ticket=").nth(1).unwrap();
     let web = reqwest::Client::new();
-    let token: ExchangeResponse = web
-        .post(format!(
-            "{}/api/v1/sessions/exchange",
-            old.runtime.web_base_url
-        ))
-        .json(&ExchangeRequest {
-            ticket: ticket.into(),
-        })
-        .send()
-        .await
-        .unwrap()
-        .json()
-        .await
-        .unwrap();
-    let edit:EditSession=serde_json::from_value(ipc::call(&old.endpoint,"edit",json!({"action":"begin","documentId":doc.document_id,"viewId":view.view_id,"baseVersionId":doc.head_version_id,"expectedSourceHash":doc.source_hash})).await.unwrap()).unwrap();
+    assert!(view
+        .url
+        .contains(&format!("/score.html?documentId={}", doc.document_id)));
+    let edit:EditSession=serde_json::from_value(ipc::call(&old.endpoint,"edit",json!({"action":"begin","documentId":doc.document_id,"baseVersionId":doc.head_version_id,"expectedSourceHash":doc.source_hash})).await.unwrap()).unwrap();
     let mut bytes = std::fs::read(&doc.source_path).unwrap();
     bytes.extend_from_slice(b"\n% work survives runtime crash\n");
     std::fs::write(&doc.source_path, &bytes).unwrap();
@@ -517,39 +501,29 @@ async fn native_crash_stale_endpoint_edit_recovery_port_conflict() {
     assert_ne!(old.runtime.instance_id, new.runtime.instance_id);
     assert_eq!(
         web.get(format!("{}/api/v1/status", new.runtime.web_base_url))
-            .bearer_auth(&token.token)
             .send()
             .await
             .unwrap()
             .status(),
-        401
+        200
     );
-    assert_eq!(
-        ipc::call(&new.endpoint, "context", json!({"viewId":view.view_id}))
-            .await
-            .unwrap_err()
-            .code,
-        ErrorCode::NotFound
-    );
-    let opened: AgentOpenOutcome = serde_json::from_value(
-        ipc::call(&new.endpoint, "open", json!({"documentId":doc.document_id}))
-            .await
-            .unwrap(),
+    let context: AgentDocumentContext = serde_json::from_value(
+        ipc::call(
+            &new.endpoint,
+            "context",
+            json!({"documentId":doc.document_id}),
+        )
+        .await
+        .unwrap(),
     )
     .unwrap();
-    let context: AgentView = serde_json::from_value(
-        ipc::call(&new.endpoint, "context", json!({"viewId":opened.view_id}))
-            .await
-            .unwrap(),
-    )
-    .unwrap();
-    let current = context.document.unwrap();
+    let current = context.document;
     assert_eq!(current.edit_state, DocumentEditState::Interrupted);
     assert!(current.dirty);
     assert_eq!(current.source_hash, hash);
     assert_eq!(std::fs::read(&doc.source_path).unwrap(), bytes);
-    let resumed:EditSession=serde_json::from_value(ipc::call(&new.endpoint,"edit",json!({"action":"resume","documentId":doc.document_id,"viewId":opened.view_id,"editId":edit.edit_id,"baseVersionId":doc.head_version_id,"expectedSourceHash":hash})).await.unwrap()).unwrap();
-    assert_eq!(resumed.owner_view_id, opened.view_id);
+    let resumed:EditSession=serde_json::from_value(ipc::call(&new.endpoint,"edit",json!({"action":"resume","documentId":doc.document_id,"editId":edit.edit_id,"baseVersionId":doc.head_version_id,"expectedSourceHash":hash})).await.unwrap()).unwrap();
+    assert_eq!(resumed.edit_id, edit.edit_id);
     ipc::call(&new.endpoint, "stop", json!({})).await.unwrap();
     assert!(tokio::time::timeout(Duration::from_secs(5), child.wait())
         .await

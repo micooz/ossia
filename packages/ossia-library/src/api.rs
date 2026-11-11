@@ -81,7 +81,6 @@ pub struct ImportRequest<'a> {
 
 pub struct BeginEditRequest<'a> {
     pub document_id: DocumentId,
-    pub view_id: ViewId,
     pub base_version_id: Option<VersionId>,
     pub expected_source_hash: &'a ContentHash,
     pub author: &'a str,

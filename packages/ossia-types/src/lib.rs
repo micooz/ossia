@@ -6,7 +6,7 @@ use std::{fmt, fmt::Write as _, str::FromStr};
 use uuid::Uuid;
 
 pub const PROTOCOL_VERSION: u32 = 1;
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 1;
 /// Semantic version of derived music evidence. Increment when evidence changes.
 pub const EVIDENCE_ANALYSIS_VERSION: u32 = 1;
 
@@ -31,7 +31,7 @@ macro_rules! identifier {
         }
     )+};
 }
-identifier!(DocumentId, VersionId, EditId, ViewId, JobId);
+identifier!(DocumentId, VersionId, EditId, JobId);
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
@@ -392,7 +392,6 @@ pub enum EditStatus {
 pub struct EditSession {
     pub edit_id: EditId,
     pub document_id: DocumentId,
-    pub owner_view_id: ViewId,
     pub base_version_id: Option<VersionId>,
     pub status: EditStatus,
     pub started_at: String,

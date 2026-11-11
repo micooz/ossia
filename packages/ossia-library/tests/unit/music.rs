@@ -62,31 +62,10 @@ fn latest_explicit_check_wins_and_preview_cannot_authorize_commit() {
 }
 
 #[test]
-fn existing_schema_migrates_check_binding_without_trusting_old_receipts() {
-    let root = tempfile::tempdir().unwrap();
-    let library = Library::open(root.path()).unwrap();
-    drop(library);
-    let conn = Connection::open(root.path().join("library.sqlite")).unwrap();
-    conn.execute_batch("ALTER TABLE check_receipts DROP COLUMN job_id; ALTER TABLE check_requests DROP COLUMN edit_id; PRAGMA user_version=1;").unwrap();
-    drop(conn);
-    let library = Library::open(root.path()).unwrap();
-    assert_eq!(
-        library
-            .db()
-            .unwrap()
-            .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
-            .unwrap(),
-        SCHEMA_VERSION
-    );
-    assert!(library.list_documents().unwrap().is_empty());
-}
-
-#[test]
 fn source_writes_require_owned_edit_hash_and_recover_after_replacement() {
     let f = Fixture::new();
     let edit = f.begin();
     let mut args = WriteSourceArgs {
-        view_id: edit.owner_view_id,
         edit_id: edit.edit_id,
         expected_source_hash: f.doc.source_hash.clone(),
         change: SourceWriteChange::Replace {
@@ -94,12 +73,6 @@ fn source_writes_require_owned_edit_hash_and_recover_after_replacement() {
         },
         preview: true,
     };
-    args.view_id = ViewId::new();
-    assert_eq!(
-        f.library.write_source(&args).unwrap_err().code,
-        ErrorCode::Forbidden
-    );
-    args.view_id = edit.owner_view_id;
     args.expected_source_hash = ContentHash::of(b"stale");
     assert_eq!(
         f.library.write_source(&args).unwrap_err().code,
@@ -136,7 +109,6 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
         .library
         .read_source(&ReadSourceArgs {
             document_id: f.doc.document_id,
-            view_id: ViewId::new(),
             expected_source_hash: f.doc.source_hash.clone(),
             start: Some(SourceReadStart::Line { line: 2 }),
             max_lines: Some(1),
@@ -152,7 +124,6 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
         f.library
             .read_source(&ReadSourceArgs {
                 document_id: f.doc.document_id,
-                view_id: ViewId::new(),
                 expected_source_hash: f.doc.source_hash.clone(),
                 start: Some(SourceReadStart::Line { line: 99 }),
                 max_lines: None,
@@ -171,7 +142,6 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
         .library
         .read_source(&ReadSourceArgs {
             document_id: f.doc.document_id,
-            view_id: ViewId::new(),
             expected_source_hash: f.doc.source_hash.clone(),
             start: Some(SourceReadStart::Span { span: exact }),
             max_lines: None,
@@ -187,7 +157,6 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
         f.library
             .read_source(&ReadSourceArgs {
                 document_id: f.doc.document_id,
-                view_id: ViewId::new(),
                 expected_source_hash: f.doc.source_hash.clone(),
                 start: Some(SourceReadStart::Span { span: invalid_span }),
                 max_lines: None,
@@ -202,7 +171,6 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
         .library
         .read_source(&ReadSourceArgs {
             document_id: f.doc.document_id,
-            view_id: ViewId::new(),
             expected_source_hash: f.doc.source_hash.clone(),
             start: None,
             max_lines: None,
@@ -217,7 +185,6 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
         .library
         .read_source(&ReadSourceArgs {
             document_id: f.doc.document_id,
-            view_id: ViewId::new(),
             expected_source_hash: ContentHash::of(b"stale"),
             start: None,
             max_lines: None,
@@ -231,7 +198,6 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
         .library
         .read_source(&ReadSourceArgs {
             document_id: unicode.doc.document_id,
-            view_id: ViewId::new(),
             expected_source_hash: unicode.doc.source_hash.clone(),
             start: None,
             max_lines: None,
@@ -247,7 +213,6 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
         .library
         .read_source(&ReadSourceArgs {
             document_id: empty.doc.document_id,
-            view_id: ViewId::new(),
             expected_source_hash: empty.doc.source_hash.clone(),
             start: None,
             max_lines: None,
@@ -271,7 +236,6 @@ fn source_edits_are_validated_together_and_applied_in_one_replacement() {
         .span(source.rfind("c4").unwrap(), source.len() - 1)
         .unwrap();
     let args = WriteSourceArgs {
-        view_id: edit.owner_view_id,
         edit_id: edit.edit_id,
         expected_source_hash: f.doc.source_hash.clone(),
         change: SourceWriteChange::Edit {
@@ -349,7 +313,6 @@ fn source_edits_support_insert_delete_and_reject_ambiguous_targets() {
     let state = f
         .library
         .write_source(&WriteSourceArgs {
-            view_id: edit.owner_view_id,
             edit_id: edit.edit_id,
             expected_source_hash: f.doc.source_hash.clone(),
             change: SourceWriteChange::Edit {
@@ -380,7 +343,6 @@ fn source_edits_support_insert_delete_and_reject_ambiguous_targets() {
     let current = f.library.source_snapshot(f.doc.document_id).unwrap();
     let current_map = ossia_score::SourceMap::new(current.source());
     let invalid = WriteSourceArgs {
-        view_id: edit.owner_view_id,
         edit_id: edit.edit_id,
         expected_source_hash: state.source_hash,
         change: SourceWriteChange::Edit {
@@ -419,7 +381,6 @@ fn source_edits_reject_stale_text_excess_ranges_and_oversized_results() {
     let edit = f.begin();
     let span = ossia_score::SourceMap::new(source).span(0, 1).unwrap();
     let mut args = WriteSourceArgs {
-        view_id: edit.owner_view_id,
         edit_id: edit.edit_id,
         expected_source_hash: f.doc.source_hash.clone(),
         change: SourceWriteChange::Edit {
