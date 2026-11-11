@@ -322,8 +322,10 @@ pub fn tokenize(source: &str) -> Vec<Token> {
                 } else {
                     Mode::Music
                 };
+                last_cmd = "";
             } else if raw == "}" || raw == ">>" {
                 mode = stack.pop().unwrap_or(Mode::Top);
+                last_cmd = "";
             }
             if kind == TokenKind::ChordO {
                 chord += 1;
