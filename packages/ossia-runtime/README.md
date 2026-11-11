@@ -38,7 +38,7 @@ structure from a completed import or check job.
 
 ```sh
 target/debug/ossia-desktop --home /absolute/test-library import \
-  '{"path":"/absolute/input.ly","title":"Example","format":"ly","author":"agent"}'
+  '{"path":"/absolute/input.ly","title":"Example","format":"ly","author":"Ossia"}'
 
 target/debug/ossia-desktop --home /absolute/test-library context \
   '{"viewId":"00000000-0000-4000-8000-000000000001"}'

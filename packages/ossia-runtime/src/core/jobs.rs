@@ -188,7 +188,7 @@ impl Runtime {
         let author = args
             .author
             .filter(|author| !author.is_empty())
-            .unwrap_or_else(|| "agent".into());
+            .unwrap_or_else(|| DEFAULT_AUTHOR.into());
         let job = self.library.create_job("import-request", None, None)?;
         let job = self.enqueue(
             job,
@@ -450,7 +450,7 @@ impl Runtime {
                         target_version_id: args.version_id,
                         base_version_id: args.base_version_id,
                         expected_source_hash: &args.expected_source_hash,
-                        author: args.author.as_deref().unwrap_or("agent"),
+                        author: args.author.as_deref().unwrap_or(DEFAULT_AUTHOR),
                         summary: &args.summary,
                     },
                     &task.context,

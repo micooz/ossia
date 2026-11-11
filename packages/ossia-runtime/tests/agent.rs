@@ -191,7 +191,10 @@ async fn import_infers_path_metadata_and_can_wait_for_completion() {
         .unwrap();
     assert_eq!(job.state, JobState::Done);
     let outcome: ImportOutcome = serde_json::from_value(job.result.unwrap()).unwrap();
-    assert_eq!(outcome.document.unwrap().title, "Inferred scale");
+    let document = outcome.document.unwrap();
+    assert_eq!(document.title, "Inferred scale");
+    let versions = f.runtime.library.history(document.document_id).unwrap();
+    assert_eq!(versions[0].author, DEFAULT_AUTHOR);
     f.finish().await;
 }
 

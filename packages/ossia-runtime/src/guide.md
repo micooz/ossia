@@ -49,15 +49,21 @@ snapshots and commit authorization, and use a check to verify the actual result.
    jobs, then `ossia_list` to inspect compact document metadata.
 2. To create a score, establish the requested music and instruments, write a
    self-contained `.ly` file in the host workspace, then call `ossia_import`
-   with its absolute path. `format` is inferred from the extension; `title` and
-   `author` default from the filename and `"agent"`. Pass `expect` when the
+   with its absolute path. `format` is inferred from the extension; `title`
+   defaults from the filename and `author` from `"Ossia"`. Pass `expect` when the
    musical intent is known: an import that fails the expectation returns a job
    error with `verification.differences` and actual pitches, and creates no
    document or version. Pass `waitMs` to wait for completion, or poll
    `ossia_job`. A successful import creates the first version and renders it.
 3. Call `ossia_open` with the selected `documentId`. Open its one-time URL in the
-   host's browser when available; otherwise give the URL to the user. The result
-   already includes the initial compact context; keep `viewId` for this task.
+   host's browser immediately, without printing the signed URL. Prefer an
+   in-app browser action; when the host exposes none, launch the system browser
+   (`open <url>` on macOS, `xdg-open <url>` on Linux, or `Start-Process <url>` on
+   Windows). The URL contains a one-use credential that hosts may redact from
+   assistant text. Do not paste or reconstruct it after opening. If the host
+   cannot launch a browser, tell the user to open the URL shown in the
+   `ossia_open` result. The result already includes the initial compact
+   context; keep `viewId` for this task.
 4. Call `ossia_context` with that exact `viewId` when you need to refresh the
    document, selection, source spans and edit state. Do not use another session's
    recent selection. The compact response has no source filesystem path.
@@ -141,6 +147,9 @@ example; use the requested page size and layout for real scores. Outside
 `\relative`, a plain `c` is C3 and `c'` is middle C. Do not infer an octave from
 note names; verify the performed pitches. The snippet above performs 60–72,
 while `c4 d e f | g4 a b c'` performs 48–60.
+
+Rendering hides LilyPond's default tagline. A source that explicitly sets
+`tagline` keeps that value.
 
 ## Import reports and validation
 

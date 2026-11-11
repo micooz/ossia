@@ -80,3 +80,18 @@ fn runtime_examples_and_omitted_credentials_match_current_protocol() {
         json!({"result":{}})
     );
 }
+
+#[test]
+fn omitted_edit_author_defaults_to_ossia() {
+    let edit: EditArgs = serde_json::from_value(json!({
+        "action": "begin",
+        "documentId": "10000000-0000-4000-8000-000000000001",
+        "viewId": "00000000-0000-4000-8000-000000000001",
+        "baseVersionId": null,
+        "expectedSourceHash": "7182e8457ad62ba44f2fa762b486525056fd0e73ff862f1fcc73dae207e84727",
+        "editId": null,
+        "adoptWorkspace": false
+    }))
+    .unwrap();
+    assert_eq!(edit.author, DEFAULT_AUTHOR);
+}

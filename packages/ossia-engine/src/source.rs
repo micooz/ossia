@@ -262,6 +262,17 @@ pub(crate) fn derive(
             "cannot safely override point-and-click in opaque source",
         ));
     }
+    if matches!(format, RenderFormat::Svg | RenderFormat::Pdf)
+        && !tokens
+            .as_ref()
+            .is_ok_and(|tokens| tokens.iter().any(|token| token.raw == "tagline"))
+    {
+        edits.push(Edit {
+            range: source.len()..source.len(),
+            replacement: "\n\\paper { tagline = ##f }\n".into(),
+            maps_to_original: false,
+        });
+    }
     if format == RenderFormat::Midi {
         let tokens = tokens?;
         let scores: Vec<_> = tokens

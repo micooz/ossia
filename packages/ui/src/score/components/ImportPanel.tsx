@@ -43,7 +43,7 @@ export function ImportPanel({
         title: file.name.replace(/\.[^.]+$/, ''),
         format,
         confirmation,
-        author: 'user',
+        author: null,
         expect: null,
         waitMs: null,
       });

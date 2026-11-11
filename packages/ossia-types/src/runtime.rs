@@ -134,8 +134,10 @@ pub struct EditArgs {
     #[serde(default = "default_author")]
     pub author: String,
 }
+/// Attribution used when an operation omits its author.
+pub const DEFAULT_AUTHOR: &str = "Ossia";
 fn default_author() -> String {
-    "agent".into()
+    DEFAULT_AUTHOR.into()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]

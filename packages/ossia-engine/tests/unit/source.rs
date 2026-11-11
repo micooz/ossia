@@ -72,3 +72,26 @@ fn svg_links_map_original_unicode_and_never_map_library_files() {
     )));
     assert!(!normalized.contains("/private/tmp") && !normalized.contains("english.ly"));
 }
+
+#[test]
+fn print_derivation_hides_only_the_default_tagline() {
+    let without_tagline =
+        "\\version \"2.26.0\"\n\\header { title = \"Scale\" }\n\\score { { c'1 } \\layout {} }\n";
+    let derived = source::derive(without_tagline, RenderFormat::Svg, true).unwrap();
+    assert_eq!(
+        derived.text,
+        format!("{without_tagline}\n\\paper {{ tagline = ##f }}\n")
+    );
+
+    let explicit =
+        "\\version \"2.26.0\"\n\\header { tagline = \"Ossia\" }\n\\score { { c'1 } \\layout {} }\n";
+    assert_eq!(
+        source::derive(explicit, RenderFormat::Pdf, true)
+            .unwrap()
+            .text,
+        explicit
+    );
+    let midi = source::derive(without_tagline, RenderFormat::Midi, true).unwrap();
+    assert!(!midi.text.contains("tagline"));
+    assert!(midi.text.contains("\\midi {}"));
+}
