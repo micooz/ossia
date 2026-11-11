@@ -91,7 +91,7 @@
 ### 检查与证据
 
 - Rust 离线：P02 12 项回归，P01/types 24 项、桌面 7 项；另有文档测试。两个标记 ignored 的进程入口由生命周期回归显式启动，不代表跳过进程树验证。原生集成默认单独 ignored，显式调用缺资源会失败。
-- 原生：`OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p02-native.json" cargo test -p ossia-engine --test native_engine -- --ignored`。完整资源先复制到中文／空格目录后运行，7 个导入用例（6 个渲染、1 个阻断拒绝）覆盖 `.ly`、MusicXML、MIDI、所有输出格式、多页、BOM／CRLF／中文锚点、诊断映射、重启缓存及损坏／缺失重建；证据见 `tests/fixtures/local/evidence/p02-native.json`。
+- 原生：`OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/target/native-engine.json" cargo test -p ossia-engine --test native_engine -- --ignored`。完整资源先复制到中文／空格目录后运行，7 个导入用例（6 个渲染、1 个阻断拒绝）覆盖 `.ly`、MusicXML、MIDI、所有输出格式、多页、BOM／CRLF／中文锚点、诊断映射、重启缓存及损坏／缺失重建；证据见 Git 历史中的 `p02-native.json`。
 - 开发脚本：`pnpm test:engine` 3 项通过；四目标归档准备通过；Linux 配方 `--fetch-only` 校验通过。普通单元测试没有伪报其他平台原生验收。
 - `cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、Windows 目标 `cargo check -p ossia-engine --all-targets --target x86_64-pc-windows-msvc`，以及现有 pnpm 基线／测试／类型／检查／Web 构建全部通过；`pnpm check` 为 0 errors、0 warnings。Python 配方语法、阶段文档链接和 `git diff --check` 通过。
 

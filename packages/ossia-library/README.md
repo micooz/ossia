@@ -90,7 +90,7 @@ Application locking does not exclude arbitrary file tools. Expected hashes detec
 ```sh
 cargo test -p ossia-library
 OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" \
-OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p03-native.json" \
+OSSIA_NATIVE_EVIDENCE="$PWD/target/native-library.json" \
 cargo test -p ossia-library --test native_library -- --ignored
 ```
 

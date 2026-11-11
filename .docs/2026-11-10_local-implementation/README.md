@@ -21,7 +21,7 @@
 
 按 P00 → P07 顺序验收。前序未通过时，可用测试替身开发后续模块，但必须标记为未集成，不能将阶段标记为完成。缺少平台环境时写明缺失目标，不用“编译通过”替代真实运行验证。
 
-P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、TS 观测、正确期望与机器证据保留在 `tests/fixtures/local/`，日常检查由 Rust 测试直接读取。Linux ARM64 的原生构建和运行证据仍是 P00 的未通过门槛。P01 的 Rust 接口、本机验证与降级清单见[实施交接](01-rust-score-analysis.md#5-实施交接)。P02 原生引擎、缓存、五目标配方与未验证平台见[实施交接](02-native-engine-and-artifacts.md#5-实施交接)。P03 新库、编辑／版本事务、队列检查与恢复入口见[实施交接](03-library-editing-and-history.md#5-实施交接)。P04 运行时、HTTP、CLI／MCP、视图与任务入口见[实施交接](04-runtime-and-agent-interfaces.md#6-实施交接)。P05 的浏览器／管理窗口实现、Playwright 与原生闭环证据见[实施交接](05-browser-score-and-desktop.md#6-实施交接)。P06 的集成资源、宿主适配与未验证宿主行为见[实施交接](06-host-integrations.md#6-实施交接)。P07 的 macOS 制品和未验收目标见[实施交接](07-release.md#6-实施交接)。
+P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、分析与渲染基线、共享契约保留在 `tests/fixtures/`，日常检查由 Rust 测试直接读取；历史迁移证据见 Git 历史。Linux ARM64 的原生构建和运行证据仍是 P00 的未通过门槛。P01 的 Rust 接口、本机验证与降级清单见[实施交接](01-rust-score-analysis.md#5-实施交接)。P02 原生引擎、缓存、五目标配方与未验证平台见[实施交接](02-native-engine-and-artifacts.md#5-实施交接)。P03 新库、编辑／版本事务、队列检查与恢复入口见[实施交接](03-library-editing-and-history.md#5-实施交接)。P04 运行时、HTTP、CLI／MCP、视图与任务入口见[实施交接](04-runtime-and-agent-interfaces.md#6-实施交接)。P05 的浏览器／管理窗口实现、Playwright 与原生闭环证据见[实施交接](05-browser-score-and-desktop.md#6-实施交接)。P06 的集成资源、宿主适配与未验证宿主行为见[实施交接](06-host-integrations.md#6-实施交接)。P07 的 macOS 制品和未验收目标见[实施交接](07-release.md#6-实施交接)。
 
 ## 2. 不再重新选择的约束
 
@@ -53,7 +53,7 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 | `packages/desktop/src-tauri` | 唯一发布入口；GUI／serve／mcp／CLI 模式，在创建 Tauri 前分派 |
 | `packages/ui` | 浏览器谱面 SPA；管理窗口使用独立入口，不加载谱面工作流 |
 | `integrations/` | Skill、Codex 本地插件、DSH 预构建插件的源资源 |
-| `tests/fixtures/local/` | 可提交、可重建的合成样本和参考结果 |
+| `tests/fixtures/` | 可提交、可重建的合成样本和参考结果 |
 
 依赖方向为 `types ← score ← engine ← library ← runtime`，集成模块通过运行时客户端接入。纯分析模块不依赖 Tauri、数据库、网络或已启动的 GUI。根 Cargo workspace 纳入这些 crate 和既有桌面 crate，共用锁文件；最低 Rust 版本为 1.90（Tauri 2.12 的构建要求），本机验证使用 1.98.1；P01 建立工作区，后续阶段按需加入实际 crate，不预建空壳模块。
 
@@ -84,7 +84,7 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 
 初始协议主版本与新 SQLite schema 版本均为 1；域外调用不能直接操作数据库。HTTP 字段使用 camelCase。版本节点用 `versionId` 寻址，渲染用源码哈希寻址，不混用二者。
 
-最小 JSON 示例见 `tests/fixtures/local/contract-examples.json`。它们表达共享契约，不代表生产接口已实现。单文件判定必须区分引擎标准库与用户依赖：本机外部 include 能成功编译不构成支持证据。Codex／DSH 的本机 loopback、视图隔离和事件流已实测；插件打开 API、Web sandbox 与下载限制的文档声明及未验证项见 P00 报告，不能据此跳过 P06 验收。
+共享 DTO 示例见 `tests/fixtures/contracts/examples.json`。单文件判定必须区分引擎标准库与用户依赖：本机外部 include 能成功编译不构成支持证据。Codex／DSH 的本机 loopback、视图隔离和事件流已实测；插件打开 API、Web sandbox 与下载限制的文档声明及未验证项见 P00 报告，不能据此跳过 P06 验收。
 
 稳定错误集合至少包含 `invalid-request`、`invalid-input`、`invalid-encoding`、`not-found`、`conflict`、`edit-busy`、`dirty-workspace`、`stale-selection`、`compile-failed`、`unsupported-source`、`import-confirm-required`、`import-refused`、`cancelled`、`runtime-incompatible`、`storage-error`、`library-busy`、`unauthorized`、`forbidden`、`runtime-unavailable`。`storage-error` 表示库文件／SQLite／CAS／产物损坏或读写失败；`library-busy` 表示另一进程持有新库写入锁。`unauthorized`／`forbidden` 表示缺少有效凭据／越权；`runtime-unavailable` 表示服务停止中、发现失败或端口不可用。`invalid-input` 表示损坏的分析输入，`unsupported-source` 表示未支持的有效格式或结构；合法 `.ly` 的索引降级不等于编译失败。各阶段新增错误必须同步类型、文档和调用端处理。
 
@@ -100,7 +100,7 @@ P00 当前结果见[本机基线报告](00-baseline-report.md)；合成输入、
 
 ## 5. 当前开发入口
 
-Rust 包、前端包和集成资源分别位于 `packages/ossia-*`、`packages/ui|desktop`、`integrations/`。`tests/fixtures/local/` 保存合成输入、规范化期望、TS 观测与机器证据。
+Rust 包、前端包和集成资源分别位于 `packages/ossia-*`、`packages/ui|desktop`、`integrations/`。`tests/fixtures/` 保存合成输入、分析与渲染基线、共享契约；历史迁移证据见 Git 历史。
 
 - `pnpm dev:runtime`：显式项目 home、3212、已准备工具链和静态 dist；只使用当前 `library.sqlite`。
 - `pnpm build:headless`：无 GUI 依赖的桌面可执行文件，支持 serve／mcp／doctor／stop 和 JSON CLI。

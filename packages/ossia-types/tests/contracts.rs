@@ -4,14 +4,14 @@ use serde_json::{json, Value};
 #[test]
 fn snapshots_validate_encoding_hash_and_contract_wire_shape() {
     let examples: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/local/contract-examples.json"
+        "../../../tests/fixtures/contracts/examples.json"
     ))
     .unwrap();
     let snapshot: SourceSnapshot =
         serde_json::from_value(examples["sourceSnapshot"].clone()).unwrap();
     assert_eq!(
         snapshot.bytes(),
-        include_bytes!("../../../tests/fixtures/local/inputs/compressed-rest.ly")
+        include_bytes!("../../../tests/fixtures/inputs/compressed-rest.ly")
     );
     assert_eq!(
         serde_json::to_value(&snapshot).unwrap(),
@@ -37,7 +37,7 @@ fn snapshots_validate_encoding_hash_and_contract_wire_shape() {
 #[test]
 fn library_contract_examples_keep_ids_metadata_and_error_codes() {
     let examples: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/local/contract-examples.json"
+        "../../../tests/fixtures/contracts/examples.json"
     ))
     .unwrap();
     let version: Version = serde_json::from_value(examples["version"].clone()).unwrap();
@@ -56,7 +56,7 @@ fn library_contract_examples_keep_ids_metadata_and_error_codes() {
 #[test]
 fn runtime_examples_and_omitted_credentials_match_protocol_one() {
     let examples: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/local/contract-examples.json"
+        "../../../tests/fixtures/contracts/examples.json"
     ))
     .unwrap();
     let runtime: RuntimeInfo = serde_json::from_value(examples["runtimeInfo"].clone()).unwrap();

@@ -43,7 +43,7 @@ fn arbitrary_utf8_and_deep_structures_round_trip_without_panics() {
 
 #[test]
 fn every_truncation_and_single_byte_mutation_of_a_valid_midi_is_checked() {
-    let valid = include_bytes!("../../../tests/fixtures/local/inputs/midi-running-zero.mid");
+    let valid = include_bytes!("../../../tests/fixtures/inputs/midi-running-zero.mid");
     assert!(parse_midi(valid).is_ok());
     for end in 0..valid.len() {
         assert!(parse_midi(&valid[..end]).is_err(), "truncation {end}");
@@ -60,7 +60,7 @@ fn every_truncation_and_single_byte_mutation_of_a_valid_midi_is_checked() {
 #[test]
 fn midi_diff_tracks_counts_pitches_times_and_time_bases_are_distinct() {
     let a = parse_midi(include_bytes!(
-        "../../../tests/fixtures/local/inputs/midi-valid.mid"
+        "../../../tests/fixtures/inputs/midi-valid.mid"
     ))
     .unwrap();
     let mut b = a.clone();

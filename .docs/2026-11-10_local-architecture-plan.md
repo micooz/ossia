@@ -230,7 +230,7 @@ Linux ARM64 没有当前官方预编译包，必须先完成自包含构建与�
 
 5. **移除旧架构**
 
-   旧 Next.js、服务端模型请求、旧 HTTP 任务层和 TypeScript 对照核心均已移除；P00 的合成期望、历史观测和证据保留在 `tests/fixtures/local/`。P05 已将 Vite 谱面与 Tauri 管理窗口接入 Rust 服务，P07 已产出 macOS arm64 测试制品。
+   旧 Next.js、服务端模型请求、旧 HTTP 任务层和 TypeScript 对照核心均已移除；合成输入与测试基线保留在 `tests/fixtures/`；P00 的其余历史观测和验证记录见 Git 历史。P05 已将 Vite 谱面与 Tauri 管理窗口接入 Rust 服务，P07 已产出 macOS arm64 测试制品。
 
 ### 5.2 必须通过的测试
 

@@ -1,0 +1,157 @@
+[
+  {
+    "id": "compressed-rest",
+    "source": "rendered/compressed-rest/score.ly",
+    "pages": [
+      "rendered/compressed-rest/score.svg"
+    ]
+  },
+  {
+    "id": "polyphonic-pages",
+    "source": "rendered/polyphonic-pages/score.ly",
+    "pages": [
+      "rendered/polyphonic-pages/score-1.svg",
+      "rendered/polyphonic-pages/score-2.svg"
+    ]
+  },
+  {
+    "id": "named-variable",
+    "source": "rendered/named-variable/score.ly",
+    "pages": [
+      "rendered/named-variable/score.svg"
+    ]
+  },
+  {
+    "id": "pitch-state",
+    "source": "rendered/pitch-state/score.ly",
+    "pages": [
+      "rendered/pitch-state/score.svg"
+    ]
+  },
+  {
+    "id": "midi-context-reuse",
+    "source": "rendered/midi-context-reuse/score.ly",
+    "pages": [
+      "rendered/midi-context-reuse/score.svg"
+    ]
+  },
+  {
+    "id": "inline-staff",
+    "source": "rendered/inline-staff/score.ly",
+    "pages": [
+      "rendered/inline-staff/score.svg"
+    ]
+  },
+  {
+    "id": "absolute",
+    "source": "rendered/absolute/score.ly",
+    "pages": [
+      "rendered/absolute/score.svg"
+    ]
+  },
+  {
+    "id": "same-line",
+    "source": "rendered/same-line/score.ly",
+    "pages": [
+      "rendered/same-line/score.svg"
+    ]
+  },
+  {
+    "id": "unicode-crlf-bom",
+    "source": "rendered/unicode-crlf-bom/score.ly",
+    "pages": [
+      "rendered/unicode-crlf-bom/score.svg"
+    ]
+  },
+  {
+    "id": "scheme-markup",
+    "source": "rendered/scheme-markup/score.ly",
+    "pages": [
+      "rendered/scheme-markup/score.svg"
+    ]
+  },
+  {
+    "id": "chordmode",
+    "source": "rendered/chordmode/score.ly",
+    "pages": [
+      "rendered/chordmode/score.svg"
+    ]
+  },
+  {
+    "id": "repeat",
+    "source": "rendered/repeat/score.ly",
+    "pages": [
+      "rendered/repeat/score.svg"
+    ]
+  },
+  {
+    "id": "transpose",
+    "source": "rendered/transpose/score.ly",
+    "pages": [
+      "rendered/transpose/score.svg"
+    ]
+  },
+  {
+    "id": "standard-include",
+    "source": "rendered/standard-include/score.ly",
+    "pages": [
+      "rendered/standard-include/score.svg"
+    ]
+  },
+  {
+    "id": "external-present",
+    "source": "rendered/external-present/score.ly",
+    "pages": [
+      "rendered/external-present/score.svg"
+    ]
+  },
+  {
+    "id": "xml-clean-render",
+    "source": "rendered/xml-clean-render/score.ly",
+    "pages": [
+      "rendered/xml-clean-render/score.svg"
+    ]
+  },
+  {
+    "id": "xml-loss-render",
+    "source": "rendered/xml-loss-render/score.ly",
+    "pages": [
+      "rendered/xml-loss-render/score.svg"
+    ]
+  },
+  {
+    "id": "xml-negative-skip-render",
+    "source": "rendered/xml-negative-skip-render/score.ly",
+    "pages": [
+      "rendered/xml-negative-skip-render/score.svg"
+    ]
+  },
+  {
+    "id": "midi-valid-render",
+    "source": "rendered/midi-valid-render/score.ly",
+    "pages": [
+      "rendered/midi-valid-render/score.svg"
+    ]
+  },
+  {
+    "id": "columns-lf",
+    "source": "rendered/columns-lf/score.ly",
+    "pages": [
+      "rendered/columns-lf/score.svg"
+    ]
+  },
+  {
+    "id": "columns-plain",
+    "source": "rendered/columns-plain/score.ly",
+    "pages": [
+      "rendered/columns-plain/score.svg"
+    ]
+  },
+  {
+    "id": "columns-bom-crlf",
+    "source": "rendered/columns-bom-crlf/score.ly",
+    "pages": [
+      "rendered/columns-bom-crlf/score.svg"
+    ]
+  }
+]

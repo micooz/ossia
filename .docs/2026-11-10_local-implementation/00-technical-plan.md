@@ -4,7 +4,7 @@
 
 ## 实施顺序
 
-1. 建立 `tests/fixtures/local/` 清单与合成输入；不使用个人乐谱。
+1. 建立 `tests/fixtures/` 清单与合成输入；不使用个人乐谱。
 2. 增加 `pnpm baseline:local`：调用现有纯 TS 分析函数，导出稳定 JSON；`--check` 在临时目录比较参考输出。根路径依据脚本位置解析。
 3. 分别保存 TS 实际行为与人工／引擎核验期望。记录压缩休止、尾部 score block、未知 staff、无效页号及代理项拆分差异，不修改产品路径。
 4. 增加 `pnpm probe:engine`：临时目录运行 2.26.0 转换器与 SVG／PDF／MIDI，核对诊断列、原始源码锚点、标准库和外部 include。

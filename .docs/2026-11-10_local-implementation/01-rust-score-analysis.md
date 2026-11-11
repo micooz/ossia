@@ -71,8 +71,8 @@
 
 ### 对照与语法边界
 
-- P00 输入、原生参考和 `observed.json` 保持原样。规范化 token 全量对照，双谱表几何按容差对照，MIDI 与音高消费独立期望及原生数据；不将孤立 UTF-16 代理项解码为 Rust 字符串。
-- 压缩休止最大号、尾部 score、quoted context 引用、复用 Staff、未知 staff／voice、无效页回退和截断 MIDI 由独立期望覆盖。差异记录在 `known-differences.json`：单谱表缺左侧小节线，以及覆盖整谱表的长符干。相同源码休止可对应多个展开小节，真正压缩显示则保留 2–5 等完整范围。
+- 合成输入和原生参考保持原始字节；`tests/fixtures/analysis/` 仅保留测试消费的规范化 token 和双谱表几何。规范化 token 全量对照，几何按容差对照，MIDI 与音高消费独立期望及原生数据；不将孤立 UTF-16 代理项解码为 Rust 字符串。
+- 压缩休止最大号、尾部 score、quoted context 引用、复用 Staff、未知 staff／voice、无效页回退和截断 MIDI 由独立期望覆盖。独立断言覆盖的差异还包括：单谱表缺左侧小节线，以及覆盖整谱表的长符干。相同源码休止可对应多个展开小节，真正压缩显示则保留 2–5 等完整范围。
 - 支持显式 `|`／转换器 `% N` 的平衡命名音乐表达式、单个内联 Staff、独立声部映射、多页、relative／absolute 嵌套与和弦参考；字节范围保留自己所属的编号注释，不吞后续声明。源码无小节边界、变量组合展开、同一表达式内并行音乐、重复／移调、动态音乐 Scheme、未知音乐命令等返回降级，不伪造精确范围。
 - SVG 支持 translate／scale／matrix、线段／矩形／多边形及 M/L/H/V/C/S/Q/T/Z 路径。曲线控制点构成保守 bbox；未知元素／变换与坏 XML 保留不同结构化页错误。坏页或缺页切断顺序编号，仅由可靠源码锚点恢复；多谱表只计一次。几何失败时仍保留能解析的源码锚点。
 - 音高还会拒绝文档级 `\language` 和未验证的音名 include，防止同一拼写被错误解释。MIDI 保留 PPQN／SMPTE 时间基准，严格检查事件和轨道终点；解析支持 SMF 0/1/2，比较仅支持格式 0/1 的 PPQN 时间线，按四分音符位置归一化。差异不覆盖 note-off、完整时值、力度、速度图或音乐意图。
@@ -81,7 +81,7 @@
 
 - `cargo test -p ossia-score -p ossia-types`：24 项离线集成测试通过（另有 README 文档测试）；原生测试默认显式 ignored，不算作原生验收通过。
 - `cargo test -p ossia-desktop`：既有 7 项通过。`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 通过。
-- 原生检查：显式设置 `OSSIA_TEST_LILYPOND_ROOT` 指向仓库 2.26.0 macOS ARM64 工具链，运行 `cargo test -p ossia-score --test native_engine -- --ignored`；4 个合成用例覆盖 absolute／同音、嵌套状态恢复、中文 markup／和弦、真正压缩休止，MIDI 音高和 SVG 小节列交叉检查通过，源码字节保持不变。输入在 `tests/fixtures/local/p01/`，可重建证据在 `tests/fixtures/local/evidence/p01-native.json`；命令与可选证据输出参数见 crate README。
+- 原生检查：显式设置 `OSSIA_TEST_LILYPOND_ROOT` 指向仓库 2.26.0 macOS ARM64 工具链，运行 `cargo test -p ossia-engine --test score_native_crosscheck -- --ignored`；4 个合成用例覆盖 absolute／同音、嵌套状态恢复、中文 markup／和弦、真正压缩休止，MIDI 音高和 SVG 小节列交叉检查通过，源码字节保持不变。输入在 `tests/fixtures/inputs/pitch-layout/`，可重建证据在 Git 历史中的 `p01-native.json`；命令与可选证据输出参数见 crate README。
 - `pnpm build:web` 构建 SPA；仓库不依赖 Next.js。
 - 验证：`cargo test -p ossia-score -p ossia-types`、`cargo test --workspace`、`pnpm check` 和 `git diff --check`。
 

@@ -42,7 +42,8 @@ fn native_226_cross_checks_pitch_states_and_compressed_svg() {
     assert!(version.status.success());
     let version = String::from_utf8(version.stdout).unwrap();
     assert!(version.lines().next().unwrap().contains("2.26.0"));
-    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/local/p01");
+    let fixtures =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/inputs/pitch-layout");
     let mut evidence = Vec::new();
     for id in [
         "absolute",

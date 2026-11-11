@@ -36,7 +36,7 @@ Windows ARM64 不构建、不发布；不将模拟执行标成原生目标。Lin
 
 服务端由本地 Rust 运行时提供，前端是 Vite + React SPA，桌面入口是 Tauri 管理窗口。仓库不包含 Next.js 后端、服务端模型调用或 `OSSIA_MODEL_API_KEY` 路径。
 
-`tests/fixtures/local/` 保存合成输入、TS 观测、独立期望和机器证据；Rust 测试直接消费这些文件，不由实现覆盖参考结果。根命令启动当前 Rust 服务、Vite 页面和管理窗口，不依赖 Next.js。
+`tests/fixtures/` 保存合成输入、分析与渲染基线、共享契约；Rust 测试直接消费独立期望，不由实现覆盖参考结果。历史迁移证据见 Git 历史。根命令启动当前 Rust 服务、Vite 页面和管理窗口，不依赖 Next.js。
 
 ## 4. 数据目录
 

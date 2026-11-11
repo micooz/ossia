@@ -56,7 +56,7 @@ pnpm engine:install
 pnpm test:engine
 cargo test -p ossia-engine
 OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" \
-OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p02-native.json" \
+OSSIA_NATIVE_EVIDENCE="$PWD/target/native-engine.json" \
 cargo test -p ossia-engine --test native_engine -- --ignored
 ```
 

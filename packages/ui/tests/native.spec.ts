@@ -17,7 +17,7 @@ const engine =
   process.env.OSSIA_TEST_LILYPOND_ROOT ?? path.join(root, 'vendor/lilypond/2.26.0-darwin-arm64');
 let temporary: string;
 let home: string;
-const fixtures = path.join(root, 'tests/fixtures/local/inputs');
+const fixtures = path.join(root, 'tests/fixtures/inputs');
 async function cli<T>(command: string, args?: unknown): Promise<T> {
   const { stdout } = await exec(
     binary,

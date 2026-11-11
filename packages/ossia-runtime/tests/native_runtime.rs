@@ -106,8 +106,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
     assert!(engine.is_dir());
     let work = tempfile::tempdir().unwrap();
     let home = work.path().join("中文 library with spaces");
-    let fixtures =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/local/inputs");
+    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/inputs");
     // Both clients may launch serve, but only the library lock winner may publish discovery.
     let (a, b) = tokio::join!(
         cli(&executable, &home, &engine, "status", None),
@@ -426,7 +425,7 @@ async fn native_crash_stale_endpoint_edit_recovery_port_conflict() {
     let mut child = cmd.spawn().unwrap();
     let old = wait_runtime(&home, &mut child).await;
     let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/local/inputs/inline-staff.ly")
+        .join("../../tests/fixtures/inputs/inline-staff.ly")
         .canonicalize()
         .unwrap();
     let queued: Job = serde_json::from_value(

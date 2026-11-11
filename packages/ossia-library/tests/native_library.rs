@@ -20,8 +20,7 @@ fn native_import_edit_check_commit_restore_and_reopen() {
     )
     .unwrap();
     let library = Library::open(&home).unwrap();
-    let fixtures =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/local/inputs");
+    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/inputs");
     let mut cases = vec![];
     for (file, format, original_name) in [
         ("inline-staff.ly", InputFormat::Ly, "input.ly"),

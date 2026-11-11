@@ -85,7 +85,7 @@ MCP 工具保留架构方案中的 `ossia_guide/status/list/import/open/context/
 - `ossia-runtime` 复用 P03 的持库锁、固定快照检查、版本事务与恢复。技术方案见 [04-technical-plan.md](04-technical-plan.md)，调用说明见 [crate README](../../packages/ossia-runtime/README.md)。
 - 桌面入口在 Tauri 初始化前分派；`--no-default-features` 构建无需 GUI。GUI 页面改造仍属于 P05。资源默认从可执行文件所属 resources/engine 和 resources/ui 解析；macOS 应用包使用 Contents/Resources，开发用显式路径。
 - Library 新增受文档／版本归属约束的产物查询、作业列表和版本导出；renderKey 由 documentId、sourceHash、engineBuildId、optionsHash 派生。源码导出直接取版本字节，PDF／MIDI 对版本快照编译；输出 create-new，不覆盖已有目标。
-- 共享 DTO、HTTP 错误和 TS 类型已建立；协议与 schema 均保持 1。新增 unauthorized、forbidden、runtime-unavailable。工具输入 schema 固定在 `tests/fixtures/local/mcp-tools.json`；合成协议样本同步为可反序列化的当前 DTO。
+- 共享 DTO、HTTP 错误和 TS 类型已建立；协议与 schema 均保持 1。新增 unauthorized、forbidden、runtime-unavailable。工具输入 schema 固定在 `tests/fixtures/contracts/mcp-tools.json`；合成协议样本同步为可反序列化的当前 DTO。
 
 ### 发现、鉴权与调度
 
@@ -103,7 +103,7 @@ MCP 工具保留架构方案中的 `ossia_guide/status/list/import/open/context/
 - CLI 示例：`ossia-desktop --home /absolute/library --engine-root /absolute/engine --port 3211 serve`；同一 home 下运行 `mcp`、`open '{}'`、`status`、`stop`。业务命令接受与 MCP 相同的 JSON 参数；doctor 可离线检查资源与发现信息，integrate 已在 P06 接通 detect／plan／apply／status／repair／remove。
 - MCP 经真实 rmcp 客户端验证 initialize／tools/list／tools/call；14 个工具包含 13 个工作流工具和 doctor。stdout 仅承载 MCP 协议；MCP 断开不终止服务。
 - `cargo test --workspace`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`；运行时离线测试覆盖 11 项鉴权／任务／监听／HTTP／事件回归，类型契约 3 项。默认忽略的原生套件单独运行，不计入离线通过项。
-- 原生命令：`OSSIA_TEST_EXECUTABLE="$PWD/target/debug/ossia-desktop" OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p04-native.json" cargo test -p ossia-runtime --test native_runtime -- --ignored`。证据分别记录于 `tests/fixtures/local/evidence/p04-native.json` 和 `p04-lifecycle.json`。两个原生测试覆盖三类输入自动预览→显式检查→提交→历史→恢复→三格式导出，以及并发启动、MCP 断开、SIGKILL、陈旧发现、编辑恢复、旧令牌失效和端口冲突。
+- 原生命令：`OSSIA_TEST_EXECUTABLE="$PWD/target/debug/ossia-desktop" OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/target/native-runtime.json" cargo test -p ossia-runtime --test native_runtime -- --ignored`。证据分别记录于 Git 历史中的 `p04-native.json` 和 Git 历史中的 `p04-lifecycle.json`。两个原生测试覆盖三类输入自动预览→显式检查→提交→历史→恢复→三格式导出，以及并发启动、MCP 断开、SIGKILL、陈旧发现、编辑恢复、旧令牌失效和端口冲突。
 - 验证：`cargo test --workspace`、`pnpm check:types`、`pnpm check:contracts`、`pnpm typecheck`、`pnpm check`。CI 配置使用 Rust 1.90 检查生成差异与运行时回归；本机 Rust 1.98.1。锁文件将 notify-types 固定到兼容最低版本的 2.0.0，interprocess 固定 2.4.4。
 
 ### 阻塞与下一阶段

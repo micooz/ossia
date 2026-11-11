@@ -2,7 +2,7 @@ use ossia_score::*;
 use serde_json::{json, Value};
 use std::{fs, path::PathBuf};
 fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/local")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
 }
 fn text(file: &str) -> String {
     fs::read_to_string(root().join(file)).unwrap()
@@ -28,19 +28,12 @@ fn tokenizer_matches_normalized_ts_observations_and_preserves_all_byte_spans() {
     #[derive(serde::Deserialize)]
     struct Sample {
         id: String,
-        actual: Actual,
+        tokens: Vec<Value>,
     }
-    #[derive(serde::Deserialize)]
-    struct Actual {
-        tokens: Option<Vec<Value>>,
-    }
-    // Ignore the raw UTF-16 observations: lone surrogate tokens are not Unicode scalar strings.
-    let observed: Observed = serde_json::from_str(&text("observed.json")).unwrap();
+    let observed: Observed = serde_json::from_str(&text("analysis/tokens.json")).unwrap();
     for sample in observed.samples {
         let id = sample.id.as_str();
-        let Some(expected) = sample.actual.tokens.as_ref() else {
-            continue;
-        };
+        let expected = &sample.tokens;
         let source = input(id);
         let map = SourceMap::new(&source);
         let tokens = tokenize(&source);
@@ -200,8 +193,8 @@ fn pitch_events_match_hand_counted_facts_and_native_p00_midi() {
         for event in &result.events {
             assert_eq!(map.slice(event.span).unwrap(), event.raw, "{id}");
         }
-        let midi =
-            parse_midi(&fs::read(root().join(format!("engine/{id}/score.midi"))).unwrap()).unwrap();
+        let midi = parse_midi(&fs::read(root().join(format!("rendered/{id}/score.midi"))).unwrap())
+            .unwrap();
         let mut actual: Vec<_> = midi
             .tracks
             .iter()
@@ -234,7 +227,7 @@ fn source_positions_use_scalars_and_probe_verified_lilypond_fields() {
         ("columns-lf", 48, 50),
         ("columns-bom-crlf", 49, 58),
     ] {
-        let source = text(&format!("engine/{id}/score.ly"));
+        let source = text(&format!("rendered/{id}/score.ly"));
         let map = SourceMap::new(&source);
         let b = map.anchor_byte(2, char_offset).unwrap();
         assert!(source[b..].starts_with("c4"), "{id}");
@@ -244,7 +237,7 @@ fn source_positions_use_scalars_and_probe_verified_lilypond_fields() {
 
 #[test]
 fn midi_fixtures_match_expected_note_ons_and_reject_truncation() {
-    let manifest: Value = serde_json::from_str(&text("manifest.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&text("inputs/manifest.json")).unwrap();
     for f in manifest["fixtures"]
         .as_array()
         .unwrap()

@@ -6,21 +6,21 @@
 
 ## 1. 交付与复现
 
-[技术方案](00-technical-plan.md)已落盘；合成输入、规范化输出、差异及机器证据位于 [tests/fixtures/local](../../tests/fixtures/local/)。
+[技术方案](00-technical-plan.md)已落盘；当前合成输入和测试基线见 [fixture 说明](../../tests/fixtures/README.md)；原始迁移验证记录见 Git 历史。
 
 | 命令 | 覆盖 |
 |---|---|
 | `cargo test -p ossia-score -p ossia-types` | fixture 解码、位置范围、几何、音高和 MIDI 约定 |
 | `cargo test --workspace` | 全部 Rust crate、契约和原生入口 |
-| `pnpm typecheck`／`pnpm check` | TypeScript 与仓库检查 |
+| `pnpm check` | TypeScript 与仓库检查 |
 
-fixture 以已提交的 `observed.json`、期望和原生证据为参考，由 Rust 测试直接读取。
+Rust 测试直接读取已提交的输入、分析与渲染基线；目录和更新规则见 `tests/fixtures/README.md`。
 
-清单为 `tests/fixtures/local/manifest.json`；TS 观测为 `observed.json`；正确期望和已知差异分别在清单与 `known-differences.json`。引擎生成的 SVG 回链只替换 scratch 绝对路径，保留位置尾部。PDF 成功生成并记录大小和字节哈希，但不要求重复运行字节一致。
+输入清单为 `tests/fixtures/inputs/manifest.json`；测试消费的规范化 token 和几何期望在 `tests/fixtures/analysis/`，正确行为的独立断言位于 Rust 测试。其余历史 TS 观测、差异清单与日志见 Git 历史。引擎生成的 SVG 回链只替换 scratch 绝对路径，保留位置尾部。PDF 成功生成并记录大小和字节哈希，但不要求重复运行字节一致。
 
 ## 2. 原生引擎证据
 
-机器记录：`tests/fixtures/local/evidence/engine.json`，包括工具版本、二进制架构、ENGINE.lock、每次命令、退出码、诊断和产物清单。`bin/lilypond` 实际为 Mach-O 64-bit arm64。
+机器记录：Git 历史中的 `engine.json`，包括工具版本、二进制架构、ENGINE.lock、每次命令、退出码、诊断和产物清单。`bin/lilypond` 实际为 Mach-O 64-bit arm64。
 
 - `.ly`、MusicXML、MIDI 三类输入均经过原生执行；SVG、PDF、MIDI 产物可用。ChordNames-only 样本合法但不要求 MIDI。
 - MusicXML 正常输入得到 clean；无效 metronome 文本触发 `Invalid bpm` 和 needs-confirmation；同声部重叠输入实际触发 `Negative skip` 和 refused。被拒绝源码仍可编译，证明“编译成功”不能替代导入时间线检查。
@@ -28,11 +28,11 @@ fixture 以已提交的 `observed.json`、期望和原生证据为参考，由 R
 - `pitch-state` 的 relative 和弦／休止状态机与原生 MIDI 一致：note-on 为 60、64、67、65、67、60，tick 为 0、384、384、1152、1536、2304。
 - 从独立临时 cwd 编译 `english.ly` 标准库 include 成功；外部 `user-music.ily` 缺失时失败，临时补齐时成功。外部文件恰好存在只能证明引擎能读取，不能将其算成单文件支持；P02 仍须显式拒绝用户依赖。
 
-所有直接 `.ly` 编译保持原始字节，通过 `-dpoint-and-click=#t` 启用回链，不插入源码。转换器的原始输出另存；派生 render fixture 开启 anchors／MIDI 后以自身源码哈希和位置为基准，不把其锚点冒充原转换结果的位置。
+所有直接 `.ly` 编译保持原始字节，通过 `-dpoint-and-click=#t` 启用回链，不插入源码。转换器的原始输出可从 Git 历史查询；派生 render fixture 开启 anchors／MIDI 后以自身源码哈希和位置为基准，不把其锚点冒充原转换结果的位置。
 
 ## 3. 位置单位结论
 
-输入与原始位置尾部保存在 `engine/columns-*/score.ly`、`engine/*-diagnostic.ly` 和机器日志中。以下均为同一行 `c4` 的起点：
+输入与 SVG 位置尾部保存在 `tests/fixtures/rendered/columns-*/`；原始诊断探针和机器日志见 Git 历史。以下均为同一行 `c4` 的起点：
 
 | 样本 | UTF-8 字节列，零基 | UTF-16 列，零基 | Unicode 标量列，零基 | 展开 tab 后显示列，零基 | 原始回链尾部 |
 |---|---:|---:|---:|---:|---|
@@ -48,7 +48,7 @@ P01 应用 char 定位原始行中的标量边界，再计算 UTF-8 字节位置
 
 ## 4. 宿主实测与文档边界
 
-机器证据为 `tests/fixtures/local/evidence/host-session.json`、`host-validation.json` 和 `codex.png`。服务只监听 loopback，页面短期凭据交换为内存令牌；同源请求和 fetch SSE 均不使用 Cookie。
+机器证据见 Git 历史中的 `host-session.json`、`host-validation.json` 和 `codex.png`。服务只监听 loopback，页面短期凭据交换为内存令牌；同源请求和 fetch SSE 均不使用 Cookie。
 
 | 宿主 | 实测环境 | 观察 |
 |---|---|---|
@@ -63,8 +63,8 @@ DSH 文档规定 Web 默认 iframe sandbox 不含 allow-downloads，Desktop gues
 
 ## 5. P01 交接与阻塞
 
-优先阅读 `known-differences.json`，不能机械复制 TS 输出：压缩休止最大号错误、尾部 score 被算入声部、未知 staff 回退其他声部、无效 page 回退第一页、context ID 被误当变量名、普通命名／absolute 音乐未索引，以及截断 MIDI 被静默接受，均有合成输入与独立期望。
+不能机械复制 TS 输出；现有回归断言分别覆盖：压缩休止最大号错误、尾部 score 被算入声部、未知 staff 回退其他声部、无效 page 回退第一页、context ID 被误当变量名、普通命名／absolute 音乐未索引，以及截断 MIDI 被静默接受，均有合成输入与独立期望。
 
-共享最小 JSON 示例在 `tests/fixtures/local/contract-examples.json`，源码字节与 SVG 哈希由自动检查交叉验证。
+共享最小 JSON 示例在 `tests/fixtures/contracts/examples.json`，源码字节与 SVG 哈希由自动检查交叉验证。
 
 Linux ARM64 未运行：本机为 macOS ARM64，Docker 的 OrbStack endpoint 不可连接；没有启动 OrbStack／UTM，也没有源码构建。仍缺 2.26.0 同版本源码和固定依赖的构建配方、真实 ARM64 Linux 二进制，以及转换器和 SVG／PDF／MIDI 运行证据。该平台需要原生环境补齐，不能以本机探针或模拟器替代。

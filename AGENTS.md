@@ -39,7 +39,7 @@ page has no Tauri privileges; only the `management` window does.
   `packages/ui/src/generated/protocol.ts` by hand.
 - MCP tool schemas are generated from `ossia_runtime::mcp::tools()`; run
   `pnpm generate:contracts`; never edit
-  `tests/fixtures/local/mcp-tools.json` by hand.
+  `tests/fixtures/contracts/mcp-tools.json` by hand.
 - A Tauri command needs a function in
   `packages/desktop/src-tauri/src/lib.rs`, an entry in
   `tauri::generate_handler!`, the same command in `AppManifest::commands` in

@@ -108,7 +108,7 @@ fn fixture() -> Fixture {
     )
     .unwrap();
     let midi = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/local/inputs/midi-valid.mid");
+        .join("../../tests/fixtures/inputs/midi-valid.mid");
     fs::copy(midi, root.join("valid.mid")).unwrap();
     let script = r#"#!/bin/sh
 root="@ROOT@"

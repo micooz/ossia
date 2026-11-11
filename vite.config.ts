@@ -19,7 +19,7 @@ export default defineConfig({
     ignorePatterns: [
       '.docs/',
       'packages/ui/src/generated/',
-      'tests/fixtures/local/',
+      'tests/fixtures/',
       'work/',
       'vendor/',
       'packages/desktop/src-tauri/{target,gen,icons}/',
@@ -32,7 +32,7 @@ export default defineConfig({
     ignorePatterns: [
       '.docs/',
       'packages/ui/src/generated/',
-      'tests/fixtures/local/',
+      'tests/fixtures/',
       'work/',
       'vendor/',
       'packages/desktop/src-tauri/{target,gen}/',

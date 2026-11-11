@@ -16,13 +16,13 @@
 - `packages/ossia-engine/`：原生工具链、转换、编译和产物缓存。
 - `scripts/engine.mjs`、`vendor/ENGINE.lock`：工具链安装和时间戳规则。
 - `packages/ui/src/components/ScoreView.tsx`：页面坐标及选区覆盖层。
-- `tests/fixtures/local/`：合成输入、TS 观测、正确期望和机器证据。
+- `tests/fixtures/`：合成输入、分析与渲染基线、共享契约。
 
 ## 3. 实施任务
 
 ### 3.1 合成样本与对照导出
 
-在 `tests/fixtures/local/` 建立清单，为每个样本写明来源、覆盖能力、应成功或应降级的结果。样本均自行构造，至少包括：
+在 `tests/fixtures/` 建立清单，为每个样本写明来源、覆盖能力、应成功或应降级的结果。样本均自行构造，至少包括：
 
 - 双谱表、多声部、跨页、带 `% N` 的转换器产物和压缩休止。
 - 手写单文件，分别使用命名变量、内联 Staff、`\relative`、`\absolute`；含注释、Scheme／markup 字符串和标准库 include。
@@ -31,7 +31,7 @@
 - 有效 MusicXML、有效 MIDI、局部转换损失和阻断性 `Negative skip` 样本。
 - 截断 MIDI、变长 meta event、running status、note-on 速度为零等二进制解析样本。
 
-`tests/fixtures/local/observed.json` 保存参考 token、声部／小节范围、谱表顺序、几何、音高和 MIDI note-on；其中的 UTF-16 位置已转换为索引使用的 UTF-8 字节范围。
+`tests/fixtures/analysis/` 保存测试实际消费的规范化 token 和双谱表几何基线；token 位置使用 UTF-8 字节范围。其余历史 TS 观测见 Git 历史。
 
 参考输出不是正确性证明。压缩休止的最大小节号、尾部 score block、未知 staff 等差异由独立期望和 LilyPond 输出核对。
 
@@ -71,8 +71,8 @@ Linux ARM64 探针失败时记录具体编译／运行错误和下一步；不�
 
 ## 5. 实施交接
 
-- 交付内容：25 个合成输入、22 份原生渲染参考、TS 观测、已知差异、共享 JSON 示例和基线报告。
-- 回归：`cargo test -p ossia-score -p ossia-types` 和 `cargo test --workspace` 直接读取 `tests/fixtures/local/`，不重建 TS 观测。
-- 工具链／宿主环境证据：[本机基线报告](00-baseline-report.md)，机器输出在 `tests/fixtures/local/evidence/`。macOS ARM64 原生 2.26.0，以及 Codex 26.1103.60933／DSH Desktop 0.2.2-rc.1 已实测。
+- 交付内容：合成输入、原生渲染参考、规范化分析期望、共享 JSON 示例和基线报告；历史迁移验证记录见 Git 历史。
+- 回归：`cargo test -p ossia-score -p ossia-types` 和 `cargo test --workspace` 直接读取 `tests/fixtures/`，不从 Rust 实现重建分析期望。
+- 工具链／宿主环境证据：[本机基线报告](00-baseline-report.md)，机器输出在 Git 历史中的迁移验证记录。macOS ARM64 原生 2.26.0，以及 Codex 26.1103.60933／DSH Desktop 0.2.2-rc.1 已实测。
 - 阻塞及未验证项：没有启动原生 Linux ARM64 构建环境，缺同版本构建配方、依赖和转换／编译证据。其他原生目标、插件 API 实际调用、DSH Web、下载策略与安装包未验证；详见报告。
 - P01 消费合成 fixture、位置转换结论和正确期望。

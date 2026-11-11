@@ -108,7 +108,7 @@
 
 - `cargo test -p ossia-library`：22 项事务／并发／恢复回归通过；1 个标记 ignored 的子进程入口由测试显式启动，覆盖跨进程锁和直接退出后的 SQLite／文件恢复。
 - `cargo test --workspace`：66 项测试、3 项文档测试通过。默认忽略的原生集成与子进程入口单独说明，不计作本次默认测试通过项。
-- `OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p03-native.json" cargo test -p ossia-library --test native_library -- --ignored`：通过。临时中文／空格库中三类输入分别完成导入→编辑→SVG/PDF/MIDI 检查→commit→restore；另覆盖真实转换损失确认、Negative skip 拒绝、错误 ly 修复为首版本和重启后的 5 个文档。证据见 `tests/fixtures/local/evidence/p03-native.json`。
+- `OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" OSSIA_NATIVE_EVIDENCE="$PWD/target/native-library.json" cargo test -p ossia-library --test native_library -- --ignored`：通过。临时中文／空格库中三类输入分别完成导入→编辑→SVG/PDF/MIDI 检查→commit→restore；另覆盖真实转换损失确认、Negative skip 拒绝、错误 ly 修复为首版本和重启后的 5 个文档。证据见 Git 历史中的 `p03-native.json`。
 - 故障注入覆盖 CAS 落盘后、版本事务提交前、intent 落盘后、文件替换后及最终事务前后；校验实际文件字节、可恢复的 head/seq/parent 和 CAS，不只检查行数。覆盖编译期间新保存、排队后新保存及提交最后检查后的保存。
 - 验证：`cargo test -p ossia-library`、`cargo test --workspace`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`pnpm typecheck`、`pnpm check`。
 

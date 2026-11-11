@@ -33,7 +33,7 @@
 
 ## 5. 旧路径退出与 CI
 
-- 删除 `packages/ly` 和 `scripts/local`，移除只服务于 TS 对照的 pnpm 命令；保留 `tests/fixtures/local` 的输入、observed、manifest 和证据，Rust 测试继续直接消费已有期望，不由 Rust 覆盖参考。
+- 删除 `packages/ly` 和 `scripts/local`，移除只服务于 TS 对照的 pnpm 命令；`tests/fixtures/` 按输入、分析基线、渲染基线和契约分类；Rust 测试继续直接消费独立期望，不由 Rust 覆盖参考。历史迁移证据见 Git 历史。
 - 更新 fixture README、索引、现行命令、旧架构文档顶部说明和检查忽略规则。历史 ADR 保留正文，只标注被本次本地架构替代。
 - `.github/workflows/check.yml` 负责 PR/main/tag 门禁并预热四目标依赖缓存；`auto-tag.yml` 使用 GitHub App 创建下一个 patch tag；`release.yml` 由 annotated tag 触发，四目标并行打包、生成双语说明，创建 draft 后发布 beta Pre-release 或稳定 Release。Linux ARM64 不进入矩阵。
 

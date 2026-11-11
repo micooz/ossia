@@ -37,14 +37,14 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-Tests consume the original P00 fixtures and normalized TS observations. Old UTF-16-only observations are skipped while decoding the reference, so lone surrogate tokens never enter the Rust string model. Normative assertions separately cover corrections to TS behavior.
+Tests consume the shared inputs, rendered pages and normalized token/geometry baselines in `tests/fixtures/`. Normative assertions separately cover corrections to TypeScript behavior. See the fixture README for update rules.
 
 The native test is explicitly ignored by default and fails without the requested engine when invoked:
 
 ```sh
 OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" \
-OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p01-native.json" \
-cargo test -p ossia-score --test native_engine -- --ignored
+OSSIA_NATIVE_EVIDENCE="$PWD/target/native-score.json" \
+cargo test -p ossia-engine --test score_native_crosscheck -- --ignored
 ```
 
-It compiles synthetic P01 fixtures in temporary directories and verifies pitches, SVG columns and unchanged source bytes against native LilyPond 2.26.0. The evidence file records the actual target; passing it on macOS is not Linux or installation-package validation.
+It compiles `tests/fixtures/inputs/pitch-layout/` sources in temporary directories and verifies pitches, SVG columns and unchanged source bytes against native LilyPond 2.26.0. The evidence file records the actual target; passing it on macOS is not Linux or installation-package validation.

@@ -2,13 +2,13 @@ use ossia_score::*;
 use serde_json::Value;
 use std::{fs, path::PathBuf};
 fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/local")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
 }
 fn text(file: &str) -> String {
     fs::read_to_string(root().join(file)).unwrap()
 }
 fn rendered(id: &str) -> (String, Vec<String>) {
-    let manifest: Value = serde_json::from_str(&text("engine/manifest.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&text("rendered/manifest.json")).unwrap();
     let f = manifest
         .as_array()
         .unwrap()
@@ -152,7 +152,7 @@ fn invalid_pages_whitespace_staff_gaps_and_off_page_clicks_are_no_hit() {
 
 #[test]
 fn all_native_pages_have_explicit_capability_and_probe_anchors_map_to_original_bytes() {
-    let manifest: Value = serde_json::from_str(&text("engine/manifest.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&text("rendered/manifest.json")).unwrap();
     for f in manifest.as_array().unwrap() {
         let id = f["id"].as_str().unwrap();
         let (source, pages) = rendered(id);
@@ -298,27 +298,18 @@ fn xml_transforms_paths_and_anomalies_have_checked_results() {
 fn normalized_ts_geometry_agrees_for_supported_two_staff_pages() {
     #[derive(serde::Deserialize)]
     struct Observed {
-        renders: Vec<Render>,
-    }
-    #[derive(serde::Deserialize)]
-    struct Render {
-        id: String,
-        layouts: Vec<OldPage>,
+        pages: Vec<OldPage>,
     }
     #[derive(serde::Deserialize)]
     struct OldPage {
         page: u32,
+        #[serde(flatten)]
         layout: Value,
     }
-    let observed: Observed = serde_json::from_str(&text("observed.json")).unwrap();
-    let old = observed
-        .renders
-        .iter()
-        .find(|r| r.id == "polyphonic-pages")
-        .unwrap();
+    let old: Observed = serde_json::from_str(&text("analysis/geometry.json")).unwrap();
     let (source, pages) = rendered("polyphonic-pages");
     let (_, actual) = layout(&source, &pages);
-    for (page, expected) in actual.pages.iter().zip(&old.layouts) {
+    for (page, expected) in actual.pages.iter().zip(&old.pages) {
         assert_eq!(page.page, expected.page);
         assert!((page.staff_space - expected.layout["staffSpace"].as_f64().unwrap()).abs() < 1e-6);
         for (sys, old) in page

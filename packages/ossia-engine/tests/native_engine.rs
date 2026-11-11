@@ -26,7 +26,7 @@ fn native_conversion_compilation_cache_and_original_mapping() {
     let scratch = work.path().join("中文 scratch");
     let context = RunContext::new(Duration::from_secs(180));
     let engine = Engine::verify(&root, &scratch, &context).unwrap();
-    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/local");
+    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures");
     let document = "10000000-0000-4000-8000-000000000001".parse().unwrap();
     let options = CompileOptions {
         formats: vec![RenderFormat::Svg, RenderFormat::Pdf, RenderFormat::Midi],

@@ -65,7 +65,7 @@ cargo test -p ossia-runtime
 
 OSSIA_TEST_EXECUTABLE="$PWD/target/debug/ossia-desktop" \
 OSSIA_TEST_LILYPOND_ROOT="$PWD/vendor/lilypond/2.26.0-darwin-arm64" \
-OSSIA_NATIVE_EVIDENCE="$PWD/tests/fixtures/local/evidence/p05-native.json" \
+OSSIA_NATIVE_EVIDENCE="$PWD/target/native-runtime.json" \
 cargo test -p ossia-runtime --test native_runtime -- --ignored
 ```
 

@@ -165,7 +165,7 @@
 ## 8. 明确不做
 
 - 不改变 Rust crate 职责、产品架构、数据格式、数据库 schema、协议版本或用户工作流。
-- 不手改 `packages/ui/src/generated/protocol.ts` 或 `tests/fixtures/local/mcp-tools.json`。
+- 不手改 `packages/ui/src/generated/protocol.ts` 或 `tests/fixtures/contracts/mcp-tools.json`。
 - 不新增 wrapper/trait/manager 仅为缩短文件或消除表面重复。
 - 不把 UI 解析、版本逻辑、Tauri 权限或宿主安装逻辑移入错误层级。
 - 不进行无 profiling 依据的性能优化，不新增兜底，不清理其他会话文件/日志/工作树。

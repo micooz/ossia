@@ -88,7 +88,7 @@ admin 入口仅展示：运行／停止状态、所选数据目录、运行时�
 
 ### 6.3 原生证据与平台边界
 
-- 本机 macOS ARM64 的运行时证据在 `tests/fixtures/local/evidence/p05-native.json`：三类合成输入均完成 3 个版本与 `.ly`／PDF／MIDI 导出；真实 LilyPond 闭环确认自动预览、固定快照编辑检查、版本对比、恢复和导出。
+- 本机 macOS ARM64 的运行时证据在 Git 历史中的 `p05-native.json`：三类合成输入均完成 3 个版本与 `.ly`／PDF／MIDI 导出；真实 LilyPond 闭环确认自动预览、固定快照编辑检查、版本对比、恢复和导出。
 - 双页合成谱面的浏览器证据在 `.impeccable/review/p05-native.json`，覆盖 2 页、每页 4 个可靠区域、`390`／`1440` 宽和 `100%`／`150%` 缩放，记录 `3` 个版本与三种导出。实际截图在 `.impeccable/review/desktop.png` 和 `.impeccable/review/mobile.png`。
 - macOS 本地 `.app` 已实际打开 `admin.html`；doctor 显示运行时与 LilyPond 可用。关闭窗口后，同一 headless 运行实例继续存活并保持服务，未启动第二个写库实例。
 - macOS ARM64 已验证。Linux ARM64 仍受 P00 原生构建与运行门槛阻塞；Windows、Linux x86_64、macOS x86_64、跨平台安装包、Codex／DSH 实际宿主侧栏和打包资源签名均未完成原生验收。macOS arm64 测试包的启动冒烟不能替代其他平台验收。
