@@ -8,6 +8,10 @@ use std::{
     time::Duration,
 };
 
+#[cfg(test)]
+#[path = "../tests/unit/cache.rs"]
+mod tests;
+
 pub(crate) fn confined(root: &Path, relative: &str) -> Result<PathBuf, AppError> {
     if relative.is_empty()
         || relative.contains(['\\', ':'])

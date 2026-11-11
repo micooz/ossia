@@ -3,6 +3,10 @@ use ossia_score::SourceMap;
 use ossia_types::{AppError, ErrorCode, RenderFormat};
 use std::{ops::Range, path::Path};
 
+#[cfg(test)]
+#[path = "../tests/unit/source.rs"]
+mod tests;
+
 #[derive(Debug, Clone)]
 struct Lexeme {
     raw: String,

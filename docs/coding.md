@@ -34,5 +34,9 @@
 - Mirror the source structure: `packages/ossia-<crate>/tests/` for crate integration
   tests, `packages/ui/tests/` for `packages/ui/src/`. Each unit test file tests
   only its corresponding source file.
+- Unit tests that need private internals live under
+  `packages/ossia-<crate>/tests/unit/` and are included with
+  `#[cfg(test)] #[path = "../tests/unit/<module>.rs"] mod tests;` from the owning
+  source file. Keep production visibility unchanged for tests.
 - Verify styles through component behavior and the toolchain. Do not test
   stylesheets or source files with regular-expression assertions.

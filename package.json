@@ -20,12 +20,10 @@
     "package": "node scripts/package.mjs",
     "setup": "pnpm install && pnpm engine:install",
     "test:engine": "node --test scripts/engine.test.mjs",
-    "test:integrations": "cargo test -p ossia-integrations",
     "test:package": "node --test scripts/package.test.mjs",
     "test:release": "node --test scripts/release/version.test.mjs scripts/release/tags.test.mjs scripts/release/assets.test.mjs scripts/release/notes.test.mjs",
     "test:ui": "pnpm --filter @ossia/ui test",
-    "test:ui:native": "pnpm --filter @ossia/ui test:native",
-    "typecheck": "pnpm run -r typecheck"
+    "test:ui:native": "pnpm --filter @ossia/ui test:native"
   },
   "devDependencies": {
     "vite-plus": "1.5.1"

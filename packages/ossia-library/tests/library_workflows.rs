@@ -1,20 +1,25 @@
-use super::*;
+use ossia_engine::{CompileOptions, RunContext};
+use ossia_library::*;
 use std::{
-    process::Command,
+    fs,
+    path::Path,
     sync::{Arc, Barrier},
     thread,
 };
 
 type CompileHook = Box<dyn FnOnce(&SourceSnapshot) + Send>;
+
 #[derive(Default)]
 struct TestEngine {
-    hook: Mutex<Option<CompileHook>>,
-    error: Mutex<Option<AppError>>,
+    hook: std::sync::Mutex<Option<CompileHook>>,
+    error: std::sync::Mutex<Option<AppError>>,
 }
+
 impl EngineBackend for TestEngine {
     fn build_id(&self) -> &str {
         "test-engine-1"
     }
+
     fn convert(
         &self,
         input: &[u8],
@@ -31,7 +36,7 @@ impl EngineBackend for TestEngine {
                 return Err(AppError::new(ErrorCode::ImportRefused, "blocked"));
             }
             if confirmation != &token {
-                return Err(conflict("confirmation changed"));
+                return Err(AppError::new(ErrorCode::Conflict, "confirmation changed"));
             }
         }
         let source = if refused {
@@ -72,6 +77,7 @@ impl EngineBackend for TestEngine {
             diagnostics: vec![],
         })
     }
+
     fn compile(
         &self,
         snapshot: &SourceSnapshot,
@@ -90,7 +96,9 @@ impl EngineBackend for TestEngine {
         let bytes = format!("<svg><!-- {} --></svg>", snapshot.source_hash()).into_bytes();
         let hash = ContentHash::of(&bytes);
         let path = format!("assets/{hash}.svg");
-        atomic_write(&artifact_root.join(&path), &bytes)?;
+        let asset = artifact_root.join(&path);
+        fs::create_dir_all(asset.parent().unwrap()).unwrap();
+        fs::write(asset, &bytes).unwrap();
         let broken = snapshot.source().contains("BROKEN");
         let mut errors = vec![];
         if broken {
@@ -148,10 +156,12 @@ struct Fixture {
     doc: DocumentState,
     _root: tempfile::TempDir,
 }
+
 impl Fixture {
     fn new() -> Self {
         Self::source("A c'1")
     }
+
     fn source(source: &str) -> Self {
         let root = tempfile::tempdir().unwrap();
         let library = Library::open(root.path()).unwrap();
@@ -178,6 +188,7 @@ impl Fixture {
             _root: root,
         }
     }
+
     fn begin(&self) -> EditSession {
         let state = self.library.get_document(self.doc.document_id).unwrap();
         self.library
@@ -191,10 +202,12 @@ impl Fixture {
             })
             .unwrap()
     }
+
     fn write(&self, source: &str) -> ContentHash {
         fs::write(&self.doc.source_path, source).unwrap();
         ContentHash::of(source.as_bytes())
     }
+
     fn check(&self, edit: &EditSession, hash: &ContentHash) -> CheckOutcome {
         self.library
             .check(
@@ -209,6 +222,7 @@ impl Fixture {
             )
             .unwrap()
     }
+
     fn commit(&self, edit: &EditSession, hash: &ContentHash) -> Result<Version> {
         self.library.commit(CommitRequest {
             edit_id: edit.edit_id,
@@ -217,12 +231,14 @@ impl Fixture {
             summary: "edit",
         })
     }
+
     fn change(&self, source: &str) -> Version {
         let edit = self.begin();
         let hash = self.write(source);
         self.check(&edit, &hash);
         self.commit(&edit, &hash).unwrap()
     }
+
     fn restore(&self, target: VersionId) -> Result<Version> {
         let doc = self.library.get_document(self.doc.document_id)?;
         self.library.restore(
@@ -237,73 +253,6 @@ impl Fixture {
             &RunContext::default(),
         )
     }
-    fn hook(
-        &self,
-        point: &'static str,
-        hook: impl FnOnce(&Library) -> Result<()> + Send + 'static,
-    ) {
-        self.library
-            .hooks
-            .lock()
-            .unwrap()
-            .insert(point, Box::new(hook));
-    }
-}
-
-#[test]
-fn initialization_schema_and_writer_lock_are_isolated() {
-    let root = tempfile::tempdir().unwrap();
-    fs::write(root.path().join("db.sqlite"), b"unrelated bytes").unwrap();
-    let library = Library::open(root.path()).unwrap();
-    assert!(root.path().join(storage::DATABASE).is_file());
-    assert_eq!(
-        fs::read(root.path().join("db.sqlite")).unwrap(),
-        b"unrelated bytes"
-    );
-    drop(library);
-    let other = tempfile::tempdir().unwrap();
-    let library = Library::open(other.path()).unwrap();
-    assert_eq!(
-        Library::open(other.path()).err().unwrap().code,
-        ErrorCode::LibraryBusy
-    );
-    let conn = library.db().unwrap();
-    assert_eq!(
-        conn.pragma_query_value(None, "journal_mode", |r| r.get::<_, String>(0))
-            .unwrap(),
-        "wal"
-    );
-    assert_eq!(
-        conn.pragma_query_value(None, "foreign_keys", |r| r.get::<_, i32>(0))
-            .unwrap(),
-        1
-    );
-    assert_eq!(
-        conn.pragma_query_value(None, "synchronous", |r| r.get::<_, i32>(0))
-            .unwrap(),
-        2
-    );
-    assert!(rusqlite::version_number() >= 3_051_003);
-    drop(conn);
-    let result = Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "tests::process_fixture", "--ignored"])
-        .env("OSSIA_LIBRARY_TEST_MODE", "lock")
-        .env("OSSIA_LIBRARY_TEST_HOME", other.path())
-        .output()
-        .unwrap();
-    assert!(
-        result.status.success(),
-        "{}",
-        String::from_utf8_lossy(&result.stdout)
-    );
-    drop(library);
-    let conn = Connection::open(other.path().join(storage::DATABASE)).unwrap();
-    conn.pragma_update(None, "user_version", 2).unwrap();
-    drop(conn);
-    assert_eq!(
-        Library::open(other.path()).err().unwrap().code,
-        ErrorCode::RuntimeIncompatible
-    );
 }
 
 #[test]
@@ -724,31 +673,6 @@ fn dirty_restore_and_wrong_discard_capability_never_overwrite_files() {
 }
 
 #[test]
-fn external_save_after_final_commit_check_remains_a_dirty_workspace() {
-    let f = Fixture::new();
-    let edit = f.begin();
-    let hash = f.write("B");
-    f.check(&edit, &hash);
-    let path = f.doc.source_path.clone();
-    f.hook("after-commit-check", move |_| {
-        fs::write(path, b"C").unwrap();
-        Ok(())
-    });
-    let version = f.commit(&edit, &hash).unwrap();
-    assert_eq!(
-        f.library
-            .version_snapshot(version.version_id)
-            .unwrap()
-            .bytes(),
-        b"B"
-    );
-    let doc = f.library.get_document(f.doc.document_id).unwrap();
-    assert!(doc.dirty);
-    assert_eq!(doc.source_hash, ContentHash::of(b"C"));
-    assert_eq!(doc.edit_state, DocumentEditState::Idle);
-}
-
-#[test]
 fn concurrent_checks_keep_newer_render_and_snapshot_when_old_result_arrives_last() {
     let f = Fixture::new();
     let edit = f.begin();
@@ -1037,268 +961,6 @@ fn job_state_changes_are_conditional_and_terminals_are_immutable() {
 }
 
 #[test]
-fn cas_and_database_failures_never_publish_unverified_versions() {
-    let f = Fixture::new();
-    f.hook("after-cas", |_| Err(storage_error("injected")));
-    assert!(f
-        .library
-        .import(
-            &f.engine,
-            ImportRequest {
-                title: "interrupted",
-                input: b"unpublished",
-                format: InputFormat::Ly,
-                confirmation: None,
-                author: "test"
-            },
-            &RunContext::default()
-        )
-        .is_err());
-    assert_eq!(f.library.list_documents().unwrap().len(), 1);
-    let edit = f.begin();
-    let hash = f.write("B");
-    f.check(&edit, &hash);
-    f.hook("before-version-commit", |_| Err(storage_error("injected")));
-    assert!(f.commit(&edit, &hash).is_err());
-    assert_eq!(f.library.history(f.doc.document_id).unwrap().len(), 1);
-    assert_eq!(fs::read(&f.doc.source_path).unwrap(), b"B");
-    assert_eq!(
-        f.library
-            .get_document(f.doc.document_id)
-            .unwrap()
-            .edit_state,
-        DocumentEditState::Active
-    );
-    let version = f.commit(&edit, &hash).unwrap();
-    fs::write(
-        f.library
-            .store
-            .path(&format!("contents/{}.gz", version.source_hash))
-            .unwrap(),
-        b"corrupt",
-    )
-    .unwrap();
-    assert_eq!(
-        f.library
-            .version_snapshot(version.version_id)
-            .unwrap_err()
-            .code,
-        ErrorCode::StorageError
-    );
-}
-
-#[test]
-fn restore_faults_recover_by_actual_file_hash_without_duplicate_nodes() {
-    for (point, expected, count) in [
-        ("after-intent", b"B".as_slice(), 2),
-        ("after-replace", b"A c'1".as_slice(), 3),
-        ("before-intent-finalize", b"A c'1".as_slice(), 3),
-        ("after-intent-finalize", b"A c'1".as_slice(), 3),
-    ] {
-        let f = Fixture::new();
-        f.change("B");
-        f.hook(point, |_| Err(storage_error("crash")));
-        assert!(f.restore(f.doc.head_version_id.unwrap()).is_err());
-        let home = f.library.home().to_owned();
-        drop(f.library);
-        for _ in 0..2 {
-            let library = Library::open(&home).unwrap();
-            assert_eq!(fs::read(&f.doc.source_path).unwrap(), expected);
-            assert_eq!(library.history(f.doc.document_id).unwrap().len(), count);
-            assert!(!library.get_document(f.doc.document_id).unwrap().dirty);
-        }
-    }
-}
-
-#[test]
-fn recovery_conflict_preserves_external_file_until_explicit_acknowledgement() {
-    let f = Fixture::new();
-    f.change("B");
-    f.hook("after-replace", |_| Err(storage_error("crash")));
-    assert!(f.restore(f.doc.head_version_id.unwrap()).is_err());
-    let hash = f.write("external C");
-    let home = f.library.home().to_owned();
-    drop(f.library);
-    let library = Library::open(&home).unwrap();
-    assert_eq!(fs::read(&f.doc.source_path).unwrap(), b"external C");
-    assert_eq!(library.history(f.doc.document_id).unwrap().len(), 2);
-    assert_eq!(
-        library.get_document(f.doc.document_id).unwrap().edit_state,
-        DocumentEditState::RecoveryConflict
-    );
-    assert_eq!(
-        library
-            .resolve_recovery_conflict(f.doc.document_id, &f.doc.source_hash)
-            .unwrap_err()
-            .code,
-        ErrorCode::Conflict
-    );
-    library
-        .resolve_recovery_conflict(f.doc.document_id, &hash)
-        .unwrap();
-    assert!(library.get_document(f.doc.document_id).unwrap().dirty);
-    assert_eq!(fs::read(&f.doc.source_path).unwrap(), b"external C");
-}
-
-#[test]
-fn discard_recovery_ends_edit_only_when_replacement_occurred() {
-    for (point, expected, status) in [
-        (
-            "after-intent",
-            b"B".as_slice(),
-            DocumentEditState::Interrupted,
-        ),
-        (
-            "after-replace",
-            b"A c'1".as_slice(),
-            DocumentEditState::Idle,
-        ),
-    ] {
-        let f = Fixture::new();
-        let edit = f.begin();
-        let hash = f.write("B");
-        f.hook(point, |_| Err(storage_error("crash")));
-        assert!(f
-            .library
-            .discard(
-                f.doc.document_id,
-                Some(edit.edit_id),
-                f.doc.head_version_id,
-                &hash
-            )
-            .is_err());
-        let home = f.library.home().to_owned();
-        drop(f.library);
-        let library = Library::open(&home).unwrap();
-        assert_eq!(fs::read(&f.doc.source_path).unwrap(), expected);
-        assert_eq!(
-            library.get_document(f.doc.document_id).unwrap().edit_state,
-            status
-        );
-        assert_eq!(library.history(f.doc.document_id).unwrap().len(), 1);
-    }
-}
-
-#[test]
-fn process_death_releases_lock_and_recovers_durable_restore_intent() {
-    for (point, expected, count) in [
-        ("after-intent", b"B".as_slice(), 2),
-        ("after-replace", b"A c'1".as_slice(), 3),
-        ("before-intent-finalize", b"A c'1".as_slice(), 3),
-    ] {
-        let f = Fixture::new();
-        f.change("B");
-        let home = f.library.home().to_owned();
-        drop(f.library);
-        let output = Command::new(std::env::current_exe().unwrap())
-            .args([
-                "--exact",
-                "tests::process_fixture",
-                "--ignored",
-                "--nocapture",
-            ])
-            .env("OSSIA_LIBRARY_TEST_MODE", point)
-            .env("OSSIA_LIBRARY_TEST_HOME", &home)
-            .env(
-                "OSSIA_LIBRARY_TEST_TARGET",
-                f.doc.head_version_id.unwrap().to_string(),
-            )
-            .output()
-            .unwrap();
-        assert_eq!(
-            output.status.code(),
-            Some(73),
-            "{} {}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
-        let library = Library::open(&home).unwrap();
-        assert_eq!(fs::read(&f.doc.source_path).unwrap(), expected);
-        assert_eq!(library.history(f.doc.document_id).unwrap().len(), count);
-        assert!(!library.get_document(f.doc.document_id).unwrap().dirty);
-    }
-}
-
-#[test]
-fn source_replacement_missing_file_and_symlink_escape_are_detected() {
-    let f = Fixture::source("\u{feff}中文😀\r\nA\r\n");
-    let bytes = fs::read(&f.doc.source_path).unwrap();
-    assert_eq!(bytes, "\u{feff}中文😀\r\nA\r\n".as_bytes());
-    let path = Path::new(&f.doc.source_path);
-    fs::remove_file(path).unwrap();
-    assert_eq!(
-        f.library
-            .observe_source(f.doc.document_id)
-            .unwrap_err()
-            .code,
-        ErrorCode::NotFound
-    );
-    atomic_write(path, &bytes).unwrap();
-    assert!(!f.library.observe_source(f.doc.document_id).unwrap().dirty);
-    #[cfg(unix)]
-    {
-        fs::remove_file(path).unwrap();
-        let outside = tempfile::NamedTempFile::new().unwrap();
-        fs::write(outside.path(), b"external").unwrap();
-        std::os::unix::fs::symlink(outside.path(), path).unwrap();
-        assert_eq!(
-            f.library
-                .observe_source(f.doc.document_id)
-                .unwrap_err()
-                .code,
-            ErrorCode::StorageError
-        );
-        assert_eq!(fs::read(outside.path()).unwrap(), b"external");
-    }
-}
-
-#[test]
-#[ignore = "subprocess fixture invoked by lock and crash recovery regressions"]
-fn process_fixture() {
-    let home = PathBuf::from(std::env::var_os("OSSIA_LIBRARY_TEST_HOME").unwrap());
-    let mode = std::env::var("OSSIA_LIBRARY_TEST_MODE").unwrap();
-    if mode == "lock" {
-        assert_eq!(
-            Library::open(&home).err().unwrap().code,
-            ErrorCode::LibraryBusy
-        );
-        return;
-    }
-    let library = Library::open(&home).unwrap();
-    let engine = TestEngine::default();
-    let doc = library.list_documents().unwrap().pop().unwrap();
-    let point: &'static str = match mode.as_str() {
-        "after-intent" => "after-intent",
-        "after-replace" => "after-replace",
-        "before-intent-finalize" => "before-intent-finalize",
-        _ => panic!("unknown fixture"),
-    };
-    library
-        .hooks
-        .lock()
-        .unwrap()
-        .insert(point, Box::new(|_| std::process::exit(73)));
-    let target = std::env::var("OSSIA_LIBRARY_TEST_TARGET")
-        .unwrap()
-        .parse()
-        .unwrap();
-    library
-        .restore(
-            &engine,
-            RestoreRequest {
-                target_version_id: target,
-                base_version_id: doc.head_version_id,
-                expected_source_hash: &doc.source_hash,
-                author: "test",
-                summary: "crash",
-            },
-            &RunContext::default(),
-        )
-        .unwrap();
-    panic!("fault point was not reached");
-}
-
-#[test]
 fn queued_checks_execute_the_persisted_snapshot_after_later_saves() {
     let f = Fixture::new();
     let edit = f.begin();
@@ -1343,44 +1005,34 @@ fn queued_checks_execute_the_persisted_snapshot_after_later_saves() {
 }
 
 #[test]
-fn converted_compile_failure_and_replacement_conflict_preserve_existing_documents() {
-    let f = Fixture::new();
-    *f.engine.error.lock().unwrap() = Some(AppError::new(
-        ErrorCode::CompileFailed,
-        "conversion compiled unsuccessfully",
-    ));
-    assert!(f
-        .library
-        .import(
-            &f.engine,
-            ImportRequest {
-                title: "converted failure",
-                input: b"xml",
-                format: InputFormat::MusicXml,
-                confirmation: None,
-                author: "test"
-            },
-            &RunContext::default()
-        )
-        .is_err());
-    assert_eq!(f.library.list_documents().unwrap().len(), 1);
-    f.change("B");
-    let path = f.doc.source_path.clone();
-    f.hook("after-intent", move |_| {
-        fs::write(path, b"external").unwrap();
-        Ok(())
-    });
-    assert_eq!(
-        f.restore(f.doc.head_version_id.unwrap()).unwrap_err().code,
-        ErrorCode::Conflict
-    );
-    assert_eq!(fs::read(&f.doc.source_path).unwrap(), b"external");
-    assert_eq!(f.library.history(f.doc.document_id).unwrap().len(), 2);
+fn source_replacement_missing_file_and_symlink_escape_are_detected() {
+    let f = Fixture::source("\u{feff}中文😀\r\nA\r\n");
+    let bytes = fs::read(&f.doc.source_path).unwrap();
+    assert_eq!(bytes, "\u{feff}中文😀\r\nA\r\n".as_bytes());
+    let path = Path::new(&f.doc.source_path);
+    fs::remove_file(path).unwrap();
     assert_eq!(
         f.library
-            .get_document(f.doc.document_id)
-            .unwrap()
-            .edit_state,
-        DocumentEditState::RecoveryConflict
+            .observe_source(f.doc.document_id)
+            .unwrap_err()
+            .code,
+        ErrorCode::NotFound
     );
+    fs::write(path, &bytes).unwrap();
+    assert!(!f.library.observe_source(f.doc.document_id).unwrap().dirty);
+    #[cfg(unix)]
+    {
+        fs::remove_file(path).unwrap();
+        let outside = tempfile::NamedTempFile::new().unwrap();
+        fs::write(outside.path(), b"external").unwrap();
+        std::os::unix::fs::symlink(outside.path(), path).unwrap();
+        assert_eq!(
+            f.library
+                .observe_source(f.doc.document_id)
+                .unwrap_err()
+                .code,
+            ErrorCode::StorageError
+        );
+        assert_eq!(fs::read(outside.path()).unwrap(), b"external");
+    }
 }

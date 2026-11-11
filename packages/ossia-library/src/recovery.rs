@@ -1,6 +1,10 @@
 use crate::{db, *};
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
+#[path = "../tests/unit/recovery.rs"]
+mod tests;
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Intent {

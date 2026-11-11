@@ -1,5 +1,5 @@
 use crate::{db, *};
-use std::io::Write;
+use std::{fs::OpenOptions, io::Write};
 
 /// Includes document ownership so identical sources in different documents cannot be confused.
 pub fn render_key(document: DocumentId, render: &RenderManifest) -> ContentHash {

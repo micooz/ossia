@@ -3,6 +3,10 @@ use ossia_score::SourceMap;
 use ossia_types::{Diagnostic, EnginePosition, Severity};
 use std::path::Path;
 
+#[cfg(test)]
+#[path = "../tests/unit/diagnostics.rs"]
+mod tests;
+
 pub(crate) fn redact(text: &str, scratch: &Path, engine: &Path) -> String {
     let mut text = text.to_owned();
     for (path, replacement) in [(scratch, "<scratch>"), (engine, "<engine>")] {

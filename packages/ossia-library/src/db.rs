@@ -4,6 +4,10 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Serialize};
 use std::str::FromStr;
 
+#[cfg(test)]
+#[path = "../tests/unit/db.rs"]
+mod tests;
+
 pub(crate) fn encode(value: &impl Serialize) -> Result<String> {
     serde_json::to_string(value).map_err(storage_error)
 }
