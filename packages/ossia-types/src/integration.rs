@@ -37,6 +37,21 @@ pub struct AgentConflict {
     pub message: String,
 }
 
+/// A built-in integration notice rendered in the user's selected language.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum AgentNotice {
+    RestartSession { agent: String },
+    CodexPluginDisabled,
+    CodexPluginMissing,
+    CodexUnmanagedConfig,
+    DshBundleMissing,
+    DshUnmanagedBundle,
+    LegacyReinstall,
+    HostUnavailable,
+    LegacyHostUnavailable,
+}
+
 /// One supported Agent and the resources Ossia can install for it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
@@ -56,8 +71,8 @@ pub struct AgentIntegration {
     pub config_path: String,
     pub profile: Option<String>,
     pub path: Option<String>,
-    pub reload_hint: Option<String>,
-    pub message: Option<String>,
+    pub reload_hint: Option<AgentNotice>,
+    pub message: Option<AgentNotice>,
     pub conflicts: Vec<AgentConflict>,
 }
 
@@ -66,6 +81,8 @@ pub struct AgentIntegration {
 #[serde(rename_all = "camelCase")]
 pub struct AgentsSnapshot {
     pub agents: Vec<AgentIntegration>,
+    /// Agent identifiers in successful connection order, oldest first.
+    pub connection_order: Vec<AgentId>,
     pub syncing: bool,
     pub error: Option<AppError>,
 }

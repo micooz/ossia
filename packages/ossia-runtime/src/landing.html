@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ossia · 打开你的乐谱</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font:
+          16px/1.7 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        background: #f4f4f6;
+        color: #25252a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 48px 24px;
+        min-height: 100svh;
+        display: grid;
+        place-items: center;
+      }
+      main {
+        width: min(100%, 760px);
+      }
+      .brand {
+        font-size: 20px;
+        font-weight: 650;
+      }
+      .illustration {
+        display: block;
+        width: min(100%, 420px);
+        height: auto;
+        margin: 32px auto;
+        color: #4c64ce;
+      }
+      h1 {
+        font-size: clamp(26px, 5vw, 34px);
+        line-height: 1.3;
+        letter-spacing: -0.025em;
+        margin: 0 0 16px;
+      }
+      p {
+        margin: 12px 0;
+      }
+      .intro,
+      footer {
+        color: #62626d;
+      }
+      ol {
+        padding-left: 24px;
+      }
+      li {
+        padding-left: 6px;
+        margin: 20px 0;
+      }
+      code {
+        font:
+          0.9em/1.6 ui-monospace,
+          monospace;
+        background: #e7e7ee;
+        padding: 3px 7px;
+        border-radius: 5px;
+      }
+      footer {
+        margin-top: 32px;
+        font-size: 13px;
+        border-top: 1px solid #dcdce3;
+        padding-top: 20px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          background: #1c1c20;
+          color: #ededf1;
+        }
+        .intro,
+        footer {
+          color: #b1b1bc;
+        }
+        .illustration {
+          color: #9aaaff;
+        }
+        code {
+          background: #303038;
+        }
+        footer {
+          border-color: #38383f;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand">ossia</div>
+      <svg
+        class="illustration"
+        viewBox="0 0 420 180"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <rect
+          x="125"
+          y="10"
+          width="220"
+          height="156"
+          rx="10"
+          stroke="currentColor"
+          stroke-width="2"
+        />
+        <path d="M125 38H345" stroke="currentColor" opacity=".4" />
+        <circle cx="140" cy="24" r="3" fill="currentColor" />
+        <path
+          d="M153 73H320M153 85H320M153 97H320M153 109H320M153 121H320"
+          stroke="currentColor"
+          opacity=".35"
+        />
+        <path d="M198 108V60M260 96V48M198 60L260 48" stroke="currentColor" stroke-width="3" />
+        <ellipse
+          cx="191"
+          cy="108"
+          rx="9"
+          ry="6"
+          transform="rotate(-20 191 108)"
+          fill="currentColor"
+        />
+        <ellipse
+          cx="253"
+          cy="96"
+          rx="9"
+          ry="6"
+          transform="rotate(-20 253 96)"
+          fill="currentColor"
+        />
+        <path
+          d="M60 108H109M98 97L109 108L98 119"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <rect x="28" y="60" width="45" height="32" rx="7" stroke="currentColor" stroke-width="2" />
+        <path
+          d="M50 53V60M38 75H42M59 75H63M43 83H58"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        />
+      </svg>
+      <h1>从 Agent 打开你的乐谱</h1>
+      <p class="intro">
+        Ossia 本地服务已运行。请通过 Agent 或命令行打开谱面，获取专属的浏览器链接。
+      </p>
+      <ol>
+        <li>
+          <strong>接入 Agent</strong><br />在 Ossia 桌面应用的「Agent」面板中，点击你使用的 Agent
+          完成接入。
+        </li>
+        <li>
+          <strong>让 Agent 打开乐谱</strong><br />告诉它「用 Ossia 打开我的乐谱」，Agent 会使用
+          <code>ossia_open</code> 创建谱面视图。
+        </li>
+        <li>
+          <strong>在浏览器中创作</strong><br />打开返回的链接，即可查看谱面、选择小节，并与 Agent
+          一起编辑乐谱。
+        </li>
+      </ol>
+      <p>使用命令行？运行 <code>ossia open</code>，再打开返回的链接。</p>
+      <footer>
+        每个链接对应一个独立视图。链接失效后，请让 Agent 重新打开。<br />Open scores through your
+        connected Agent with <code>ossia_open</code>, or run <code>ossia open</code> in a terminal.
+      </footer>
+    </main>
+  </body>
+</html>

@@ -49,6 +49,8 @@ pub struct LegacyRecord {
 pub struct ManagedStore {
     pub schema_version: u32,
     #[serde(default)]
+    pub connection_order: Vec<String>,
+    #[serde(default)]
     pub records: BTreeMap<String, ManagedRecord>,
 }
 
@@ -56,6 +58,7 @@ impl Default for ManagedStore {
     fn default() -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
+            connection_order: Vec::new(),
             records: BTreeMap::new(),
         }
     }
@@ -100,12 +103,20 @@ pub fn load(home: &Path) -> Result<LoadedStore, AppError> {
         .unwrap_or(1);
     match schema {
         2 => {
-            let store: ManagedStore = serde_json::from_value(value).map_err(|error| {
+            let mut store: ManagedStore = serde_json::from_value(value).map_err(|error| {
                 AppError::new(
                     ErrorCode::StorageError,
                     format!("invalid managed integration record: {error}"),
                 )
             })?;
+            // Older stores only retain the last write time, not the original connection order.
+            let mut existing: Vec<_> = store.records.values().collect();
+            existing.sort_by_key(|record| (record.updated_at.len(), &record.updated_at));
+            for record in existing {
+                if !store.connection_order.contains(&record.agent_id) {
+                    store.connection_order.push(record.agent_id.clone());
+                }
+            }
             Ok(LoadedStore {
                 store,
                 legacy: Vec::new(),

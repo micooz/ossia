@@ -168,7 +168,7 @@ impl Integrator {
                     enabled: true,
                     managed: true,
                     path: None,
-                    message: Some("legacy integration needs one-click reinstall".into()),
+                    message: Some(AgentNotice::LegacyReinstall),
                     conflicts: Vec::new(),
                 },
                 (Some(detected), None, None) => {
@@ -184,7 +184,7 @@ impl Integrator {
                     enabled: false,
                     managed: true,
                     path: Some(record.shared_root.clone()),
-                    message: Some("host executable is unavailable".into()),
+                    message: Some(AgentNotice::HostUnavailable),
                     conflicts: Vec::new(),
                 },
                 (None, None, Some(_)) => AgentInspection {
@@ -193,7 +193,7 @@ impl Integrator {
                     enabled: false,
                     managed: true,
                     path: None,
-                    message: Some("legacy integration host is unavailable".into()),
+                    message: Some(AgentNotice::LegacyHostUnavailable),
                     conflicts: Vec::new(),
                 },
                 (None, None, None) => unreachable!(),
@@ -227,15 +227,16 @@ impl Integrator {
                     .map(|value| value.executable.to_string_lossy().into_owned()),
                 config_root,
                 config_path,
-                profile: Some(adapter.profile().into()),
+                profile: adapter.visible_profile().map(Into::into),
                 path: inspection.path,
-                reload_hint: Some(adapter.reload_hint().into()),
+                reload_hint: Some(adapter.reload_hint()),
                 message: inspection.message,
                 conflicts: inspection.conflicts,
             });
         }
         Ok(AgentsSnapshot {
             agents,
+            connection_order: loaded.store.connection_order,
             syncing: SYNCING.load(Ordering::Relaxed),
             error: None,
         })
@@ -271,6 +272,9 @@ impl Integrator {
             let previous = store.records.get(&management_id).cloned();
             let result = if change.enabled {
                 adapter.install(&ctx, previous.as_ref()).map(|entries| {
+                    if !store.connection_order.contains(id) {
+                        store.connection_order.push(id.clone());
+                    }
                     store.records.insert(
                         management_id.clone(),
                         ManagedRecord {
@@ -290,6 +294,7 @@ impl Integrator {
             } else if let Some(previous) = previous.as_ref() {
                 adapter.remove(&ctx, previous).map(|()| {
                     store.records.remove(&management_id);
+                    store.connection_order.retain(|agent_id| agent_id != id);
                 })
             } else {
                 Ok(())

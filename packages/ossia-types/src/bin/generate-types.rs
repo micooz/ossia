@@ -88,6 +88,7 @@ fn main() {
         InstallMethod,
         AgentState,
         AgentConflict,
+        AgentNotice,
         AgentIntegration,
         AgentsSnapshot,
         AgentsChange,

@@ -39,8 +39,10 @@ impl AgentAdapter for Codex {
         "default"
     }
 
-    fn reload_hint(&self) -> &'static str {
-        "Codex 已运行的会话不会热更新；新建会话或重启 Codex 后加载最新插件。"
+    fn reload_hint(&self) -> AgentNotice {
+        AgentNotice::RestartSession {
+            agent: "Codex".into(),
+        }
     }
 
     fn detect(&self, paths: &HostPaths) -> Option<DetectedAgent> {

@@ -71,6 +71,8 @@ fn storage(error: impl std::fmt::Display) -> AppError {
 async fn snapshot(config: &server::Config) -> ManagementSnapshot {
     let (runtime, error) = match ipc::connect(&config.home).await {
         Ok(discovery) => (Some(discovery.runtime), None),
+        // Discovery may not exist yet during startup, or after an intentional stop.
+        Err(error) if error.code == ErrorCode::RuntimeUnavailable => (None, None),
         Err(error) => (None, Some(error)),
     };
     ManagementSnapshot {
@@ -192,6 +194,26 @@ async fn management_stop(state: tauri::State<'_, Management>) -> Result<()> {
     let config = config(&state)?;
     let _guard = state.runtime_lock.lock().await;
     stop_runtime(&config).await
+}
+
+#[tauri::command]
+async fn management_open_data_directory(state: tauri::State<'_, Management>) -> Result<()> {
+    let home = config(&state)?.home;
+    tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(target_os = "macos")]
+        let mut command = std::process::Command::new("/usr/bin/open");
+        #[cfg(target_os = "windows")]
+        let mut command = std::process::Command::new("explorer.exe");
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        let mut command = std::process::Command::new("xdg-open");
+        let status = command.arg(home).status().map_err(storage)?;
+        if !status.success() {
+            return Err(storage("file manager could not open the data directory"));
+        }
+        Ok(())
+    })
+    .await
+    .map_err(storage)?
 }
 
 #[tauri::command]
@@ -322,6 +344,7 @@ pub fn run(config: Result<server::Config>, show_main_window: bool) {
         })
         .invoke_handler(tauri::generate_handler![
             management_status,
+            management_open_data_directory,
             management_start,
             management_stop,
             management_doctor,
@@ -353,17 +376,5 @@ pub fn run(config: Result<server::Config>, show_main_window: bool) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn quit_request_is_single_flight_and_waits_for_approval() {
-        let quit = QuitState::new();
-        assert!(quit.request());
-        assert!(!quit.request());
-        assert!(quit.stopping());
-        assert!(!quit.approved());
-        quit.approve();
-        assert!(quit.approved());
-    }
-}
+#[path = "../tests/unit/lib.rs"]
+mod tests;

@@ -75,6 +75,12 @@ export function SettingsPage({
             <div className="settings-row">
               <div className="setting-copy">
                 <span className="setting-label">{t('trayClickAction')}</span>
+                <span
+                  className="setting-note"
+                  title={`${t('closeToTrayNote')} ${t('quitStopsRuntime')}`}
+                >
+                  {t('closeToTrayNote')} {t('quitStopsRuntime')}
+                </span>
                 {platform === 'linux' && (
                   <span className="setting-note">{t('trayLinuxUnsupported')}</span>
                 )}
@@ -109,9 +115,6 @@ export function SettingsPage({
               </button>
             </div>
           </div>
-          <p className="settings-note-block">
-            {t('closeToTrayNote')} {t('quitStopsRuntime')}
-          </p>
         </section>
       </div>
     </section>

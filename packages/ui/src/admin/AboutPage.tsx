@@ -6,9 +6,15 @@ import { InfoRow } from './ui.tsx';
 export function AboutPage({
   preferences,
   state,
+  native,
+  openingDirectory,
+  onOpenDirectory,
 }: {
   preferences: ManagementPreferences | null;
   state: ManagementSnapshot | null;
+  native: boolean;
+  openingDirectory: boolean;
+  onOpenDirectory: () => void;
 }) {
   const { t } = useI18n();
   return (
@@ -21,11 +27,20 @@ export function AboutPage({
       <div className="settings-list about-list">
         <InfoRow label={t('appVersion')} value={preferences?.appVersion ?? t('waiting')} />
         <InfoRow
-          label={t('runtimeVersion')}
-          value={state?.runtime?.runtimeVersion ?? t('notConnected')}
+          label={t('dataDirectory')}
+          value={state?.home ?? t('waiting')}
+          code
+          action={
+            <button
+              className="path-open"
+              type="button"
+              disabled={!native || !state || openingDirectory}
+              onClick={onOpenDirectory}
+            >
+              {t('openDirectory')}
+            </button>
+          }
         />
-        <InfoRow label={t('dataDirectory')} value={state?.home ?? t('waiting')} code />
-        <InfoRow label={t('engineDirectory')} value={state?.engineRoot ?? t('waiting')} code />
       </div>
     </section>
   );

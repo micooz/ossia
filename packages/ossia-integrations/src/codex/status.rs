@@ -81,11 +81,9 @@ pub(super) fn status(
         AgentState::Available
     };
     let message = match state {
-        AgentState::Disabled => Some("插件在 Codex 中已禁用；点击可覆盖并重新启用。".into()),
-        AgentState::Broken => {
-            Some("Codex 中缺少 Ossia 插件或 marketplace；点击可重新安装。".into())
-        }
-        AgentState::Conflict => Some("检测到不受 Ossia 管理的同名配置，需手动处理。".into()),
+        AgentState::Disabled => Some(AgentNotice::CodexPluginDisabled),
+        AgentState::Broken => Some(AgentNotice::CodexPluginMissing),
+        AgentState::Conflict => Some(AgentNotice::CodexUnmanagedConfig),
         _ => None,
     };
     Ok(AgentInspection {

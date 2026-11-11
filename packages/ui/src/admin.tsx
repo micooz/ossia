@@ -1,13 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Bot, Info, ServerCog, Settings, ShieldAlert, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Bot, Info, Settings, ShieldAlert, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { AboutPage } from './admin/AboutPage.tsx';
 import { AgentsPage } from './admin/AgentsPage.tsx';
-import { ServicePage } from './admin/ServicePage.tsx';
+import { ServiceDialog } from './admin/ServiceDialog.tsx';
 import { SettingsPage } from './admin/SettingsPage.tsx';
 import { platformName } from './admin/types.ts';
 import type { Page } from './admin/types.ts';
@@ -19,7 +19,6 @@ import type {
   AgentProblem,
   AgentsMutation,
   AgentsSnapshot,
-  DoctorReport,
   ManagementPreferences,
   ManagementPreferencesChange,
   ManagementSnapshot,
@@ -105,9 +104,14 @@ function AdminContent({
   setPreferenceError: (error: string) => void;
 }) {
   const { t } = useI18n();
-  const [page, setPage] = useState<Page>('service');
+  const [page, setPage] = useState<Page>(() => {
+    const saved = localStorage.getItem('ossia:management:last-page');
+    return saved === 'general' || saved === 'about' ? saved : 'agents';
+  });
   const [state, setState] = useState<ManagementSnapshot | null>(null);
-  const [doctor, setDoctor] = useState<DoctorReport | null>(null);
+  const serviceDialog = useRef<HTMLDialogElement>(null);
+  const [openingDirectory, setOpeningDirectory] = useState(false);
+  const [pendingAgents, setPendingAgents] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
@@ -115,6 +119,10 @@ function AdminContent({
   const [agents, setAgents] = useState<AgentsSnapshot | null>(null);
   const [agentProblems, setAgentProblems] = useState<AgentProblem[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('ossia:management:last-page', page);
+  }, [page]);
 
   async function loadAgents() {
     if (!native) return;
@@ -154,21 +162,30 @@ function AdminContent({
     };
   }, [native]);
 
-  async function action(command: 'management_start' | 'management_stop' | 'management_doctor') {
+  async function action(command: 'management_start' | 'management_stop') {
     if (!native) return;
     setWorking(true);
     setError('');
     try {
-      if (command === 'management_doctor') {
-        setDoctor(await invoke<DoctorReport>(command));
-      } else {
-        await invoke(command);
-      }
+      await invoke(command);
       await refreshStatus();
     } catch (caught) {
       setError(describe(caught));
     } finally {
       setWorking(false);
+    }
+  }
+
+  async function openDirectory() {
+    if (!native || openingDirectory) return;
+    setOpeningDirectory(true);
+    setError('');
+    try {
+      await invoke('management_open_data_directory');
+    } catch (caught) {
+      setError(describe(caught));
+    } finally {
+      setOpeningDirectory(false);
     }
   }
 
@@ -235,6 +252,7 @@ function AdminContent({
     setWorking(true);
     setError('');
     setAgentProblems([]);
+    setPendingAgents(agentIds);
     try {
       const result = await invoke<AgentsMutation>('management_agents_change', {
         change: { agentIds, enabled },
@@ -248,6 +266,7 @@ function AdminContent({
       setError(describe(caught));
     } finally {
       setWorking(false);
+      setPendingAgents([]);
     }
   }
 
@@ -266,7 +285,6 @@ function AdminContent({
   const list = agents?.agents ?? [];
   const busy = working || !!agents?.syncing;
   const pages: Record<Page, { group: string; title: string }> = {
-    service: { group: t('integrationGroup'), title: t('service') },
     agents: { group: t('integrationGroup'), title: t('agents') },
     general: { group: t('settings'), title: t('general') },
     about: { group: t('settings'), title: t('about') },
@@ -284,12 +302,6 @@ function AdminContent({
         <nav className="navigation" aria-label={t('settings')}>
           <div className="nav-group">
             <p className="nav-heading">{t('integrationGroup')}</p>
-            <NavItem
-              active={page === 'service'}
-              icon={<ServerCog />}
-              label={t('service')}
-              onClick={() => setPage('service')}
-            />
             <NavItem
               active={page === 'agents'}
               icon={<Bot />}
@@ -322,10 +334,19 @@ function AdminContent({
             <strong>{current.title}</strong>
           </div>
           <div className="header-actions">
-            <span className={`service-badge${state?.runtime ? ' is-on' : ''}`} role="status">
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onClick={() => {
+                setConfirmStop(false);
+                serviceDialog.current?.showModal();
+                void refreshStatus();
+              }}
+              className={`service-badge${state?.runtime ? ' is-on' : ''}`}
+            >
               <span />
               {state?.runtime ? t('serviceRunning') : t('serviceStopped')}
-            </span>
+            </button>
             <div className="window-controls" hidden={!native || platform === 'macos'}>
               <button
                 type="button"
@@ -353,27 +374,13 @@ function AdminContent({
             </div>
           )}
 
-          {page === 'service' && (
-            <ServicePage
-              native={native}
-              state={state}
-              doctor={doctor}
-              working={working}
-              confirmStop={confirmStop}
-              onAction={(command) => {
-                if (command === 'management_stop') setConfirmStop(false);
-                void action(command);
-              }}
-              onRefresh={() => void refreshStatus()}
-              onToggleConfirm={() => setConfirmStop(!confirmStop)}
-            />
-          )}
           {page === 'agents' && (
             <AgentsPage
               native={native}
               agents={agents}
               list={list}
               busy={busy}
+              pendingAgents={pendingAgents}
               selected={selected}
               problems={agentProblems}
               onToggle={toggleAgent}
@@ -391,9 +398,32 @@ function AdminContent({
               onAutostart={(enabled) => void setAutostart(enabled)}
             />
           )}
-          {page === 'about' && <AboutPage preferences={preferences} state={state} />}
+          {page === 'about' && (
+            <AboutPage
+              preferences={preferences}
+              state={state}
+              native={native}
+              openingDirectory={openingDirectory}
+              onOpenDirectory={() => void openDirectory()}
+            />
+          )}
         </div>
       </main>
+      <ServiceDialog
+        dialogRef={serviceDialog}
+        native={native}
+        state={state}
+        working={working}
+        confirmStop={confirmStop}
+        openingDirectory={openingDirectory}
+        error={error || state?.error?.message || ''}
+        onOpenDirectory={() => void openDirectory()}
+        onAction={(command) => {
+          setConfirmStop(false);
+          void action(command);
+        }}
+        onToggleConfirm={() => setConfirmStop(!confirmStop)}
+      />
     </div>
   );
 }

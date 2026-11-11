@@ -61,19 +61,24 @@ export function InfoRow({
   label,
   value,
   code = false,
+  action,
 }: {
   label: string;
   value: string;
   code?: boolean;
+  action?: ReactNode;
 }) {
   return (
     <div className="settings-row info-row">
       <span className="setting-label">{label}</span>
-      {code ? (
-        <code className="setting-value">{value}</code>
-      ) : (
-        <span className="setting-value">{value}</span>
-      )}
+      <div className="setting-value-actions">
+        {code ? (
+          <code className="setting-value">{value}</code>
+        ) : (
+          <span className="setting-value">{value}</span>
+        )}
+        {action}
+      </div>
     </div>
   );
 }

@@ -58,6 +58,10 @@ pub fn router(
     };
     let mut app = Router::new()
         .route(
+            "/",
+            get(|| async { axum::response::Html(include_str!("landing.html")) }),
+        )
+        .route(
             "/health",
             get(|| async { axum::Json(json!({"alive":true,"protocolVersion":PROTOCOL_VERSION})) }),
         )

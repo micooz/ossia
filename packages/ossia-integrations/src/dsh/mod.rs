@@ -38,8 +38,14 @@ impl AgentAdapter for Dsh {
         "desktop"
     }
 
-    fn reload_hint(&self) -> &'static str {
-        "DSH 的 bundle 文件会立即更新；已运行的模块可能缓存，新建会话或重启 DSH 后加载。"
+    fn visible_profile(&self) -> Option<&'static str> {
+        Some(self.profile())
+    }
+
+    fn reload_hint(&self) -> AgentNotice {
+        AgentNotice::RestartSession {
+            agent: "DSH".into(),
+        }
     }
 
     fn detect(&self, paths: &HostPaths) -> Option<DetectedAgent> {

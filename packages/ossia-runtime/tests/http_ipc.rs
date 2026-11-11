@@ -19,6 +19,16 @@ async fn http_auth_upload_routes_events_and_cross_view_rejection() {
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let client = reqwest::Client::new();
     let api = format!("{base}/api/v1");
+    let landing = client.get(&base).send().await.unwrap();
+    assert_eq!(landing.status(), 200);
+    assert!(landing.headers()["content-type"]
+        .to_str()
+        .unwrap()
+        .starts_with("text/html"));
+    let landing = landing.text().await.unwrap();
+    assert!(landing.contains("ossia_open"));
+    assert!(landing.contains("ossia open"));
+    assert!(landing.contains("<svg"));
     let health: Value = client
         .get(format!("{base}/health"))
         .send()

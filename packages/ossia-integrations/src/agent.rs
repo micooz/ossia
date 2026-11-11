@@ -1,6 +1,6 @@
 use crate::record::LegacyRecord;
 use crate::*;
-use ossia_types::{AgentConflict, AgentState, InstallMethod};
+use ossia_types::{AgentConflict, AgentNotice, AgentState, InstallMethod};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -53,7 +53,7 @@ pub(crate) struct AgentInspection {
     pub(crate) enabled: bool,
     pub(crate) managed: bool,
     pub(crate) path: Option<String>,
-    pub(crate) message: Option<String>,
+    pub(crate) message: Option<AgentNotice>,
     pub(crate) conflicts: Vec<AgentConflict>,
 }
 
@@ -63,7 +63,10 @@ pub(crate) trait AgentAdapter: Sync {
     fn icon(&self) -> &'static str;
     fn method(&self) -> InstallMethod;
     fn profile(&self) -> &'static str;
-    fn reload_hint(&self) -> &'static str;
+    fn visible_profile(&self) -> Option<&'static str> {
+        None
+    }
+    fn reload_hint(&self) -> AgentNotice;
     fn detect(&self, paths: &HostPaths) -> Option<DetectedAgent>;
     fn config_path(&self, ctx: &AgentContext) -> PathBuf;
     fn status(

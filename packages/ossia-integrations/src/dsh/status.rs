@@ -55,12 +55,8 @@ pub(super) fn status(
         AgentState::Available
     };
     let message = match state {
-        AgentState::Broken => {
-            Some("DSH desktop profile 中缺少 Ossia bundle；点击可重新安装。".into())
-        }
-        AgentState::Conflict => {
-            Some("检测到不受 Ossia 管理的同名 bundle 或文件，需手动处理。".into())
-        }
+        AgentState::Broken => Some(AgentNotice::DshBundleMissing),
+        AgentState::Conflict => Some(AgentNotice::DshUnmanagedBundle),
         _ => None,
     };
     Ok(AgentInspection {
