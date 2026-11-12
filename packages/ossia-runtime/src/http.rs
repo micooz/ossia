@@ -200,6 +200,10 @@ fn job_args(query: &str, job_id: JobId, action: JobAction) -> Result<JobArgs> {
         section: None,
         offset: 0,
         limit: None,
+        measure_range: None,
+        voice: None,
+        track: None,
+        channel: None,
     };
     for pair in query.split('&').filter(|pair| !pair.is_empty()) {
         let (key, value) = pair.split_once('=').unwrap_or((pair, ""));

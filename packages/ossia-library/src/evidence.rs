@@ -90,10 +90,17 @@ impl Library {
                         ));
                     }
                     let cacheable = render.midi.is_some();
+                    let mut performance = self.performance_from_render(&render)?;
+                    if ossia_score::source_has_partial_measure(snapshot.source()) {
+                        ossia_score::invalidate_performance_measures(
+                            &mut performance,
+                            "pickup/partial measure requires source-aware timing",
+                        );
+                    }
                     (
                         MusicReport {
                             source,
-                            performance: self.performance_from_render(&render)?,
+                            performance,
                         },
                         cacheable,
                     )

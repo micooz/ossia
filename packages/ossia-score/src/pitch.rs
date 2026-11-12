@@ -31,14 +31,26 @@ pub struct PitchEvent {
     pub members: Vec<PitchMember>,
     pub ref_di: i32,
     pub out_of_range: bool,
+    #[serde(default)]
+    pub voice: Option<usize>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PitchResult {
     pub events: Vec<PitchEvent>,
     pub end_ref_di: Option<i32>,
-    /// When present, events are empty: a partial prediction must not appear authoritative.
+    /// When present, the prediction is incomplete; events may cover only supported branches.
     pub unsupported: Option<String>,
+}
+
+/// Canonical scientific spelling for a MIDI pitch. MIDI has no enharmonic intent,
+/// so this intentionally uses sharps; source tokens remain authoritative.
+pub fn midi_pitch_name(pitch: u8) -> String {
+    const NAMES: [&str; 12] = [
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+    ];
+    let octave = i16::from(pitch) / 12 - 1;
+    format!("{}{}", NAMES[usize::from(pitch % 12)], octave)
 }
 #[derive(Clone, Copy)]
 struct Pitch {
@@ -114,6 +126,8 @@ pub(crate) fn known_command(cmd: &str) -> bool {
         cmd,
         "relative"
             | "absolute"
+            | "transpose"
+            | "set"
             | "key"
             | "major"
             | "minor"
@@ -175,8 +189,9 @@ pub(crate) fn known_command(cmd: &str) -> bool {
     )
 }
 
-/// Resolve written pitches in one complete music expression. Opaque music returns no prediction.
-/// Note-on timing, ties, articulations and duration are outside this interface.
+/// Resolve sounding pitches in one complete music expression while retaining
+/// literal source tokens. Opaque music returns no prediction. Note-on timing,
+/// ties, articulations and duration are outside this interface.
 pub fn resolve_pitches(source: &str, span: SourceSpan) -> Result<PitchResult, AppError> {
     let map = SourceMap::new(source);
     let text = map.slice(span)?;
@@ -216,12 +231,17 @@ pub fn resolve_pitches(source: &str, span: SourceSpan) -> Result<PitchResult, Ap
             )));
         }
     }
+    if let Some(result) = resolve_simultaneous(source, span, &syntax)? {
+        return Ok(result);
+    }
     let mut events = Vec::new();
     let mut ref_di = 0i32;
     let mut relative = false;
+    let mut transpose = 0i32;
     let mut depth = 0usize;
-    let mut states: Vec<(usize, bool, i32)> = Vec::new();
+    let mut states: Vec<(usize, bool, i32, i32)> = Vec::new();
     let mut pending: Option<(bool, i32)> = None;
+    let mut pending_transpose = None;
     let mut chord: Option<(usize, Vec<PitchMember>)> = None;
     let mut i = 0;
     while i < tokens.len() {
@@ -272,6 +292,29 @@ pub fn resolve_pitches(source: &str, span: SourceSpan) -> Result<PitchResult, Ap
                 i = j + 1;
                 continue;
             }
+            if cmd == "transpose" {
+                let mut pitches = (i + 1..tokens.len()).filter(|&j| !tokens[j].trivia());
+                let Some(from_index) = pitches.next() else {
+                    return Ok(unsupported("transpose has no source pitch"));
+                };
+                let Some(to_index) = pitches.next() else {
+                    return Ok(unsupported("transpose has no target pitch"));
+                };
+                let Some(from) = parse_pitch(&tokens[from_index].raw) else {
+                    return Ok(unsupported(
+                        "transpose source is outside the verified pitch subset",
+                    ));
+                };
+                let Some(to) = parse_pitch(&tokens[to_index].raw) else {
+                    return Ok(unsupported(
+                        "transpose target is outside the verified pitch subset",
+                    ));
+                };
+                pending_transpose =
+                    Some(midi(di(to), to.alter).saturating_sub(midi(di(from), from.alter)));
+                i = to_index + 1;
+                continue;
+            }
             if cmd == "absolute" {
                 pending = Some((false, ref_di));
                 i += 1;
@@ -291,17 +334,21 @@ pub fn resolve_pitches(source: &str, span: SourceSpan) -> Result<PitchResult, Ap
         if t.kind == TokenKind::Brace {
             if t.raw == "{" {
                 depth += 1;
+                states.push((depth, relative, ref_di, transpose));
                 if let Some((rel, new_ref)) = pending.take() {
-                    states.push((depth, relative, ref_di));
                     relative = rel;
                     ref_di = new_ref;
                 }
+                if let Some(offset) = pending_transpose.take() {
+                    transpose = transpose.saturating_add(offset);
+                }
             } else {
-                if let Some((_, rel, old_ref)) = states.pop_if(|s| s.0 == depth) {
+                if let Some((_, rel, old_ref, old_transpose)) = states.pop_if(|s| s.0 == depth) {
                     // The outer expression exposes its final reference; nested wrappers restore the parent.
                     if depth > 1 {
                         relative = rel;
                         ref_di = old_ref;
+                        transpose = old_transpose;
                     }
                 }
                 depth = depth.saturating_sub(1);
@@ -318,13 +365,16 @@ pub fn resolve_pitches(source: &str, span: SourceSpan) -> Result<PitchResult, Ap
             continue;
         }
         if t.kind == TokenKind::ChordC {
-            let Some((start, members)) = chord.take() else {
+            let Some((start, mut members)) = chord.take() else {
                 return Err(AppError::invalid("unmatched chord close"));
             };
             if members.is_empty() {
                 return Ok(unsupported("empty chord"));
             }
             ref_di = members[0].di;
+            for member in &mut members {
+                member.midi = member.midi.saturating_add(transpose);
+            }
             let mut pitches: Vec<_> = members.iter().map(|p| p.midi).collect();
             pitches.sort_unstable();
             pitches.dedup();
@@ -337,6 +387,7 @@ pub fn resolve_pitches(source: &str, span: SourceSpan) -> Result<PitchResult, Ap
                 pitches,
                 members,
                 ref_di,
+                voice: None,
             });
             i += 1;
             continue;
@@ -359,6 +410,7 @@ pub fn resolve_pitches(source: &str, span: SourceSpan) -> Result<PitchResult, Ap
                     members: Vec::new(),
                     ref_di,
                     out_of_range: false,
+                    voice: None,
                 });
             } else {
                 let Some(p) = parse_pitch(&t.raw) else {
@@ -375,7 +427,7 @@ pub fn resolve_pitches(source: &str, span: SourceSpan) -> Result<PitchResult, Ap
                 } else {
                     di(p)
                 };
-                let n = midi(d, p.alter);
+                let n = midi(d, p.alter).saturating_add(transpose);
                 ref_di = d;
                 let member = PitchMember {
                     raw: t.raw.clone(),
@@ -394,6 +446,7 @@ pub fn resolve_pitches(source: &str, span: SourceSpan) -> Result<PitchResult, Ap
                         members: vec![member],
                         ref_di,
                         out_of_range: !(0..=127).contains(&n),
+                        voice: None,
                     });
                 }
             }
@@ -411,4 +464,93 @@ pub fn resolve_pitches(source: &str, span: SourceSpan) -> Result<PitchResult, Ap
         end_ref_di: Some(ref_di),
         unsupported: None,
     })
+}
+
+fn resolve_simultaneous(
+    source: &str,
+    span: SourceSpan,
+    syntax: &Syntax,
+) -> Result<Option<PitchResult>, AppError> {
+    let tokens = &syntax.tokens;
+    let Some(first) = (0..tokens.len()).find(|&i| tokens[i].raw == "<<") else {
+        return Ok(None);
+    };
+    let Some(last) = syntax.close[first] else {
+        return Ok(None);
+    };
+    if tokens[..first]
+        .iter()
+        .chain(tokens[last + 1..].iter())
+        .any(music_token)
+        || tokens[..first]
+            .iter()
+            .any(|token| matches!(token.command(), Some("relative" | "transpose")))
+    {
+        return Ok(None);
+    }
+    let base = syntax.depth[first].saturating_add(1);
+    let mut starts = vec![first + 1];
+    starts.extend(
+        (first + 1..last)
+            .filter(|&i| syntax.depth[i] == base && tokens[i].command() == Some("\\"))
+            .map(|i| i + 1),
+    );
+    let mut ends = starts[1..]
+        .iter()
+        .map(|start| start.saturating_sub(1))
+        .collect::<Vec<_>>();
+    ends.push(last);
+    let map = SourceMap::new(source);
+    let mut events = Vec::new();
+    let mut unsupported = None;
+    for (branch, (start, end)) in starts.into_iter().zip(ends).enumerate() {
+        let Some((body_start, body_end)) = branch_body(tokens, syntax, start, end) else {
+            unsupported.get_or_insert("simultaneous music branch is not a music expression".into());
+            continue;
+        };
+        let branch_span = map.span(
+            span.byte_start.saturating_add(body_start),
+            span.byte_start.saturating_add(body_end),
+        )?;
+        let result = resolve_pitches(source, branch_span)?;
+        if let Some(reason) = result.unsupported {
+            unsupported.get_or_insert(reason);
+        }
+        for mut event in result.events {
+            event.voice = Some(branch + 1);
+            events.push(event);
+        }
+    }
+    if events.is_empty() && unsupported.is_none() {
+        unsupported = Some("simultaneous music has no verifiable notes".into());
+    }
+    Ok(Some(PitchResult {
+        events,
+        end_ref_di: None,
+        unsupported,
+    }))
+}
+
+fn music_token(token: &crate::Token) -> bool {
+    matches!(
+        token.kind,
+        crate::TokenKind::Note
+            | crate::TokenKind::Rest
+            | crate::TokenKind::Skip
+            | crate::TokenKind::ChordO
+    )
+}
+
+fn branch_body(
+    tokens: &[crate::Token],
+    syntax: &Syntax,
+    start: usize,
+    end: usize,
+) -> Option<(usize, usize)> {
+    let first = (start..end).find(|&i| !tokens[i].trivia())?;
+    let last = (start..end).rev().find(|&i| !tokens[i].trivia())?;
+    if tokens[first].raw == "{" && tokens[last].raw == "}" && syntax.close[first] != Some(last) {
+        return None;
+    }
+    Some((tokens[first].byte_start, tokens[last].byte_end))
 }

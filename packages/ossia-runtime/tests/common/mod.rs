@@ -15,6 +15,17 @@ use std::{
 pub const SOURCE: &[u8] =
     b"\\version \"2.26.0\"\n\\score { \\new Staff { c'1 | d'1 | } \\layout {} }\n";
 
+pub fn measured_midi() -> Vec<u8> {
+    let track = [
+        0, 0xff, 0x58, 0x04, 0x04, 0x02, 0x18, 0x08, 0, 0x90, 60, 80, 96, 0x80, 60, 0, 0x82, 0x20,
+        0x90, 62, 80, 96, 0x80, 62, 0, 0, 0xff, 0x2f, 0,
+    ];
+    let mut midi = b"MThd\0\0\0\x06\0\0\0\x01\0\x60MTrk".to_vec();
+    midi.extend((track.len() as u32).to_be_bytes());
+    midi.extend(track);
+    midi
+}
+
 #[derive(Default)]
 pub struct Engine {
     pub hold: AtomicBool,
@@ -105,10 +116,14 @@ impl EngineBackend for Engine {
         std::fs::write(root.join(&path), &bytes).unwrap();
         let midi =
             if self.midi.load(Ordering::Acquire) && options.formats.contains(&RenderFormat::Midi) {
-                let bytes = include_bytes!("../../../../tests/fixtures/inputs/midi-valid.mid");
-                let hash = ContentHash::of(bytes);
+                let bytes = if snapshot.source().contains("MEASURED") {
+                    measured_midi()
+                } else {
+                    include_bytes!("../../../../tests/fixtures/inputs/midi-valid.mid").to_vec()
+                };
+                let hash = ContentHash::of(&bytes);
                 let path = format!("assets/{hash}.mid");
-                std::fs::write(root.join(&path), bytes).unwrap();
+                std::fs::write(root.join(&path), &bytes).unwrap();
                 Some(ArtifactRef {
                     path,
                     sha256: hash,

@@ -17,6 +17,16 @@ pub enum MidiDivision {
         ticks_per_frame: u8,
     },
 }
+
+/// One Standard MIDI File time-signature meta event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MidiTimeSignature {
+    pub tick: u64,
+    pub numerator: u8,
+    pub denominator: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MidiNote {
@@ -38,6 +48,7 @@ pub struct MidiFile {
     pub format: u16,
     pub division: MidiDivision,
     pub tracks: Vec<MidiTrack>,
+    pub time_signatures: Vec<MidiTimeSignature>,
 }
 struct Reader<'a> {
     bytes: &'a [u8],
@@ -129,6 +140,7 @@ pub fn parse_midi(bytes: &[u8]) -> Result<MidiFile, AppError> {
         }
     };
     let mut tracks = Vec::new();
+    let mut time_signatures = Vec::<(usize, MidiTimeSignature)>::new();
     for track in 0..usize::from(ntracks) {
         if r.take(4)? != b"MTrk" {
             return Err(AppError::invalid("bad MIDI track header"));
@@ -210,7 +222,23 @@ pub fn parse_midi(bytes: &[u8]) -> Result<MidiFile, AppError> {
                     running = None;
                     let kind = t.data()?;
                     let len = t.vlq()? as usize;
-                    t.take(len)?;
+                    let data = t.take(len)?;
+                    if kind == 0x58 && data.len() >= 2 {
+                        let numerator = data[0];
+                        let denominator = 1u32
+                            .checked_shl(u32::from(data[1]))
+                            .filter(|_| numerator > 0);
+                        if let Some(denominator) = denominator {
+                            time_signatures.push((
+                                track,
+                                MidiTimeSignature {
+                                    tick: time,
+                                    numerator,
+                                    denominator,
+                                },
+                            ));
+                        }
+                    }
                     if kind == 0x2f {
                         if len != 0 || t.pos != t.bytes.len() {
                             return Err(AppError::invalid("invalid end-of-track event"));
@@ -234,10 +262,16 @@ pub fn parse_midi(bytes: &[u8]) -> Result<MidiFile, AppError> {
     if r.pos != bytes.len() {
         return Err(AppError::invalid("unexpected bytes after MIDI tracks"));
     }
+    time_signatures.sort_by_key(|(track, signature)| (signature.tick, *track));
+    time_signatures.dedup_by_key(|(_, signature)| signature.tick);
     Ok(MidiFile {
         format,
         division,
         tracks,
+        time_signatures: time_signatures
+            .into_iter()
+            .map(|(_, signature)| signature)
+            .collect(),
     })
 }
 

@@ -143,7 +143,7 @@ fn compressed_rest_score_tail_context_ids_and_staff_reuse_are_fixed() {
 
 #[test]
 fn unsupported_music_never_claims_precise_ranges_or_partial_pitches() {
-    for id in ["chordmode", "repeat", "transpose"] {
+    for id in ["chordmode", "repeat"] {
         let source = input(id);
         let index = build_index(&source);
         assert_eq!(
@@ -166,6 +166,69 @@ fn unsupported_music_never_claims_precise_ranges_or_partial_pitches() {
             LocationCapability::AnchorOnly
         );
     }
+}
+
+#[test]
+fn common_transpose_and_simultaneous_forms_keep_measure_and_pitch_evidence() {
+    let transposed = input("transpose");
+    let index = build_index(&transposed);
+    assert_eq!(index.capability, LocationCapability::Measure);
+    assert_eq!(index.max_measures, 1);
+    let report = analyze_source(&transposed);
+    assert_eq!(report.status, ossia_types::AnalysisStatus::Complete);
+    assert_eq!(report.measures, Some(1));
+    assert_eq!(report.events.len(), 1);
+    assert_eq!(report.events[0].pitch_tokens, vec!["c1"]);
+    assert_eq!(report.events[0].pitches, vec![62]);
+    assert_eq!(report.events[0].measure, Some(1));
+
+    let simultaneous = "\\version \"2.26.0\"\nMusic = { \\time 4/4 << { c'1 | } \\\\ { g,1 | } >> }\n\\score { \\new Staff \\Music \\layout {} \\midi {} }";
+    let index = build_index(simultaneous);
+    assert_eq!(index.capability, LocationCapability::Measure);
+    assert_eq!(index.max_measures, 1);
+    assert_eq!(index.voices[0].measure_groups.len(), 2);
+    let report = analyze_source(simultaneous);
+    assert_eq!(report.status, ossia_types::AnalysisStatus::Complete);
+    assert_eq!(report.measures, Some(1));
+    assert_eq!(
+        report
+            .events
+            .iter()
+            .map(|event| event.voice.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Music[1]", "Music[2]"]
+    );
+    assert_eq!(
+        report
+            .events
+            .iter()
+            .flat_map(|event| event.pitches.clone())
+            .collect::<Vec<_>>(),
+        vec![60, 43]
+    );
+
+    let set_source = "\\version \"2.26.0\"\nMusic = { \\time 4/4 \\set Score.tempoHideNote = ##t c'1 | }\n\\score { \\new Staff \\Music \\layout {} \\midi {} }";
+    let report = analyze_source(set_source);
+    assert_eq!(report.status, ossia_types::AnalysisStatus::Complete);
+    assert_eq!(report.events.len(), 1);
+    assert_eq!(report.events[0].pitches, vec![60]);
+
+    let final_bar = "\\version \"2.26.0\"\nMusic = { \\time 4/4 c'1 | d'1 \\bar \"|.\" }\n\\score { \\new Staff \\Music \\layout {} \\midi {} }";
+    let index = build_index(final_bar);
+    assert_eq!(index.max_measures, 2);
+    assert_eq!(index.capability, LocationCapability::Measure);
+    assert_eq!(
+        resolve_locator(&index, &locator(0, 2, 2))
+            .unwrap()
+            .capability,
+        LocationCapability::Measure
+    );
+
+    let implicit_voice_end = "\\version \"2.26.0\"\nMusic = { \\time 4/4 << { c'1 \\bar \"|.\" } \\\\ { g,1 } >> }\n\\score { \\new Staff \\Music \\layout {} \\midi {} }";
+    let index = build_index(implicit_voice_end);
+    assert_eq!(index.max_measures, 1);
+    assert_eq!(index.voices[0].measure_groups.len(), 2);
+    assert_eq!(index.voices[0].measure_groups[1].len(), 1);
 }
 
 #[test]

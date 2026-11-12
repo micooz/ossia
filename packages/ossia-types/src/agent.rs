@@ -180,6 +180,8 @@ pub struct AgentMusicSummary {
     pub performance_status: AnalysisStatus,
     pub performance_reasons: Vec<String>,
     pub performed_notes: usize,
+    pub performance_measures: Option<u32>,
+    pub measure_reason: Option<String>,
 }
 
 /// One completed or failed check without duplicated evidence arrays.

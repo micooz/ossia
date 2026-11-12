@@ -51,14 +51,51 @@ async fn compact_status_and_context_exclude_history_and_render_duplication() {
 async fn analysis_pages_are_bounded_and_legacy_evidence_is_explicit() {
     let f = Fixture::new(false).await;
     let source = f.doc.last_check.as_ref().unwrap().job_id;
+    let args = |job_id, section, offset, limit, measure_range| JobArgs {
+        detail: DetailLevel::Summary,
+        job_id,
+        action: JobAction::Get,
+        wait_ms: None,
+        section: Some(section),
+        offset,
+        limit,
+        measure_range,
+        voice: None,
+        track: None,
+        channel: None,
+    };
     let page = f
         .runtime
-        .analysis(source, AnalysisSection::Performance, 0, Some(1))
+        .analysis(&args(
+            source,
+            AnalysisSection::Performance,
+            0,
+            Some(1),
+            None,
+        ))
         .unwrap();
     assert!(page.items.is_empty());
+    let filtered = f
+        .runtime
+        .analysis(&args(
+            source,
+            AnalysisSection::Source,
+            0,
+            Some(10),
+            Some(MeasureRange { start: 2, end: 2 }),
+        ))
+        .unwrap();
+    assert_eq!(filtered.total, 1);
+    assert_eq!(filtered.items[0]["measure"], json!(2));
     assert!(f
         .runtime
-        .analysis(source, AnalysisSection::Performance, 0, Some(513))
+        .analysis(&args(
+            source,
+            AnalysisSection::Performance,
+            0,
+            Some(513),
+            None
+        ))
         .is_err());
     let legacy = f
         .runtime
@@ -98,7 +135,7 @@ async fn analysis_pages_are_bounded_and_legacy_evidence_is_explicit() {
         .unwrap();
     assert_eq!(
         f.runtime
-            .analysis(legacy.job_id, AnalysisSection::Source, 0, None)
+            .analysis(&args(legacy.job_id, AnalysisSection::Source, 0, None, None))
             .unwrap_err()
             .code,
         ErrorCode::UnsupportedSource
@@ -155,6 +192,10 @@ async fn list_history_and_job_sections_are_compact_and_paged() {
             section: Some(AnalysisSection::Performance),
             offset: 0,
             limit: Some(1),
+            measure_range: None,
+            voice: None,
+            track: None,
+            channel: None,
         })
         .unwrap();
     assert!(outcome.job.result.is_none());
@@ -169,6 +210,10 @@ async fn list_history_and_job_sections_are_compact_and_paged() {
                 section: Some(AnalysisSection::Performance),
                 offset: 0,
                 limit: None,
+                measure_range: None,
+                voice: None,
+                track: None,
+                channel: None,
             })
             .unwrap_err()
             .code,

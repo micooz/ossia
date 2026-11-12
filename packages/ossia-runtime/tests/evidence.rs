@@ -21,6 +21,10 @@ async fn version_evidence_is_immutable_cached_and_does_not_create_versions() {
             offset: 0,
             limit: Some(1),
             wait_ms: Some(5_000),
+            measure_range: None,
+            voice: None,
+            track: None,
+            channel: None,
         })
         .unwrap();
     let page = outcome.page.unwrap();
@@ -41,6 +45,10 @@ async fn version_evidence_is_immutable_cached_and_does_not_create_versions() {
             offset: 0,
             limit: None,
             wait_ms: Some(5_000),
+            measure_range: None,
+            voice: None,
+            track: None,
+            channel: None,
         })
         .unwrap();
     assert!(cached.job.is_none());
@@ -49,6 +57,137 @@ async fn version_evidence_is_immutable_cached_and_does_not_create_versions() {
         f.runtime.library.history(f.doc.document_id).unwrap(),
         history
     );
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn evidence_filters_source_events_by_measure_and_rejects_bad_ranges() {
+    let f = Fixture::new(true).await;
+    let version = f.doc.head_version_id.unwrap();
+    let base = EvidenceArgs {
+        source: EvidenceSource::Version {
+            version_id: version,
+        },
+        section: EvidenceSection::Source,
+        offset: 0,
+        limit: Some(10),
+        wait_ms: Some(5_000),
+        measure_range: Some(MeasureRange { start: 2, end: 2 }),
+        voice: None,
+        track: None,
+        channel: None,
+    };
+    let page = f.runtime.evidence(base.clone()).unwrap().page.unwrap();
+    assert_eq!(page.total, 1);
+    assert_eq!(page.items[0]["measure"], json!(2));
+
+    let mut invalid = base.clone();
+    invalid.measure_range = Some(MeasureRange { start: 0, end: 1 });
+    assert_eq!(
+        f.runtime.evidence(invalid).unwrap_err().code,
+        ErrorCode::InvalidInput
+    );
+
+    let mut summary = base;
+    summary.section = EvidenceSection::Summary;
+    assert_eq!(
+        f.runtime.evidence(summary).unwrap_err().code,
+        ErrorCode::InvalidRequest
+    );
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn performance_evidence_filters_by_measure_and_exposes_pitch_names() {
+    let f = Fixture::new(true).await;
+    f.engine.midi.store(true, Ordering::Release);
+    let source = b"\\version \"2.26.0\"\n% MEASURED\n\\score { \\new Staff { c'1 | d'1 | } \\layout {} \\midi {} }\n";
+    let job = f
+        .runtime
+        .import(
+            ImportArgs {
+                title: Some("measured".into()),
+                format: Some(InputFormat::Ly),
+                path: "/tmp/measured.ly".into(),
+                confirmation: None,
+                author: Some("test".into()),
+                expect: None,
+                reference: None,
+                wait_ms: Some(5_000),
+            },
+            source.to_vec(),
+        )
+        .unwrap();
+    let outcome: ImportOutcome = serde_json::from_value(job.result.unwrap()).unwrap();
+    let version_id = outcome.document.unwrap().head_version_id.unwrap();
+    let page = f
+        .runtime
+        .evidence(EvidenceArgs {
+            source: EvidenceSource::Version { version_id },
+            section: EvidenceSection::Performance,
+            offset: 0,
+            limit: Some(10),
+            wait_ms: Some(5_000),
+            measure_range: Some(MeasureRange { start: 2, end: 2 }),
+            voice: None,
+            track: None,
+            channel: None,
+        })
+        .unwrap()
+        .page
+        .unwrap();
+    assert_eq!(page.total, 1);
+    assert_eq!(page.items[0]["measure"], json!(2));
+    assert_eq!(page.items[0]["pitchName"], json!("D4"));
+    assert_eq!(page.summary.performance_measures, Some(2));
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn partial_measures_are_not_given_guessed_performance_numbers() {
+    let f = Fixture::new(true).await;
+    f.engine.midi.store(true, Ordering::Release);
+    let source = b"\\version \"2.26.0\"\n% MEASURED\n\\score { \\new Staff { \\partial 4 c'4 | d'1 | } \\layout {} \\midi {} }\n";
+    let job = f
+        .runtime
+        .import(
+            ImportArgs {
+                title: Some("pickup".into()),
+                format: Some(InputFormat::Ly),
+                path: "/tmp/pickup.ly".into(),
+                confirmation: None,
+                author: Some("test".into()),
+                expect: None,
+                reference: None,
+                wait_ms: Some(5_000),
+            },
+            source.to_vec(),
+        )
+        .unwrap();
+    let outcome: ImportOutcome = serde_json::from_value(job.result.unwrap()).unwrap();
+    let version_id = outcome.document.unwrap().head_version_id.unwrap();
+    let page = f
+        .runtime
+        .evidence(EvidenceArgs {
+            source: EvidenceSource::Version { version_id },
+            section: EvidenceSection::Summary,
+            offset: 0,
+            limit: None,
+            wait_ms: Some(5_000),
+            measure_range: None,
+            voice: None,
+            track: None,
+            channel: None,
+        })
+        .unwrap()
+        .page
+        .unwrap();
+    assert_eq!(page.summary.performance_measures, None);
+    assert!(page
+        .summary
+        .measure_reason
+        .as_deref()
+        .is_some_and(|reason| reason.contains("pickup")));
     f.finish().await;
 }
 
@@ -99,6 +238,10 @@ async fn legacy_jobs_can_derive_evidence_without_editing_the_document() {
             offset: 0,
             limit: Some(2),
             wait_ms: Some(5_000),
+            measure_range: None,
+            voice: None,
+            track: None,
+            channel: None,
         })
         .unwrap();
     let page = outcome.page.unwrap();
@@ -130,6 +273,10 @@ async fn check_can_use_version_evidence_as_its_reference() {
             offset: 0,
             limit: None,
             wait_ms: Some(5_000),
+            measure_range: None,
+            voice: None,
+            track: None,
+            channel: None,
         })
         .unwrap();
 
@@ -174,6 +321,10 @@ async fn import_returns_reference_verification_at_the_top_level() {
             offset: 0,
             limit: None,
             wait_ms: Some(5_000),
+            measure_range: None,
+            voice: None,
+            track: None,
+            channel: None,
         })
         .unwrap();
     let work = tempfile::tempdir().unwrap();
@@ -209,7 +360,7 @@ async fn import_returns_reference_verification_at_the_top_level() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn source_subset_limits_do_not_hide_complete_performance_evidence() {
+async fn source_pitch_evidence_covers_common_transpose_and_voice_forms() {
     let f = Fixture::new(true).await;
     f.engine.midi.store(true, Ordering::Release);
     let source = b"\\version \"2.26.0\"\n\\score { \\new PianoStaff << \\new Staff { \\transpose c c' { c'1 | } } \\new Staff { << { c1 | } \\\\ { g,1 | } >> } >> \\layout {} \\midi {} }\n";
@@ -242,11 +393,17 @@ async fn source_subset_limits_do_not_hide_complete_performance_evidence() {
             offset: 0,
             limit: None,
             wait_ms: Some(5_000),
+            measure_range: None,
+            voice: None,
+            track: None,
+            channel: None,
         })
         .unwrap()
         .page
         .unwrap();
-    assert_ne!(evidence.summary.source_status, AnalysisStatus::Complete);
+    assert_eq!(evidence.summary.source_status, AnalysisStatus::Complete);
+    assert_eq!(evidence.summary.measures, Some(1));
+    assert!(evidence.summary.source_events >= 3);
     assert_eq!(
         evidence.summary.performance_status,
         AnalysisStatus::Complete

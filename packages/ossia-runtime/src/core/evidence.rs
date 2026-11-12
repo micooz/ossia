@@ -15,7 +15,7 @@ impl Runtime {
         let (job, report) = self.ensure_evidence(args.source, wait_ms)?;
         let page = report
             .as_ref()
-            .map(|report| evidence_page(args.source, report, args.section, args.offset, args.limit))
+            .map(|report| evidence_page(args.source, report, &args))
             .transpose()?;
         Ok(EvidenceOutcome { job, page })
     }
@@ -211,34 +211,65 @@ fn evidence_summary(report: &EvidenceReport) -> EvidenceSummary {
         performance_status: performance.status,
         performance_reasons: performance.reasons.clone(),
         performed_notes: performance.notes.len(),
+        performance_measures: performance
+            .notes
+            .iter()
+            .filter_map(|note| note.measure)
+            .max(),
+        measure_reason: performance.measure_reason.clone(),
     }
 }
 
 fn evidence_page(
     source: EvidenceSource,
     report: &EvidenceReport,
-    section: EvidenceSection,
-    offset: usize,
-    limit: Option<usize>,
+    args: &EvidenceArgs,
 ) -> Result<EvidencePage> {
-    let limit = limit.unwrap_or(64);
+    let limit = args.limit.unwrap_or(64);
     if limit == 0 || limit > 512 {
         return Err(invalid("evidence limit must be 1..512"));
     }
-    let items = match section {
-        EvidenceSection::Summary => json!([]),
-        EvidenceSection::Performance => value(&report.music.performance.notes)?,
-        EvidenceSection::Source => value(&report.music.source.events)?,
+    if args.section == EvidenceSection::Summary
+        && has_music_filters(
+            args.measure_range,
+            args.voice.as_deref(),
+            args.track,
+            args.channel,
+        )
+    {
+        return Err(invalid("summary does not accept music filters"));
+    }
+    let all = match args.section {
+        EvidenceSection::Summary => Vec::new(),
+        EvidenceSection::Performance => filter_music_items(
+            value(&report.music.performance.notes)?
+                .as_array()
+                .expect("serialized notes"),
+            false,
+            args.measure_range,
+            args.voice.as_deref(),
+            args.track,
+            args.channel,
+        )?,
+        EvidenceSection::Source => filter_music_items(
+            value(&report.music.source.events)?
+                .as_array()
+                .expect("serialized events"),
+            true,
+            args.measure_range,
+            args.voice.as_deref(),
+            args.track,
+            args.channel,
+        )?,
     };
-    let all = items.as_array().expect("serialized evidence list");
     let total = all.len();
-    if offset > total {
+    if args.offset > total {
         return Err(invalid("evidence offset exceeds total"));
     }
-    let end = if section == EvidenceSection::Summary {
+    let end = if args.section == EvidenceSection::Summary {
         0
     } else {
-        offset.saturating_add(limit).min(total)
+        args.offset.saturating_add(limit).min(total)
     };
     Ok(EvidencePage {
         source,
@@ -246,11 +277,11 @@ fn evidence_page(
         source_hash: report.source_hash.clone(),
         engine_build_id: report.engine_build_id.clone(),
         analysis_version: report.analysis_version,
-        section,
+        section: args.section,
         summary: evidence_summary(report),
         total,
-        offset,
-        next_offset: (section != EvidenceSection::Summary && end < total).then_some(end),
-        items: all[offset.min(total)..end].to_vec(),
+        offset: args.offset,
+        next_offset: (args.section != EvidenceSection::Summary && end < total).then_some(end),
+        items: all[args.offset.min(total)..end].to_vec(),
     })
 }

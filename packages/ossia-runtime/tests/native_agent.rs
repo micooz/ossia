@@ -380,12 +380,11 @@ async fn offline_docs_cli_and_mcp_complete_the_agent_music_workflow() {
     )
     .unwrap();
     assert_eq!(transposed_layout.pages[0].systems[0].bars, 1);
-    match transposed_layout.pages[0].measure_mapping {
-        MeasurementCapability::Complete => {
-            assert_eq!(transposed_layout.pages[0].systems[0].measure_start, Some(1))
-        }
-        _ => assert_eq!(transposed_layout.pages[0].systems[0].measure_start, None),
-    }
+    assert_eq!(
+        transposed_layout.pages[0].measure_mapping,
+        MeasurementCapability::Complete
+    );
+    assert_eq!(transposed_layout.pages[0].systems[0].measure_start, Some(1));
     let outcome: ImportOutcome = serde_json::from_value(transposed.result.unwrap()).unwrap();
     let document = outcome.document.unwrap();
     let evidence: EvidenceOutcome = serde_json::from_value(
@@ -402,7 +401,7 @@ async fn offline_docs_cli_and_mcp_complete_the_agent_music_workflow() {
     )
     .unwrap();
     let evidence = evidence.page.unwrap();
-    assert_ne!(evidence.summary.source_status, AnalysisStatus::Complete);
+    assert_eq!(evidence.summary.source_status, AnalysisStatus::Complete);
     assert_eq!(
         evidence.summary.performance_status,
         AnalysisStatus::Complete

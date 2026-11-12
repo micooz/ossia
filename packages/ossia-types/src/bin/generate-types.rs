@@ -46,6 +46,7 @@ fn main() {
         EvidenceSource,
         EvidenceSection,
         EvidenceSummary,
+        MeasureRange,
         EvidenceReport,
         EvidenceArgs,
         EvidencePage,

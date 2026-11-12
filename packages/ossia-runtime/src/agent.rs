@@ -270,38 +270,65 @@ impl Runtime {
         })
     }
 
-    pub fn analysis(
-        &self,
-        job_id: JobId,
-        section: AnalysisSection,
-        offset: usize,
-        limit: Option<usize>,
-    ) -> Result<AnalysisPage> {
-        let limit = limit.unwrap_or(64);
+    pub fn analysis(&self, args: &JobArgs) -> Result<AnalysisPage> {
+        let section = args
+            .section
+            .ok_or_else(|| invalid("analysis requires a section"))?;
+        let limit = args.limit.unwrap_or(64);
         if limit == 0 || limit > 512 {
             return Err(invalid("analysis limit must be 1..512"));
         }
-        let (job, result) = self.library.checked_job(job_id)?;
-        let items = match section {
-            AnalysisSection::Performance => value(result.music.performance.notes)?,
-            AnalysisSection::Source => value(result.music.source.events)?,
-            AnalysisSection::Differences => value(result.verification.differences)?,
+        if section == AnalysisSection::Differences
+            && has_music_filters(
+                args.measure_range,
+                args.voice.as_deref(),
+                args.track,
+                args.channel,
+            )
+        {
+            return Err(invalid("differences do not accept music filters"));
+        }
+        let (job, result) = self.library.checked_job(args.job_id)?;
+        let all = match section {
+            AnalysisSection::Performance => filter_music_items(
+                value(result.music.performance.notes)?
+                    .as_array()
+                    .expect("serialized notes"),
+                false,
+                args.measure_range,
+                args.voice.as_deref(),
+                args.track,
+                args.channel,
+            )?,
+            AnalysisSection::Source => filter_music_items(
+                value(result.music.source.events)?
+                    .as_array()
+                    .expect("serialized events"),
+                true,
+                args.measure_range,
+                args.voice.as_deref(),
+                args.track,
+                args.channel,
+            )?,
+            AnalysisSection::Differences => value(result.verification.differences)?
+                .as_array()
+                .expect("serialized differences")
+                .clone(),
         };
-        let all = items.as_array().expect("serialized event list");
         let total = all.len();
-        if offset > total {
+        if args.offset > total {
             return Err(invalid("analysis offset exceeds total"));
         }
-        let end = offset.saturating_add(limit).min(total);
+        let end = args.offset.saturating_add(limit).min(total);
         Ok(AnalysisPage {
             source_job_id: job.job_id,
             source_hash: result.render.source_hash,
             engine_build_id: result.render.engine_build_id,
             section,
             total,
-            offset,
+            offset: args.offset,
             next_offset: (end < total).then_some(end),
-            items: all[offset..end].to_vec(),
+            items: all[args.offset..end].to_vec(),
         })
     }
 
@@ -320,8 +347,8 @@ impl Runtime {
                 self.wait_for_job(job.job_id, Some(wait_ms))?
             }
         };
-        if let Some(section) = args.section {
-            let analysis = self.analysis(args.job_id, section, args.offset, args.limit)?;
+        if args.section.is_some() {
+            let analysis = self.analysis(&args)?;
             let mut job = job;
             job.result = None;
             return Ok(JobOutcome {
@@ -354,6 +381,12 @@ fn agent_music_summary(music: &MusicReport) -> AgentMusicSummary {
         performance_status: performance.status,
         performance_reasons: performance.reasons.clone(),
         performed_notes: performance.notes.len(),
+        performance_measures: performance
+            .notes
+            .iter()
+            .filter_map(|note| note.measure)
+            .max(),
+        measure_reason: performance.measure_reason.clone(),
     }
 }
 

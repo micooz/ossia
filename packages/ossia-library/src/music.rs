@@ -7,7 +7,7 @@ impl Library {
         snapshot: &SourceSnapshot,
         render: &RenderManifest,
     ) -> Result<MusicReport> {
-        let performance = match &render.midi {
+        let mut performance = match &render.midi {
             Some(asset) => ossia_score::analyze_performance(&ossia_score::parse_midi(
                 &self.read_artifact(asset)?,
             )?),
@@ -20,8 +20,15 @@ impl Library {
                     .unwrap_or("MIDI was not requested or produced"),
             ),
         };
+        let source = snapshot.source();
+        if ossia_score::source_has_partial_measure(source) {
+            ossia_score::invalidate_performance_measures(
+                &mut performance,
+                "pickup/partial measure requires source-aware timing",
+            );
+        }
         Ok(MusicReport {
-            source: ossia_score::analyze_source(snapshot.source()),
+            source: ossia_score::analyze_source(source),
             performance,
         })
     }

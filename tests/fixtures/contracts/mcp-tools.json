@@ -814,7 +814,7 @@
   },
   {
     "name": "ossia_evidence",
-    "description": "Read bounded music evidence from an immutable version or completed job. Creates a durable evidence job only on a cache miss. Returns EvidenceOutcome.",
+    "description": "Read bounded source/performance music evidence from an immutable version or completed job. Optional measureRange, voice, track and channel filters. Creates a durable evidence job only on a cache miss. Returns EvidenceOutcome.",
     "inputSchema": {
       "$defs": {
         "EvidenceSection": {
@@ -864,18 +864,58 @@
               "type": "object"
             }
           ]
+        },
+        "MeasureRange": {
+          "additionalProperties": false,
+          "description": "Inclusive one-based source or performance measure range.",
+          "properties": {
+            "end": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "start",
+            "end"
+          ],
+          "type": "object"
         }
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
       "description": "Read bounded evidence from an immutable version or completed job snapshot.",
       "properties": {
+        "channel": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "limit": {
           "format": "uint",
           "minimum": 0,
           "type": [
             "integer",
             "null"
+          ]
+        },
+        "measureRange": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeasureRange"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "offset": {
@@ -890,6 +930,20 @@
         },
         "source": {
           "$ref": "#/$defs/EvidenceSource"
+        },
+        "track": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "voice": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "waitMs": {
           "format": "uint64",
@@ -987,7 +1041,7 @@
   },
   {
     "name": "ossia_job",
-    "description": "Get or cancel a durable job. Optionally wait with waitMs; section pages performance, source or differences evidence. Returns JobOutcome.",
+    "description": "Get or cancel a durable job. Optionally wait with waitMs; section pages performance, source or differences evidence with the same measure filters. Returns JobOutcome.",
     "inputSchema": {
       "$defs": {
         "AnalysisSection": {
@@ -1013,6 +1067,27 @@
             "cancel"
           ],
           "type": "string"
+        },
+        "MeasureRange": {
+          "additionalProperties": false,
+          "description": "Inclusive one-based source or performance measure range.",
+          "properties": {
+            "end": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "start",
+            "end"
+          ],
+          "type": "object"
         }
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1020,6 +1095,15 @@
       "properties": {
         "action": {
           "$ref": "#/$defs/JobAction"
+        },
+        "channel": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "detail": {
           "$ref": "#/$defs/DetailLevel",
@@ -1037,6 +1121,16 @@
             "null"
           ]
         },
+        "measureRange": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeasureRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "offset": {
           "default": 0,
           "format": "uint",
@@ -1051,6 +1145,20 @@
             {
               "type": "null"
             }
+          ]
+        },
+        "track": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "voice": {
+          "type": [
+            "string",
+            "null"
           ]
         },
         "waitMs": {

@@ -217,6 +217,10 @@ pub struct JobArgs {
     #[serde(default)]
     pub offset: usize,
     pub limit: Option<usize>,
+    pub measure_range: Option<MeasureRange>,
+    pub voice: Option<String>,
+    pub track: Option<usize>,
+    pub channel: Option<u8>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

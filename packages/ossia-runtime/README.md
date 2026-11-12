@@ -35,7 +35,7 @@ target/debug/ossia-desktop --home /absolute/test-library stop
 
 Home selection is `--home`, `OSSIA_HOME`, then the user's `.ossia`; explicit paths are absolute. Engine selection is `--engine-root`, `OSSIA_ENGINE_ROOT`, then the executable's resources/engine. The offline reference pack follows `--docs-root`, `OSSIA_DOCS_ROOT`, then resources/docs/lilypond/2.26.0. macOS bundles use `Contents/Resources`; other layouts use resources beside the executable. Static files default to resources/ui and can be supplied with `--static-dir`. Resources are never found through cwd or PATH.
 
-CLI commands accept one JSON object matching the corresponding MCP tool. Successful commands print JSON; failures print `{error:{code,message,detail?}}` and exit nonzero. `serve` and `mcp` reserve stdout for their respective protocol roles. Doctor reports offline engine verification and discovery; integrate returns unsupported until P06.
+CLI commands accept one JSON object matching the corresponding MCP tool. Successful commands print JSON; failures print `{error:{code,message,detail?}}` and exit nonzero. `serve` and `mcp` reserve stdout for their respective protocol roles. Doctor reports offline engine verification and discovery; integrate detects and configures supported hosts.
 
 `docs` searches or reads the offline LilyPond 2.26.0 reference. The pack is
 installed into the data directory on first use. CLI/MCP status and context
@@ -44,9 +44,13 @@ always return compact Agent projections; `list` and `history` are paged.
 `detail:"full"` for complete evidence. `job` returns `{job, analysis}` and
 supports bounded evidence sections. `evidence` reads or derives immutable source
 and performed-note evidence from a version or completed job without creating a
-version. Both checks accept either `expect` or `reference`; reference comparison
-uses performed notes, while `layout` separately reports page, system, staff,
-measure counts and only reliable source-measure mappings.
+version. Both source and performance sections accept `measureRange`; source
+also accepts `voice`, and performance accepts `track`/`channel`. Performance
+notes carry MIDI time-signature measures and canonical pitch names; source
+events preserve literal pitch tokens. Both checks accept either `expect` or
+`reference`; reference comparison uses performed notes, while `layout`
+separately reports page, system, staff, measure counts and reliable
+source-measure mappings.
 
 ```sh
 target/debug/ossia-desktop --home /absolute/test-library import \

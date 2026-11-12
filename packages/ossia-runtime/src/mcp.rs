@@ -13,8 +13,9 @@ Use ossia_import, ossia_open and ossia_context before editing; keep IDs private.
 All score mutations are explicit. Validation and asynchronous work use the returned \
 job IDs and ossia_job; use section paging instead of full job results. Use \
 ossia_evidence to read immutable version or job snapshots, ossia_layout for \
-page/system/staff structure and ossia_output for preview/export files. The \
-browser score page is optional.";
+page/system/staff and source-measure structure, and ossia_output for preview/export \
+files. Use measureRange on source or performance evidence for pitch and timing \
+questions; do not infer pitch from preview pixels. The browser score page is optional.";
 
 fn schema<T: schemars::JsonSchema>() -> serde_json::Map<String, serde_json::Value> {
     let mut schema = serde_json::to_value(schemars::schema_for!(T))
@@ -130,7 +131,7 @@ pub fn tools() -> Vec<Tool> {
         ),
         write_tool::<EvidenceArgs>(
             "ossia_evidence",
-            "Read bounded music evidence from an immutable version or completed job. Creates a durable evidence job only on a cache miss. Returns EvidenceOutcome.",
+            "Read bounded source/performance music evidence from an immutable version or completed job. Optional measureRange, voice, track and channel filters. Creates a durable evidence job only on a cache miss. Returns EvidenceOutcome.",
             false,
         ),
         read_tool::<DocsRequest>(
@@ -139,7 +140,7 @@ pub fn tools() -> Vec<Tool> {
         ),
         write_tool::<JobArgs>(
             "ossia_job",
-            "Get or cancel a durable job. Optionally wait with waitMs; section pages performance, source or differences evidence. Returns JobOutcome.",
+            "Get or cancel a durable job. Optionally wait with waitMs; section pages performance, source or differences evidence with the same measure filters. Returns JobOutcome.",
             true,
         ),
         write_tool::<CheckArgs>(

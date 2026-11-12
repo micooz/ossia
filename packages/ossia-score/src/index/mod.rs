@@ -23,8 +23,20 @@ pub struct VoiceRegion {
     pub span: SourceSpan,
     pub music_span: SourceSpan,
     pub measures: Vec<Measure>,
+    #[serde(default)]
+    pub measure_groups: Vec<Vec<Measure>>,
     pub capability: LocationCapability,
     pub reason: Option<String>,
+}
+
+impl VoiceRegion {
+    pub(crate) fn indexed_measures(&self) -> impl Iterator<Item = &Measure> {
+        let groups_empty = self.measure_groups.is_empty();
+        self.measure_groups
+            .iter()
+            .flatten()
+            .chain(self.measures.iter().filter(move |_| groups_empty))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,10 +97,10 @@ impl ScoreIndex {
                         .unwrap_or_else(|| format!("voice {name} cannot be reliably indexed")));
                 }
                 let end = voice
-                    .measures
-                    .last()
-                    .ok_or_else(|| format!("voice {name} has no indexed measures"))?
-                    .measure_end;
+                    .indexed_measures()
+                    .map(|measure| measure.measure_end)
+                    .max()
+                    .ok_or_else(|| format!("voice {name} has no indexed measures"))?;
                 count = count.max(end);
             }
         }
@@ -98,7 +110,7 @@ impl ScoreIndex {
     pub(crate) fn measure_at(&self, byte: usize) -> Option<&Measure> {
         self.voices
             .iter()
-            .flat_map(|v| &v.measures)
+            .flat_map(VoiceRegion::indexed_measures)
             .find(|m| byte >= m.span.byte_start && byte < m.span.byte_end)
     }
 }
@@ -334,19 +346,21 @@ pub fn build_index(source: &str) -> ScoreIndex {
                 v.capability = LocationCapability::AnchorOnly;
                 v.reason = Some("composed music variable requires expansion".into());
                 v.measures.clear();
+                v.measure_groups.clear();
             }
         }
     }
     if reason.is_some() {
         for v in &mut voices {
             v.measures.clear();
+            v.measure_groups.clear();
             v.capability = LocationCapability::AnchorOnly;
             v.reason = reason.clone();
         }
     }
     let max_measures = voices
         .iter()
-        .flat_map(|v| &v.measures)
+        .flat_map(VoiceRegion::indexed_measures)
         .map(|m| m.measure_end)
         .max()
         .unwrap_or(0);
@@ -406,8 +420,7 @@ pub fn resolve_locator(index: &ScoreIndex, locator: &Locator) -> Result<LocatedR
             }
             spans.extend(
                 voice
-                    .measures
-                    .iter()
+                    .indexed_measures()
                     .filter(|m| {
                         m.measure_end >= locator.measure_start
                             && m.measure_start <= locator.measure_end

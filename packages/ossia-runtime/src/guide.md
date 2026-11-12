@@ -24,21 +24,65 @@ on demand.
 An operation error does not mean MCP is unavailable. If a write loses its
 response, inspect current state before retrying through another transport.
 
+## Before external lookup
+
+For questions about pitch, octave, duration or measure placement, inspect Ossia
+evidence before opening a PDF, image or exported MIDI:
+
+1. Call `ossia_evidence` with `section:"summary"`.
+2. Call `ossia_evidence` with `section:"source"` when source tokens, written
+   spelling or source spans matter.
+3. Call `ossia_evidence` with `section:"performance"` when sounding pitch or
+   timing matters.
+
+Use `measureRange` on source or performance evidence to keep the answer small:
+
+```json
+{
+  "source": { "kind": "version", "versionId": "…" },
+  "section": "performance",
+  "measureRange": { "start": 17, "end": 17 },
+  "limit": 64
+}
+```
+
+Do not infer pitch from preview pixels. Do not parse exported MIDI or PNG files
+when `ossia_evidence` can answer the question.
+
 ## Immutable evidence and reference checks
 
 Use `ossia_evidence` when you need to inspect an existing version or completed
 job without editing it. It accepts `{"kind":"version","versionId":"…"}` or
 `{"kind":"job","jobId":"…"}`, plus `section` (`summary`, `performance` or
-`source`), `offset`, `limit` and optional `waitMs`. The first request may create
-a durable evidence job; later requests reuse the report for the same source,
-engine build and analysis version. Evidence never creates a version or changes
-the current source.
+`source`), `offset`, `limit`, `waitMs` and optional music filters. The first
+request may create a durable evidence job; later requests reuse the report for
+the same source, engine build and analysis version. Evidence never creates a
+version or changes the current source.
 
-Use performance evidence to verify pitches and timing. Source evidence can be
-partial when the LilyPond input uses constructs outside the verified analysis
-subset. That limitation does not make the performed-note evidence unavailable.
-Do not parse exported MIDI or infer pitch from preview pixels when
-`ossia_evidence` can answer the question.
+`measureRange` is an inclusive one-based range. It filters both source and
+performance notes by their own measure number. `voice` filters source events;
+`track` and `channel` filter performance notes. Invalid ranges and incompatible
+filters fail explicitly. Simultaneous source branches use stable names such as
+`left[1]` and `left[2]` in source order.
+
+Source measure numbers come from explicit bar boundaries (`|` or `\bar`) and
+the end of a simultaneous branch. Performance measure numbers come from MIDI
+time-signature events. A source score with repeats, a pickup, an unsupported
+meter map or ambiguous timing may expose `measure: null`; never treat a missing
+number as measure one.
+
+`pitchTokens` preserve the literal source note tokens, including duration and
+articulation text. `pitches` are the sounding MIDI pitches predicted from the
+source. Performance notes use `pitchName`, which is a canonical sharp spelling;
+it cannot distinguish enharmonic spellings such as F♯ and G♭. Use source
+`pitchTokens` when spelling matters.
+
+Source evidence can be partial when the LilyPond input uses constructs outside
+the verified analysis subset. `\transpose`, `\relative`, `\tempo` and
+simultaneous `<< … \\ … >>` voices are handled; common non-pitch `\set`
+assignments are ignored. Chord mode, repeats with unresolved expansion, semantic
+includes and opaque Scheme remain conservative. A partial source report does
+not make performed-note evidence unavailable.
 
 Import and check accept either `expect` or `reference`, never both:
 
@@ -57,6 +101,13 @@ start and duration; track order, channel and MIDI file order are ignored.
 notes without index-based cascades. Missing start or duration makes the result
 `unavailable`; it never silently passes. A reference comparison proves performed
 equivalence, not identical notation, staff assignment or engraving.
+
+`reference` is an optional oracle, not a default verification step. Use it only
+when the user names a reference edition, supplies a reference file, or an
+existing library version is the intended base. Do not search for or import a
+public-domain reference merely to validate an ordinary new score. If the user
+does provide a reference file, import it once as a normal document and use its
+`versionId`; there is no direct external-file reference API.
 
 ## LilyPond reference
 
@@ -85,9 +136,10 @@ snapshots and commit authorization, and use a check to verify the actual result.
    self-contained `.ly` file in the host workspace, then call `ossia_import`
    with its absolute path. `format` is inferred from the extension; `title`
    defaults from the filename and `author` from `"Ossia"`. Pass `expect` or
-   `reference` when the musical intent is known: an import that fails the check
-   returns a job error with `verification.differences` and actual pitches, and
-   creates no document or version. Pass `waitMs` to wait for completion, or poll
+   `reference` only when the user supplied the musical intent or reference:
+   an import that fails the check returns a job error with
+   `verification.differences` and actual pitches, and creates no document or
+   version. Pass `waitMs` to wait for completion, or poll
    `ossia_job`. The top-level import outcome also reports `verification`.
 3. Call `ossia_open` with the selected `documentId`. The result is a stable
    `score.html?documentId=…` URL plus the initial compact context. Open it in an
@@ -247,10 +299,11 @@ call `ossia_evidence` with its `jobId`; do not treat missing evidence as success
 1. Use `ossia_history` to choose an immutable `versionId`.
 2. Call `ossia_evidence` with `section:"summary"` to inspect source and performance
    coverage and counts.
-3. Read `performance` pages when pitches or timing matter. Page with `offset`
-   and `nextOffset`.
-4. Compare a draft or import by passing that version as `reference` to
-   `ossia_check` or `ossia_import`.
+3. Read `source` or `performance` pages when pitches, spelling, timing or measure
+   placement matter. Use `measureRange` and page with `offset` and `nextOffset`.
+4. If the user explicitly wants to match this version, compare a draft or import
+   by passing it as `reference` to `ossia_check` or `ossia_import`. Do not compare
+   to it merely because it exists.
 5. If the version is the desired base, open it and use the normal edit/check/commit
    workflow. If it already matches the request, do not duplicate it merely to
    prove that it exists.
@@ -262,9 +315,11 @@ It is not authoritative evidence for pitch or octave.
 
 `ossia_layout` accepts a completed import or check `jobId` and returns
 `pageCount`, `systemCount`, `staffCount`, and per-page `systems[].staves` with
-bounds in SVG user units. Use it to verify structural requirements such as page,
-system or staff counts. It does not identify clefs, keys or time signatures;
-read the source and docs for those.
+bounds in SVG user units. Each system also reports `bars`, `measureStart` and
+`measureEnd` when the source measure grid is reliable. Use these fields instead
+of counting measures in a PNG. `measureMapping` is `complete`, `partial` or
+`none`; inspect the page reason when it is not complete. `ossia_layout` does not
+identify clefs, keys or time signatures; read the source and docs for those.
 
 ## Output files
 

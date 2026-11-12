@@ -56,13 +56,20 @@ impl QuarterTime {
     }
 }
 
-/// Predicted written pitches; repeats and tie merging are not performed here.
+/// Predicted sounding pitches plus the literal source tokens that produced them.
+/// Repeats and tie merging are not performed here.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct WrittenEvent {
     pub voice: String,
     pub span: SourceSpan,
     pub pitches: Vec<i32>,
+    /// Literal source note tokens, including duration and articulation text.
+    #[serde(default)]
+    pub pitch_tokens: Vec<String>,
+    /// One-based source measure, when the source grid is reliable.
+    #[serde(default)]
+    pub measure: Option<u32>,
 }
 
 /// Counts are absent when the source cannot be reliably indexed.
@@ -86,6 +93,12 @@ pub struct PerformedNote {
     pub pitch: u8,
     pub start: Option<QuarterTime>,
     pub duration: Option<QuarterTime>,
+    /// Canonical sharp spelling for the MIDI pitch.
+    #[serde(default)]
+    pub pitch_name: String,
+    /// One-based measure on the performed MIDI timeline.
+    #[serde(default)]
+    pub measure: Option<u32>,
 }
 
 /// Performance event coverage is independent of written-source coverage.
@@ -95,6 +108,15 @@ pub struct PerformanceAnalysis {
     pub status: AnalysisStatus,
     pub reasons: Vec<String>,
     pub notes: Vec<PerformedNote>,
+    /// Coverage of MIDI time-signature based measure assignment.
+    #[serde(default = "unavailable_analysis_status")]
+    pub measure_status: AnalysisStatus,
+    #[serde(default)]
+    pub measure_reason: Option<String>,
+}
+
+fn unavailable_analysis_status() -> AnalysisStatus {
+    AnalysisStatus::Unavailable
 }
 
 /// Source and MIDI evidence from one immutable source snapshot.
@@ -181,6 +203,8 @@ pub struct EvidenceSummary {
     pub performance_status: AnalysisStatus,
     pub performance_reasons: Vec<String>,
     pub performed_notes: usize,
+    pub performance_measures: Option<u32>,
+    pub measure_reason: Option<String>,
 }
 
 /// Derived music evidence bound to one source snapshot and engine build.
@@ -205,6 +229,29 @@ pub struct EvidenceArgs {
     pub offset: usize,
     pub limit: Option<usize>,
     pub wait_ms: Option<u64>,
+    pub measure_range: Option<MeasureRange>,
+    pub voice: Option<String>,
+    pub track: Option<usize>,
+    pub channel: Option<u8>,
+}
+
+/// Inclusive one-based source or performance measure range.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS,
+)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MeasureRange {
+    pub start: u32,
+    pub end: u32,
+}
+
+impl MeasureRange {
+    pub fn validate(self) -> Result<Self, AppError> {
+        if self.start == 0 || self.end < self.start {
+            return Err(AppError::invalid("measureRange requires 1 <= start <= end"));
+        }
+        Ok(self)
+    }
 }
 
 /// One bounded evidence page, including its immutable provenance.

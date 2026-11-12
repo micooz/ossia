@@ -12,7 +12,11 @@ fn report() -> MusicReport {
                 pitch: 60,
                 start: Some(QuarterTime::new(0, 96).unwrap()),
                 duration: Some(QuarterTime::new(96, 96).unwrap()),
+                pitch_name: "C4".into(),
+                measure: None,
             }],
+            measure_status: AnalysisStatus::Complete,
+            measure_reason: None,
         },
     }
 }
@@ -164,6 +168,8 @@ fn reference_comparison_counts_duplicates_and_requires_complete_timing() {
             status: AnalysisStatus::Complete,
             reasons: vec![],
             notes: vec![],
+            measure_status: AnalysisStatus::Complete,
+            measure_reason: None,
         },
     };
     assert_eq!(
