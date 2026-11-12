@@ -54,3 +54,21 @@ test('management initializing Agent detection state', async ({ page }, testInfo)
   );
   await expect(page.locator('.agent-list')).toHaveAttribute('aria-busy', 'false');
 });
+
+test('missing DSH bundle can be reinstalled from its chip', async ({ page }) => {
+  await mockManagement(page, { dshState: 'broken' });
+  await page.goto('/main.html');
+  const chip = page.getByRole('button', { name: '安装 DeepSeek Harness 插件' });
+  await expect(chip.locator('.agent-chip-state')).toHaveText('需修复');
+  await chip.click();
+  await expect(page.getByRole('button', { name: '移除 DeepSeek Harness 插件' })).toBeEnabled();
+  await expect(page.locator('.agent-detail')).toHaveCount(2);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as Window & { managementCommands?: string[] }).managementCommands?.filter(
+          (command) => command === 'management_agents_change',
+        ).length,
+    ),
+  ).toBe(1);
+});

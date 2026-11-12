@@ -1,4 +1,6 @@
 use super::*;
+use lifecycle::install;
+use status::status;
 use std::collections::BTreeMap;
 
 fn fixture() -> (tempfile::TempDir, Integrator) {
@@ -119,4 +121,97 @@ assert.ok(disposed);
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+fn linked_profile(target: &Path) -> Value {
+    json!({
+        "name": "dsh-profile-desktop",
+        "private": true,
+        "dsh": {
+            "profile": {
+                "bundles": [PLUGIN]
+            }
+        },
+        "dependencies": {
+            PLUGIN: format!("link:{}", target.display())
+        }
+    })
+}
+
+fn write_profile(integrator: &Integrator, profile: &Value) -> PathBuf {
+    let path = integrator
+        .paths()
+        .dsh_home
+        .join("profiles/desktop/package.json");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, serde_json::to_vec_pretty(profile).unwrap()).unwrap();
+    path
+}
+
+fn context<'a>(integrator: &'a Integrator, detected: &'a DetectedAgent) -> AgentContext<'a> {
+    AgentContext {
+        integrator,
+        detected,
+    }
+}
+
+#[test]
+fn deleted_bundle_target_is_broken_and_reinstallable() {
+    let (_root, integrator) = fixture();
+    let detected = DetectedAgent {
+        executable: std::env::current_exe().unwrap(),
+        version: "test".into(),
+        config_root: integrator.paths().dsh_home.clone(),
+        profile: "desktop".into(),
+        env: BTreeMap::new(),
+    };
+    let ctx = context(&integrator, &detected);
+    let expected = bundle_dir(&ctx);
+    write_profile(&integrator, &linked_profile(&expected));
+
+    let inspection = status(&ctx, None).unwrap();
+    assert_eq!(inspection.state, AgentState::Broken);
+    assert_eq!(inspection.message, Some(AgentNotice::DshBundleMissing));
+    assert!(!inspection.installed);
+    assert!(inspection.conflicts.is_empty());
+
+    let entries = install(&ctx, None).unwrap();
+    assert!(expected.join("package.json").is_file());
+    assert!(!entries.is_empty());
+    let record = ManagedRecord {
+        management_id: "ossia:dsh:desktop".into(),
+        agent_id: "dsh".into(),
+        method: InstallMethod::Plugin,
+        profile: "desktop".into(),
+        template_version: TEMPLATE_VERSION,
+        home: integrator.home().to_string_lossy().into_owned(),
+        executable: integrator.executable().to_string_lossy().into_owned(),
+        shared_root: integrator.shared_root().to_string_lossy().into_owned(),
+        updated_at: "unix:0".into(),
+        entries,
+    };
+    let inspection = status(&ctx, Some(&record)).unwrap();
+    assert_eq!(inspection.state, AgentState::Installed);
+}
+
+#[test]
+fn existing_unmanaged_bundle_remains_a_conflict() {
+    let (_root, integrator) = fixture();
+    let detected = DetectedAgent {
+        executable: std::env::current_exe().unwrap(),
+        version: "test".into(),
+        config_root: integrator.paths().dsh_home.clone(),
+        profile: "desktop".into(),
+        env: BTreeMap::new(),
+    };
+    let ctx = context(&integrator, &detected);
+    let expected = bundle_dir(&ctx);
+    write_profile(&integrator, &linked_profile(&expected));
+    fs::create_dir_all(&expected).unwrap();
+
+    let inspection = status(&ctx, None).unwrap();
+    assert_eq!(inspection.state, AgentState::Conflict);
+    assert_eq!(inspection.message, Some(AgentNotice::DshUnmanagedBundle));
+    assert_eq!(inspection.conflicts.len(), 1);
+    assert!(install(&ctx, None).is_err());
 }

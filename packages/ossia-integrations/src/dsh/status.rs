@@ -11,6 +11,7 @@ pub(super) fn status(
         .to_path_buf();
     let profile = read_profile(ctx)?;
     let mut conflicts = Vec::new();
+    let bundle_missing = !expected.exists();
     let (listed, linked) = if let Some(profile) = profile.as_ref() {
         let listed = installed_bundles(profile)
             .iter()
@@ -30,7 +31,8 @@ pub(super) fn status(
     } else {
         (false, false)
     };
-    if listed && record.is_none() {
+    let recoverable_missing = listed && linked && bundle_missing && record.is_none();
+    if listed && record.is_none() && !recoverable_missing {
         conflicts.push(conflict(
             PLUGIN,
             "unmanaged",
@@ -41,11 +43,11 @@ pub(super) fn status(
         conflicts.extend(record_file_conflicts(&record.entries));
     }
     let missing_files = record.is_some_and(|record| record_files_missing(&record.entries));
-    let installed = listed && linked;
+    let installed = listed && linked && !recoverable_missing;
     let managed = record.is_some();
     let state = if !conflicts.is_empty() {
         AgentState::Conflict
-    } else if missing_files {
+    } else if missing_files || recoverable_missing {
         AgentState::Broken
     } else if installed {
         AgentState::Installed

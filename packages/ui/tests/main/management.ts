@@ -12,7 +12,14 @@ import type {
 } from '../../src/generated/protocol.ts';
 
 /** Install the management window bridge with isolated preferences and Agent state. */
-export async function mockManagement(page: Page, { empty = false, initializing = false } = {}) {
+export async function mockManagement(
+  page: Page,
+  {
+    empty = false,
+    initializing = false,
+    dshState = 'available',
+  }: { empty?: boolean; initializing?: boolean; dshState?: AgentIntegration['state'] } = {},
+) {
   const preferences: ManagementPreferences = {
     theme: 'system',
     language: 'zh-CN',
@@ -54,7 +61,7 @@ export async function mockManagement(page: Page, { empty = false, initializing =
     id: 'dsh',
     name: 'DeepSeek Harness',
     icon: 'dsh',
-    state: 'available',
+    state: dshState,
     installed: false,
     enabled: false,
     configRoot: '/Users/example/.dsh',

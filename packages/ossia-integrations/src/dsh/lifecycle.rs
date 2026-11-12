@@ -27,7 +27,7 @@ pub(super) fn install(
                 ));
             }
         }
-        if listed && previous.is_none() {
+        if listed && previous.is_none() && expected.exists() {
             conflicts.push(conflict(
                 PLUGIN,
                 "unmanaged",
