@@ -169,7 +169,7 @@ async fn offline_docs_cli_and_mcp_complete_the_agent_music_workflow() {
     .unwrap();
     assert!(opened
         .url
-        .contains(&format!("/score.html?documentId={}", doc.document_id)));
+        .contains(&format!("/scores?documentId={}", doc.document_id)));
     assert!(opened.context.is_some());
     let edit:EditSession=serde_json::from_value(call(&client,"ossia_edit",json!({"action":"begin","documentId":doc.document_id,"baseVersionId":doc.head_version_id,"expectedSourceHash":doc.source_hash})).await).unwrap();
     let page:ReadSourceOutcome=serde_json::from_value(cli(&bin,&home,&engine,&docs,"read-source",json!({"documentId":doc.document_id,"expectedSourceHash":doc.source_hash,"start":{"kind":"start"},"maxLines":200,"maxBytes":262144})).await).unwrap();

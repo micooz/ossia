@@ -17,7 +17,7 @@ browser score page; Tauri owns the management window.
   file watching, document contexts/events, CLI and MCP.
 - `packages/ossia-integrations`: host detection and configuration plans; it stays
   independent of the runtime's HTTP/IPC implementation.
-- `packages/ui`: score SPA (`score.html`) and separate management entry
+- `packages/ui`: score SPA (`scores.html`) and separate management entry
   (`main.html`); it owns display and interaction, not parsing or version state.
 - `packages/ossia-integrations/resources`: Skill, Codex plugin and DSH plugin
   templates embedded into the installer.

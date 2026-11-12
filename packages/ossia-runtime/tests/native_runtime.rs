@@ -193,7 +193,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
         .unwrap();
         assert!(open
             .url
-            .contains(&format!("/score.html?documentId={}", doc.document_id)));
+            .contains(&format!("/scores?documentId={}", doc.document_id)));
         let edit:EditSession=serde_json::from_value(call(&client,"ossia_edit",json!({"action":"begin","documentId":doc.document_id,"baseVersionId":initial,"expectedSourceHash":doc.source_hash,"author":"native-agent"})).await).unwrap();
         let original = std::fs::read(&doc.source_path).unwrap();
         let mut changed = String::from_utf8(original.clone()).unwrap();
@@ -479,7 +479,7 @@ async fn native_crash_stale_endpoint_edit_recovery_port_conflict() {
     let web = reqwest::Client::new();
     assert!(view
         .url
-        .contains(&format!("/score.html?documentId={}", doc.document_id)));
+        .contains(&format!("/scores?documentId={}", doc.document_id)));
     let edit:EditSession=serde_json::from_value(ipc::call(&old.endpoint,"edit",json!({"action":"begin","documentId":doc.document_id,"baseVersionId":doc.head_version_id,"expectedSourceHash":doc.source_hash})).await.unwrap()).unwrap();
     let mut bytes = std::fs::read(&doc.source_path).unwrap();
     bytes.extend_from_slice(b"\n% work survives runtime crash\n");

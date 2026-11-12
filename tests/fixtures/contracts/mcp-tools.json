@@ -344,7 +344,7 @@
   },
   {
     "name": "ossia_open",
-    "description": "Return the direct browser URL for one document and its initial compact context. Opens the score chooser when documentId is omitted. Returns AgentOpenOutcome.",
+    "description": "Return the direct browser URL for one document and its initial compact context. Returns the landing page when documentId is omitted. Returns AgentOpenOutcome.",
     "inputSchema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,

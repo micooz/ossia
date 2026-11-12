@@ -62,7 +62,7 @@ target/debug/ossia-desktop --home /absolute/test-library context \
 
 Import, check, restore and output return a durable Job. Poll `job '{"jobId":"…","action":"get"}'`, or pass `waitMs` on the originating tool; cancel with action=cancel. Running cancellation reports phase=cancelling until the worker finishes process cleanup. If a durable operation has completed, its done result wins. The import request job contains its ImportOutcome and library import record. Refused or unconfirmed reports have no document and must be inspected before continuing.
 
-`open` returns a stable `score.html?documentId=…` URL and the initial compact context when a document is selected. All context, selection and edit operations use an explicit documentId. Edit credentials stay private to the caller; resume requires the interrupted editId. End preserves files; discard and recovery acknowledgment are separate hash-guarded actions.
+`open` returns a stable `scores?documentId=…` URL and the initial compact context when a document is selected. Without a document it returns the landing page. All context, selection and edit operations use an explicit documentId. Edit credentials stay private to the caller; resume requires the interrupted editId. End preserves files; discard and recovery acknowledgment are separate hash-guarded actions.
 
 ## HTTP and events
 
@@ -76,7 +76,7 @@ JSON request bodies are limited to 1 MiB. Multipart import accepts one `metadata
 
 A content poll every second complements native filesystem notifications, including environments where FSEvents cannot start. Changes have a further 300 ms debounce; atomic replacement and deletion/recreation are supported. Only pending previews coalesce, and superseded job IDs remain cancelled and queryable. Explicit checks keep their captured snapshots. Context/check/commit reread source even without a watcher event.
 
-Render keys include document ownership, source hash, engine build and options hash. SVG is served only through a stored manifest and verified artifact; geometry returns page viewBox, locator capability and staff rectangles from the shared index. `POST /outputs` accepts a completed job or immutable version source, supports SVG/PNG/PDF/MIDI/LilyPond, uses the captured snapshot and never overwrites destinations. Missing outputPath selects a unique file under the system Downloads/Ossia directory. `POST /documents/{id}/versions/{versionId}/render` renders a fixed version without changing the public source or preview. `POST /jobs/{jobId}/reveal` accepts only the verified result path of a successful output job.
+Render keys include document ownership, source hash, engine build and options hash. SVG is served only through a stored manifest and verified artifact; geometry returns page viewBox, locator capability and staff rectangles from the shared index. `POST /outputs` accepts a completed job or immutable version source, supports SVG/PNG/PDF/MIDI/LilyPond, uses the captured snapshot and never overwrites destinations. Missing outputPath selects a unique file under the system Downloads/Ossia directory. `GET /jobs/{jobId}/output` returns the verified bytes and media type of a completed output job without exposing its local path. `POST /documents/{id}/versions/{versionId}/render` renders a fixed version without changing the public source or preview. `POST /jobs/{jobId}/reveal` accepts only the verified result path of a successful output job.
 
 ## Contracts and validation
 

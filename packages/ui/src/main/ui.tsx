@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+export { Segmented } from '../components/segmented.tsx';
+
 export function NavItem({
   active,
   icon,
@@ -23,37 +25,6 @@ export function NavItem({
       </span>
       <span>{label}</span>
     </button>
-  );
-}
-
-export function Segmented({
-  ariaLabel,
-  value,
-  options,
-  disabled,
-  onChange,
-}: {
-  ariaLabel: string;
-  value: string;
-  options: { value: string; label: string }[];
-  disabled: boolean;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="segmented" role="group" aria-label={ariaLabel}>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          className="segment-button"
-          type="button"
-          aria-pressed={value === option.value}
-          disabled={disabled}
-          onClick={() => onChange(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
   );
 }
 

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 
 import type {
   AgentOpenOutcome,
@@ -41,7 +41,9 @@ async function cli<T>(command: string, args?: unknown): Promise<T> {
       ...(args === undefined ? [] : [JSON.stringify(args)]),
     ],
     { timeout: 45_000, maxBuffer: 8 * 1024 * 1024 },
-  );
+  ).catch((error: { stdout?: string; stderr?: string; message: string }) => {
+    throw new Error([error.message, error.stdout, error.stderr].filter(Boolean).join('\n'));
+  });
   return JSON.parse(stdout);
 }
 async function waitJob<T>(initial: Job): Promise<T> {
@@ -52,6 +54,45 @@ async function waitJob<T>(initial: Job): Promise<T> {
   }
   expect(job.state, JSON.stringify(job.error)).toBe('done');
   return job.result as T;
+}
+async function clickScore(overlay: Locator, x: number, y: number) {
+  await overlay.evaluate(
+    (element, point) => {
+      const bounds = element.getBoundingClientRect();
+      element.dispatchEvent(
+        new MouseEvent('click', {
+          bubbles: true,
+          clientX: bounds.left + bounds.width * point.x,
+          clientY: bounds.top + bounds.height * point.y,
+        }),
+      );
+    },
+    { x, y },
+  );
+}
+async function scoreZoom(page: Page) {
+  const label = page.getByLabel('谱面缩放');
+  return Number.parseInt((await label.textContent()) ?? '100', 10);
+}
+async function zoomWithMouse(page: Page, direction: 1 | -1) {
+  const scroll = page.locator('.score-scroll');
+  await scroll.hover();
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, -100 * direction);
+  await page.waitForTimeout(15);
+  await page.keyboard.up('Control');
+}
+async function ensureZoom(page: Page, condition: 'base' | 'zoomed') {
+  if (condition === 'base') {
+    while ((await scoreZoom(page)) > 100) await zoomWithMouse(page, -1);
+  } else {
+    while ((await scoreZoom(page)) < 140) await zoomWithMouse(page, 1);
+  }
+}
+async function expectDocumentHint(page: Page, text: string, timeout = 5_000) {
+  await page.getByLabel('版本', { exact: true }).click();
+  await expect(page.getByText(text, { exact: false })).toBeVisible({ timeout });
+  await page.keyboard.press('Escape');
 }
 test.beforeAll(async () => {
   temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ossia-p05-'));
@@ -79,8 +120,7 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   const documentId = docs.items[0]!.documentId;
   const opened = await cli<AgentOpenOutcome>('open', { documentId });
   await page.goto(opened.url);
-  await expect(page.getByText('本地服务已连接')).toBeVisible();
-  await expect(page.locator('.score-image')).toBeVisible();
+  await expect(page.getByText('已连接')).toBeVisible();
   const origin = new URL(opened.url).origin;
   const initial: DocumentContext = await (
     await page.request.get(`${origin}/api/v1/documents/${documentId}/context`)
@@ -96,43 +136,43 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   expect(geometry.pages[1]!.regions.some((r) => r.locator.measureStart >= 3)).toBeTruthy();
   const lower = geometry.pages[0]!.regions.find((r) => r.locator.staffIndex === 1)!;
   expect(lower).toBeTruthy();
+  await expect(page.locator('.score-image')).toHaveCount(geometry.pages.length);
+  await expect(page).toHaveTitle('合成钢琴练习');
+  await expect(page.locator('.topbar-title')).toHaveText('合成钢琴练习');
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const zoom of ['100', '150']) {
-      await page.getByLabel('谱面缩放').selectOption(zoom);
+    for (const zoom of ['base', 'zoomed'] as const) {
+      await ensureZoom(page, zoom);
       const viewBox = geometry.pages[0]!.viewBox!;
-      const screen = await page.locator('.overlay').boundingBox();
-      await page.locator('.overlay').click({
-        position: {
-          x:
-            (((lower.bounds.x0 + lower.bounds.x1) / 2 - viewBox.x0) / (viewBox.x1 - viewBox.x0)) *
-            screen!.width,
-          y:
-            (((lower.bounds.y0 + lower.bounds.y1) / 2 - viewBox.y0) / (viewBox.y1 - viewBox.y0)) *
-            screen!.height,
-        },
-      });
-      await expect(page.locator('.selection li')).toContainText('谱表 2');
+      const overlay = page.locator('.overlay').first();
+      const x = ((lower.bounds.x0 + lower.bounds.x1) / 2 - viewBox.x0) / (viewBox.x1 - viewBox.x0);
+      const y = ((lower.bounds.y0 + lower.bounds.y1) / 2 - viewBox.y0) / (viewBox.y1 - viewBox.y0);
+      await clickScore(overlay, x, y);
       await expect(page.locator('.selection-box').first()).toHaveAttribute(
         'y',
         String(lower.bounds.y0),
       );
-      await page.getByRole('button', { name: '清空选区' }).click();
-      await expect(page.locator('.selection li')).toHaveCount(0);
+      await clickScore(overlay, x, y);
+      await expect(page.locator('.selection-box')).toHaveCount(0);
     }
+    await ensureZoom(page, 'base');
   }
-  await page.getByLabel('谱面缩放').selectOption('100');
-  await page.getByText('使用键盘选择小节').click();
-  const measure = page.getByRole('button', { name: '谱表 1 · 第 1 小节', exact: true });
-  await measure.focus();
-  await page.keyboard.press('Space');
-  await expect(page.locator('.selection li')).toContainText('谱表 1');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const firstViewBox = geometry.pages[0]!.viewBox!;
+  await clickScore(
+    page.locator('.overlay').first(),
+    ((lower.bounds.x0 + lower.bounds.x1) / 2 - firstViewBox.x0) /
+      (firstViewBox.x1 - firstViewBox.x0),
+    ((lower.bounds.y0 + lower.bounds.y1) / 2 - firstViewBox.y0) /
+      (firstViewBox.y1 - firstViewBox.y0),
+  );
+  await expect(page.locator('.selection-box')).toHaveCount(1);
   const other = await context.newPage();
-  const second = await cli<AgentOpenOutcome>('open', {});
+  const second = await cli<AgentOpenOutcome>('open', { documentId });
   await other.goto(second.url);
-  await expect(other.getByRole('heading', { name: '选择或导入一份乐谱' })).toBeVisible();
+  await expect(other.locator('.selection-box')).toHaveCount(1);
   await page.reload();
-  await expect(page.locator('.selection li')).toContainText('谱表 1');
+  await expect(page.locator('.selection-box')).toHaveCount(1);
   const edit = await cli<{ editId: string }>('edit', {
     action: 'begin',
     documentId,
@@ -147,12 +187,11 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   const changed = source.replace('c1', 'd1') + '\n% P05 synthetic edit\n';
   await fs.writeFile(sourcePath, changed);
   const hash = createHash('sha256').update(changed).digest('hex');
-  await expect(page.locator('.document-status')).toContainText('工作区有未提交修改');
-  await expect(page.locator('.selection li')).toHaveCount(0);
+  await expect(page.locator('.selection-box')).toHaveCount(0);
   await expect
     .poll(async () => (await fullContext()).render?.manifest.sourceHash, { timeout: 30_000 })
     .toBe(hash);
-  await expect(page.locator('.document-status')).toContainText(`谱面 ${hash.slice(0, 12)}`);
+  await expectDocumentHint(page, '工作区有未提交修改', 30_000);
   await waitJob(
     await cli<Job>('check', {
       editId: edit.editId,
@@ -164,47 +203,101 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
     expectedSourceHash: hash,
     summary: 'P05 合成编辑',
   });
-  await expect(page.locator('.version-list li')).toHaveCount(2);
-  await page.getByRole('button', { name: '版本对比', exact: true }).click();
-  await expect(page.locator('.compare .score-image')).toHaveCount(2);
-  await page.getByRole('button', { name: '工作区谱面' }).click();
+  await page.getByLabel('版本', { exact: true }).click();
+  await expect(page.getByRole('menuitemradio')).toHaveCount(3);
+  await page.keyboard.press('Escape');
+  await page.getByLabel('对比版本', { exact: true }).click();
+  await page.getByRole('menuitemradio', { name: /版本 1/ }).click();
+  await expect(page.locator('.compare .score-image')).toHaveCount(geometry.pages.length * 2);
+  await page.getByLabel('对比版本', { exact: true }).click();
+  await page.getByRole('menuitem', { name: '退出对比' }).click();
+  await expect(page.locator('.compare')).toHaveCount(0);
   await fs.writeFile(sourcePath, changed + '\n\\notAnOssiaCommand\n');
-  await expect(page.getByText('上次成功结果：', { exact: false })).toBeVisible();
-  await expect(page.locator('.diagnostics')).toContainText('notAnOssiaCommand', {
-    timeout: 30_000,
+  await expectDocumentHint(page, '上次成功结果：', 30_000);
+  await expect(page.locator('.diagnostics')).toHaveCount(0);
+  await expect(page.locator('.score-image')).toHaveCount(geometry.pages.length);
+  const dirty = await fullContext();
+  const discarded = await page.request.post(`${origin}/api/v1/documents/${documentId}/edits`, {
+    data: {
+      action: 'discard',
+      documentId,
+      baseVersionId: dirty.document.headVersionId,
+      expectedSourceHash: dirty.document.sourceHash,
+      editId: null,
+      author: 'test',
+      adoptWorkspace: false,
+    },
   });
-  await page.getByLabel('谱面页码').selectOption('2');
-  await expect(page.locator('.score-image')).toHaveAttribute('alt', /第 2 页/);
+  expect(discarded.ok()).toBeTruthy();
+  await expectDocumentHint(page, '当前工作区乐谱与最新版本一致', 30_000);
+  await page.getByLabel('版本', { exact: true }).click();
+  await page.getByRole('menuitemradio', { name: /版本 1/ }).click();
   await page.getByRole('button', { name: '恢复至版本 1', exact: true }).click();
   await page.getByRole('button', { name: '确认恢复' }).click();
-  await expect(page.getByRole('alert').first()).toBeVisible();
-  await page.getByRole('button', { name: '丢弃工作区修改' }).click();
-  await page.getByRole('button', { name: '确认丢弃' }).click();
-  await expect(page.locator('.document-status')).toContainText('工作区与已提交版本一致');
-  await page.getByRole('button', { name: '恢复至版本 1', exact: true }).click();
-  await page.getByRole('button', { name: '确认恢复' }).click();
-  await expect(page.locator('.version-list li')).toHaveCount(3);
+  await page.getByLabel('版本', { exact: true }).click();
+  await expect(page.getByRole('menuitemradio')).toHaveCount(4);
+  await page.keyboard.press('Escape');
   await page.route('**/api/v1/outputs', async (route) => {
     const args = route.request().postDataJSON();
     const response = await route.fetch({
       postData: JSON.stringify({
         ...args,
-        outputPath: path.join(temporary, `export.${args.format}`),
+        outputPath: path.join(
+          temporary,
+          args.page ? `export-${args.page}.${args.format}` : `export.${args.format}`,
+        ),
       }),
     });
     await route.fulfill({ response });
   });
-  for (const format of ['ly', 'pdf', 'midi']) {
-    await page.getByLabel('导出格式').selectOption(format);
-    await page.getByRole('button', { name: '导出', exact: true }).click();
-    await expect(page.locator('.export .path')).toContainText(`export.${format}`, {
-      timeout: 30_000,
-    });
-    expect((await fs.stat(path.join(temporary, `export.${format}`))).size).toBeGreaterThan(0);
+  await page.locator('.topbar-right').getByRole('button', { name: '导出', exact: true }).click();
+  const dialog = page.locator('.export-dialog');
+  await expect(dialog).toBeVisible();
+  for (const [format, label] of [
+    ['pdf', 'PDF'],
+    ['png', 'PNG'],
+    ['svg', 'SVG'],
+    ['midi', 'MIDI'],
+  ] as const) {
+    await dialog.getByRole('button', { name: new RegExp(label) }).click();
+    if (format === 'pdf') {
+      const review = path.join(root, '.impeccable/review');
+      await fs.mkdir(review, { recursive: true });
+      await page.screenshot({
+        path: path.join(review, 'export-dialog-desktop.png'),
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 390, height: 1000 });
+      await page.screenshot({
+        path: path.join(review, 'export-dialog-mobile.png'),
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 1440, height: 1000 });
+    }
+    const downloadPromise = page.waitForEvent('download', { timeout: 60_000 });
+    await dialog.getByRole('button', { name: '导出', exact: true }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(
+      new RegExp(
+        `\\.${format === 'midi' ? 'mid' : ['png', 'svg'].includes(format) ? 'zip' : format}$`,
+      ),
+    );
+    const downloaded = await download.path();
+    expect(downloaded).not.toBeNull();
+    expect((await fs.stat(downloaded!)).size).toBeGreaterThan(0);
+    if (format === 'png' || format === 'svg') {
+      for (const page of geometry.pages) {
+        expect(
+          (await fs.stat(path.join(temporary, `export-${page.page}.${format}`))).size,
+        ).toBeGreaterThan(0);
+      }
+    } else {
+      expect((await fs.stat(path.join(temporary, `export.${format}`))).size).toBeGreaterThan(0);
+    }
+    await expect(dialog).toBeVisible();
   }
-  await page.getByLabel('谱面页码').selectOption('1');
-  if (await page.getByRole('button', { name: '关闭提示' }).count())
-    await page.getByRole('button', { name: '关闭提示' }).click();
+  await dialog.getByRole('button', { name: '关闭' }).click();
+  await expect(dialog).not.toBeVisible();
   const review = path.join(root, '.impeccable/review');
   await fs.mkdir(review, { recursive: true });
   for (const [width, name] of [
@@ -227,7 +320,7 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
         widths: [390, 1440],
         zooms: [100, 150],
         versions: 3,
-        formats: ['ly', 'pdf', 'midi'],
+        formats: ['pdf', 'midi', 'png', 'svg'],
         status: 'passed',
       },
       null,

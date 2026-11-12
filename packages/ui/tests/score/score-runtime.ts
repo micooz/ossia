@@ -3,17 +3,20 @@ import type { BrowserContext } from '@playwright/test';
 import type {
   DocumentContext,
   DocumentState,
-  DocumentSummary,
+  Job,
+  OutputArgs,
   RenderGeometry,
   RenderReference,
   Selection,
+  Version,
 } from '../../src/generated/protocol.ts';
 
 export const hash = 'a'.repeat(64),
   newer = 'b'.repeat(64);
 export const firstId = '11111111-1111-4111-8111-111111111111';
 export const secondId = '22222222-2222-4222-8222-222222222222';
-const versionId = '33333333-3333-4333-8333-333333333333';
+export const versionId = '33333333-3333-4333-8333-333333333333';
+export const olderVersionId = '44444444-4444-4444-8444-444444444444';
 const reference: RenderReference = {
   renderKey: hash,
   manifest: {
@@ -40,15 +43,31 @@ export function scoreDocument(id = firstId): DocumentState {
     lastCheck: null,
   };
 }
-function scoreSummary(document: DocumentState): DocumentSummary {
-  return {
-    documentId: document.documentId,
-    title: document.title,
-    headVersionId: document.headVersionId,
-    sourceHash: document.sourceHash,
-    dirty: document.dirty,
-    editState: document.editState,
-  };
+function versionList(documentId: string): Version[] {
+  return [
+    {
+      versionId,
+      documentId,
+      seq: 2,
+      parentVersionId: olderVersionId,
+      sourceHash: hash,
+      origin: 'edit',
+      author: 'test',
+      summary: '当前版本',
+      createdAt: '2026-11-10T00:00:00Z',
+    },
+    {
+      versionId: olderVersionId,
+      documentId,
+      seq: 1,
+      parentVersionId: null,
+      sourceHash: hash,
+      origin: 'import',
+      author: 'test',
+      summary: '初始版本',
+      createdAt: '2026-11-09T00:00:00Z',
+    },
+  ];
 }
 function geometry(): RenderGeometry {
   return {
@@ -67,6 +86,18 @@ function geometry(): RenderGeometry {
     })),
   };
 }
+function doneJob(id: string, result: unknown): Job {
+  return {
+    jobId: id,
+    documentId: null,
+    kind: 'test',
+    state: 'done',
+    sourceHash: null,
+    phase: 'finished',
+    result: result as Job['result'],
+    error: null,
+  };
+}
 
 /** Install a synthetic document-scoped runtime with controllable selections and events. */
 export async function mockScoreRuntime(
@@ -76,12 +107,12 @@ export async function mockScoreRuntime(
   let seq = 1;
   let loseEvents = false;
   let rejectSelection = false;
-  let conflict = false;
   const states = [scoreDocument(), scoreDocument(secondId)];
-  const docs = states.map(scoreSummary);
   const selections = new Map<string, Selection | null>();
   const points: { page: number; x: number; y: number }[] = [];
-  const mutations: { expectedSourceHash: string }[] = [];
+  const restores: unknown[] = [];
+  const outputs: OutputArgs[] = [];
+  const reveals: string[] = [];
   const contextFor = (documentId: string): DocumentContext | null => {
     const document = states.find((state) => state.documentId === documentId);
     if (!document) return null;
@@ -120,8 +151,6 @@ export async function mockScoreRuntime(
         : ': keep-alive\n\n';
       return route.fulfill({ contentType: 'text/event-stream', body });
     }
-    if (path === '/documents')
-      return reply({ items: docs, total: docs.length, offset: 0, nextOffset: null });
     if (path === '/status')
       return reply({
         runtime: {
@@ -134,46 +163,61 @@ export async function mockScoreRuntime(
           capabilities: ['document-context'],
         },
         engineBuildId: 'test',
-        documentCount: docs.length,
+        documentCount: states.length,
         instanceId: 'instance',
         seq,
         jobs: [],
         documentation: { available: true, version: '2.26.0', root: '/synthetic/docs', error: null },
         language: null,
       });
-    const documentId = path.split('/')[2] ?? '';
-    if (path.endsWith('/context')) {
-      const context = contextFor(documentId);
-      return context
-        ? reply(context)
-        : reply({ error: { code: 'not-found', message: 'document not found' } }, 404);
+    if (path === '/outputs') {
+      const args = payload as OutputArgs;
+      outputs.push(args);
+      return reply(
+        doneJob(`output-${outputs.length}`, {
+          source: args.source,
+          documentId: firstId,
+          sourceHash: hash,
+          engineBuildId: 'test',
+          format: args.format,
+          page: args.page ?? null,
+          path: `/synthetic/output.${args.format}`,
+          bytes: 1024,
+          sha256: hash,
+          mediaType: 'application/octet-stream',
+        }),
+      );
     }
-    if (path.endsWith('/versions'))
-      return reply({
-        items: [
-          {
-            versionId,
-            documentId,
-            seq: 1,
-            parentVersionId: null,
-            sourceHash: hash,
-            origin: 'import',
-            author: 'test',
-            summary: '初始版本',
-            createdAt: '2026-11-10T00:00:00Z',
-          },
-        ],
-        total: 1,
-        offset: 0,
-        nextOffset: null,
+    if (path.startsWith('/jobs/') && path.endsWith('/output')) {
+      return route.fulfill({
+        contentType: 'application/octet-stream',
+        body: `synthetic ${path.split('/')[2]}`,
       });
-    if (path.endsWith('/geometry')) return reply(geometry());
+    }
+    if (path.startsWith('/jobs/') && path.endsWith('/reveal')) {
+      reveals.push(path.split('/')[2] ?? '');
+      return reply({ opened: true });
+    }
+    if (path === '/renders/' + hash + '/geometry') return reply(geometry());
     if (path.includes('/pages/'))
       return route.fulfill({
         contentType: 'image/svg+xml',
         body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140"><rect x="10" y="20" width="70" height="10" fill="#ddd"/><rect x="10" y="50" width="70" height="10" fill="#ddd"/></svg>',
       });
-    if (path.endsWith('/locate')) {
+    const parts = path.split('/').filter(Boolean);
+    const documentId = parts[0] === 'documents' ? (parts[1] ?? '') : '';
+    if (!contextFor(documentId)) return reply({ error: { code: 'not-found', message: path } }, 404);
+    if (parts[2] === 'context') return reply(contextFor(documentId)!);
+    if (parts[2] === 'versions' && parts[4] === 'render')
+      return reply(doneJob('version-render', reference));
+    if (parts[2] === 'versions')
+      return reply({
+        items: versionList(documentId),
+        total: 2,
+        offset: 0,
+        nextOffset: null,
+      });
+    if (parts[2] === 'locate') {
       points.push(payload);
       const staffIndex = payload.y > 40 ? 1 : 0;
       if (payload.x < 10 || payload.x > 80 || payload.y < 20 || payload.y > 60)
@@ -194,32 +238,26 @@ export async function mockScoreRuntime(
         },
       });
     }
-    if (path.endsWith('/selection')) {
+    if (parts[2] === 'selection') {
       if (rejectSelection)
         return reply({ error: { code: 'stale-selection', message: 'source changed' } }, 409);
       selections.set(documentId, payload.locators.length ? payload : null);
       seq++;
       return reply(contextFor(documentId));
     }
-    if (path.endsWith('/edits') || path.endsWith('/restore')) {
-      mutations.push(payload);
-      return reply(
-        {
-          error: {
-            code: conflict ? 'edit-busy' : 'dirty-workspace',
-            message: conflict ? '另一任务正在编辑' : '工作区存在未提交修改',
-          },
-        },
-        409,
-      );
+    if (parts[2] === 'restore') {
+      restores.push(payload);
+      seq++;
+      return reply(doneJob('restore', null));
     }
     return reply({ error: { code: 'not-found', message: path } }, 404);
   });
   return {
     points,
-    mutations,
+    restores,
+    outputs,
+    reveals,
     selections,
-    docs,
     states,
     disconnect: (value: boolean) => {
       loseEvents = value;
@@ -227,26 +265,9 @@ export async function mockScoreRuntime(
     stale: () => {
       rejectSelection = true;
     },
-    conflict: () => {
-      conflict = true;
-    },
     change: () => {
       states[0]!.sourceHash = newer;
       states[0]!.dirty = true;
-      docs[0]!.sourceHash = newer;
-      docs[0]!.dirty = true;
-      states[0]!.lastCheck = {
-        jobId: 'check',
-        documentId: firstId,
-        kind: 'check',
-        state: 'error',
-        sourceHash: newer,
-        phase: 'finished',
-        result: {
-          diagnostics: [{ message: 'synthetic syntax error', position: { line: 4, column: 2 } }],
-        },
-        error: { code: 'compile-failed', message: '排版失败' },
-      };
       selections.clear();
       seq++;
     },

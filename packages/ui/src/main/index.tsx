@@ -5,6 +5,8 @@ import { Bot, Info, Settings, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { ToastRegion, useToasts } from '../components/Toast.tsx';
+import type { ToastKind } from '../components/Toast.tsx';
 import { describe } from '../errors.ts';
 import type {
   AgentIntegration,
@@ -27,8 +29,6 @@ import { AgentsPage } from './AgentsPage.tsx';
 import mark from './assets/ossia-mark.svg';
 import { ServiceDialog } from './ServiceDialog.tsx';
 import { SettingsPage } from './SettingsPage.tsx';
-import { ToastRegion, useToasts } from './Toast.tsx';
-import type { ToastKind } from './Toast.tsx';
 import { platformName } from './types.ts';
 import type { Page } from './types.ts';
 import { NavItem, formatBytes } from './ui.tsx';

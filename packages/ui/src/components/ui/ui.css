@@ -1,0 +1,127 @@
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ui-button-md {
+  min-block-size: 2.25rem;
+  padding: 0.35rem 0.7rem;
+}
+.ui-button-sm {
+  min-block-size: 1.95rem;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.88rem;
+}
+.ui-button-icon {
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  padding: 0;
+}
+.ui-button:hover:not(:disabled),
+.ui-button[data-state='open'] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper));
+}
+.ui-button[data-variant='ghost'] {
+  border-color: transparent;
+  background: transparent;
+}
+.ui-button[data-variant='ghost']:hover:not(:disabled),
+.ui-button[data-variant='ghost'][data-state='open'] {
+  border-color: var(--rule);
+  background: color-mix(in srgb, var(--ink) 6%, var(--paper));
+}
+.ui-button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, var(--paper));
+}
+.ui-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ui-menu-content {
+  z-index: 50;
+  min-inline-size: 12rem;
+  max-inline-size: min(24rem, calc(100vw - 1.5rem));
+  max-block-size: min(70dvh, 32rem);
+  overflow: auto;
+  padding: 0.3rem;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 20%);
+}
+.ui-menu-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.45rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 7px;
+  outline: none;
+  cursor: pointer;
+  user-select: none;
+}
+.ui-menu-item[data-highlighted] {
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper));
+}
+.ui-menu-item[data-disabled] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.ui-menu-radio-item {
+  padding-inline-start: 0.6rem;
+}
+.ui-menu-indicator {
+  display: grid;
+  place-items: center;
+  inline-size: 1rem;
+  block-size: 1.4rem;
+  color: var(--accent);
+}
+.ui-menu-item-body {
+  min-inline-size: 0;
+}
+.ui-menu-item-title {
+  display: block;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.ui-menu-item-description {
+  display: -webkit-box;
+  margin-block-start: 0.12rem;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 0.77rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.ui-menu-label {
+  padding: 0.45rem 0.6rem 0.25rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.ui-menu-separator {
+  block-size: 1px;
+  margin: 0.25rem;
+  background: var(--rule);
+}
+.ui-menu-sub-arrow {
+  margin-inline-start: auto;
+}

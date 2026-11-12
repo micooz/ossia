@@ -14,7 +14,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'pnpm dev',
-    url: 'http://127.0.0.1:5173/score.html',
+    url: 'http://127.0.0.1:5173/scores',
     reuseExistingServer: !process.env.CI,
   },
   projects: [

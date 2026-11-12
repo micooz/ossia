@@ -105,7 +105,7 @@ pub fn tools() -> Vec<Tool> {
         ),
         read_tool::<OpenArgs>(
             "ossia_open",
-            "Return the direct browser URL for one document and its initial compact context. Opens the score chooser when documentId is omitted. Returns AgentOpenOutcome.",
+            "Return the direct browser URL for one document and its initial compact context. Returns the landing page when documentId is omitted. Returns AgentOpenOutcome.",
         ),
         read_tool::<ContextArgs>(
             "ossia_context",

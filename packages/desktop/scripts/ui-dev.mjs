@@ -22,7 +22,7 @@ if (args[0] === 'build') {
   execFileSync(vite, ['build'], { cwd: UI, stdio: 'inherit', shell: windows });
 } else {
   if (
-    !fs.existsSync(path.join(UI, 'dist/score.html')) ||
+    !fs.existsSync(path.join(UI, 'dist/scores.html')) ||
     !fs.existsSync(path.join(UI, 'dist/main.html'))
   ) {
     process.stderr.write('SPA dist missing -> building it once for tauri-codegen\n');

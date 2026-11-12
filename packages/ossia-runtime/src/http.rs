@@ -13,6 +13,7 @@ use axum::{
 };
 use serde_json::{json, Value};
 use std::{convert::Infallible, path::PathBuf, sync::Arc, time::Duration};
+use tower_http::services::ServeFile;
 
 #[derive(Clone)]
 pub struct WebState {
@@ -68,7 +69,9 @@ pub fn router(
         .route("/api/v1/{*path}", any(api))
         .layer(DefaultBodyLimit::max(33 * 1024 * 1024));
     if let Some(path) = static_dir {
-        app = app.fallback_service(tower_http::services::ServeDir::new(path));
+        app = app
+            .route_service("/scores", ServeFile::new(path.join("scores.html")))
+            .fallback_service(tower_http::services::ServeDir::new(path));
     }
     app.layer(middleware::from_fn_with_state(state.clone(), boundary))
         .with_state(state)
@@ -266,6 +269,23 @@ async fn api(
             bytes,
         )
             .into_response());
+    }
+    if parts.len() == 3 && parts[0] == "jobs" && parts[2] == "output" && method == "GET" {
+        let (outcome, bytes) = state.runtime.export_bytes(id(parts[1])?)?;
+        let mut response = bytes.into_response();
+        response.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_str(&outcome.media_type)
+                .map_err(|_| storage("invalid output media type"))?,
+        );
+        response.headers_mut().insert(
+            header::CONTENT_DISPOSITION,
+            HeaderValue::from_static("attachment"),
+        );
+        response
+            .headers_mut()
+            .insert(header::CACHE_CONTROL, HeaderValue::from_static("private, no-store"));
+        return Ok(response);
     }
     let runtime = state.runtime.clone();
     let query = request.uri().query().unwrap_or("").to_owned();

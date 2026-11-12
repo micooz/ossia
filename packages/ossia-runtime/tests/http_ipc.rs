@@ -125,8 +125,9 @@ async fn http_document_routes_support_localhost_without_tokens_or_views() {
     let document = imported.document.unwrap();
     assert_eq!(
         runtime.open_url(Some(document.document_id)).unwrap(),
-        format!("{base}/score.html?documentId={}", document.document_id)
+        format!("{base}/scores?documentId={}", document.document_id)
     );
+    assert_eq!(runtime.open_url(None).unwrap(), format!("{base}/"));
     let context: DocumentContext = client
         .get(format!("{api}/documents/{}/context", document.document_id))
         .send()
@@ -270,6 +271,7 @@ async fn http_document_routes_support_localhost_without_tokens_or_views() {
         .await
         .unwrap();
     assert_eq!(version.seq, 2);
+    let output_path = root.path().join("http-export.ly");
     let exported = client
         .post(format!("{api}/outputs"))
         .json(&OutputArgs {
@@ -279,12 +281,7 @@ async fn http_document_routes_support_localhost_without_tokens_or_views() {
             format: OutputFormat::Ly,
             page: None,
             width: None,
-            output_path: Some(
-                root.path()
-                    .join("http-export.ly")
-                    .to_string_lossy()
-                    .into_owned(),
-            ),
+            output_path: Some(output_path.to_string_lossy().into_owned()),
             wait_ms: None,
         })
         .send()
@@ -295,6 +292,36 @@ async fn http_document_routes_support_localhost_without_tokens_or_views() {
     assert_eq!(
         wait_job(&runtime, exported.job_id).await.state,
         JobState::Done
+    );
+    let downloaded = client
+        .get(format!("{api}/jobs/{}/output", exported.job_id))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(downloaded.status(), 200);
+    assert!(downloaded.headers()["content-type"]
+        .to_str()
+        .unwrap()
+        .starts_with("text/plain"));
+    assert_eq!(downloaded.bytes().await.unwrap().as_ref(), changed);
+    assert_eq!(
+        client
+            .get(format!("{api}/jobs/{}/output", job.job_id))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        400
+    );
+    std::fs::write(&output_path, b"tampered").unwrap();
+    assert_eq!(
+        client
+            .get(format!("{api}/jobs/{}/output", exported.job_id))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        500
     );
     let restored = client
         .post(format!("{api}/documents/{}/restore", document.document_id))
@@ -344,6 +371,46 @@ async fn http_document_routes_support_localhost_without_tokens_or_views() {
             .unwrap()
             .status(),
         400
+    );
+    runtime.stop().unwrap();
+    scheduler.await.unwrap();
+    server.abort();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn scores_route_serves_the_spa_and_old_score_route_is_absent() {
+    let root = tempfile::tempdir().unwrap();
+    let web = tempfile::tempdir().unwrap();
+    std::fs::write(
+        web.path().join("scores.html"),
+        "<!doctype html><title>scores-entry</title>",
+    )
+    .unwrap();
+    let library = Library::open(root.path()).unwrap();
+    let engine = Arc::new(Engine::default());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let base = format!("http://localhost:{port}");
+    let runtime = Runtime::new(library, engine, base.clone());
+    let scheduler = tokio::spawn(runtime.clone().schedule());
+    let app = http::router(runtime.clone(), Some(web.path().to_owned()), None);
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let client = reqwest::Client::new();
+    let scores = client
+        .get(format!("{base}/scores?documentId=missing"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(scores.status(), 200);
+    assert!(scores.text().await.unwrap().contains("scores-entry"));
+    assert_eq!(
+        client
+            .get(format!("{base}/score.html"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
     );
     runtime.stop().unwrap();
     scheduler.await.unwrap();

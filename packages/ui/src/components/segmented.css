@@ -1,0 +1,38 @@
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--page);
+}
+
+.segment-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 52px;
+  min-block-size: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-soft, var(--muted));
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.segment-button:hover:not(:disabled) {
+  color: var(--ink, var(--text));
+}
+
+.segment-button[aria-pressed='true'] {
+  border-color: var(--rule, var(--line));
+  background: var(--paper, var(--surface));
+  box-shadow: var(--shadow);
+  color: var(--ink, var(--text));
+}
+
+.segmented.is-compact .segment-button {
+  min-inline-size: 30px;
+  padding: 0 6px;
+}

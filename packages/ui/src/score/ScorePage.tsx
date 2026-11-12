@@ -1,6 +1,7 @@
-import { GitCompare, Music2, Trash2 } from 'lucide-react';
+import { Circle, Music2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
+import { ToastRegion, useToasts } from '../components/Toast.tsx';
 import { describe } from '../errors.ts';
 import type {
   DocumentContext,
@@ -18,13 +19,13 @@ import {
   translate,
   useI18n,
 } from '../i18n.tsx';
-import { delay, locatorKey, makeApi } from './api.ts';
+import { ApiError, delay, locatorKey, makeApi } from './api.ts';
 import { CompareView, VersionScore } from './components/CompareView.tsx';
-import { DocumentDetails } from './components/DocumentDetails.tsx';
-import { HistoryPanel } from './components/HistoryPanel.tsx';
-import { ImportPanel } from './components/ImportPanel.tsx';
+import { ScoreNotFound } from './components/ScoreNotFound.tsx';
+import { ScoreToolbar } from './components/ScoreToolbar.tsx';
+import type { ScoreLayout } from './components/ScoreToolbar.tsx';
 import { ScoreView } from './components/ScoreView.tsx';
-import { documentIdFromLocation, setDocumentIdInLocation } from './endpoint.ts';
+import { documentIdFromLocation } from './endpoint.ts';
 import { initialState, reducer } from './state.ts';
 
 export function ScorePage({ fallbackLanguage }: { fallbackLanguage: UiLanguage }) {
@@ -39,6 +40,8 @@ export function ScorePage({ fallbackLanguage }: { fallbackLanguage: UiLanguage }
   );
 }
 
+type RestoreConfirmation = { version: Version; document: DocumentState };
+
 function ScoreApp({
   language,
   onLanguage,
@@ -47,6 +50,7 @@ function ScoreApp({
   onLanguage: (language: UiLanguage) => void;
 }) {
   const { t } = useI18n();
+  const toast = useToasts();
   const languageRef = useRef(language);
   useEffect(() => {
     languageRef.current = language;
@@ -60,19 +64,21 @@ function ScoreApp({
   const [working, setWorking] = useState(false);
   const selecting = useRef(false);
   const [notice, setNotice] = useState('');
+  const [notFound, setNotFound] = useState(!documentIdRef.current);
   const [historyVersion, setHistoryVersion] = useState<string | null>(null);
-  const [comparing, setComparing] = useState(false);
-  const [confirm, setConfirm] = useState<{
-    target: Version | 'discard';
-    document: DocumentState;
-  } | null>(null);
+  const [compareVersion, setCompareVersion] = useState<string | null>(null);
+  const [layout, setLayout] = useState<ScoreLayout>('vertical');
+  const [zoom, setZoom] = useState(100);
+  const [leftZoom, setLeftZoom] = useState(100);
+  const [rightZoom, setRightZoom] = useState(100);
+  const [confirm, setConfirm] = useState<RestoreConfirmation | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const onError = useCallback(
     (error: unknown) => {
       if (lifetime.signal.aborted) return;
-      dispatch({ type: 'error', message: describe(error) });
+      toast.show(describe(error), 'error');
     },
-    [lifetime],
+    [lifetime, toast.show],
   );
   const applyContext = useCallback((context: DocumentContext) => {
     contextRef.current = context;
@@ -81,14 +87,19 @@ function ScoreApp({
   const refresh = useCallback(async () => {
     const generation = ++serial.current;
     const documentId = documentIdRef.current;
-    const [documents, status] = await Promise.all([api.documents(), api.status()]);
+    const status = await api.status();
     let context: DocumentContext | null = null;
     let contextError: unknown = null;
+    let missing = !documentId;
     if (documentId) {
       try {
         context = await api.context(documentId);
       } catch (error) {
-        contextError = error;
+        if (error instanceof ApiError && (error.status === 404 || error.code === 'not-found')) {
+          missing = true;
+        } else {
+          contextError = error;
+        }
       }
     }
     const versions = context ? await api.history(context.document.documentId) : [];
@@ -102,12 +113,13 @@ function ScoreApp({
       setNotice(translate(languageRef.current, 'sourceChanged'));
     }
     contextRef.current = context;
-    dispatch({ type: 'sync', context, documents, status, versions });
+    setNotFound(missing);
+    dispatch({ type: 'sync', context, versions, status });
     if (contextError) {
-      dispatch({ type: 'error', message: describe(contextError) });
+      toast.show(describe(contextError), 'error');
     }
     return { context, status };
-  }, [api, lifetime, onLanguage]);
+  }, [api, lifetime, onLanguage, toast.show]);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let refreshing = false;
@@ -124,8 +136,8 @@ function ScoreApp({
               again = false;
               await refresh();
             } while (again && !lifetime.signal.aborted);
-          } catch (e) {
-            onError(e);
+          } catch (error) {
+            onError(error);
           } finally {
             refreshing = false;
           }
@@ -154,8 +166,8 @@ function ScoreApp({
           });
           if (!lifetime.signal.aborted)
             dispatch({ type: 'connection', connection: 'reconnecting' });
-        } catch (e) {
-          onError(e);
+        } catch (error) {
+          onError(error);
           if (!lifetime.signal.aborted)
             dispatch({ type: 'connection', connection: 'reconnecting' });
         }
@@ -171,33 +183,33 @@ function ScoreApp({
   const documentId = doc?.documentId;
   useEffect(() => {
     setHistoryVersion(null);
-    setComparing(false);
+    setCompareVersion(null);
     setConfirm(null);
     setNotice('');
   }, [documentId]);
   useEffect(() => {
+    document.title = notFound ? t('scoreNotFoundDocumentTitle') : (doc?.title ?? t('appName'));
+  }, [doc?.title, language, notFound, t]);
+  useEffect(() => {
     if (confirm) dialog.current?.showModal();
     else dialog.current?.close();
   }, [confirm]);
+  useEffect(() => {
+    if (!notice) return;
+    toast.show(notice, 'info');
+    setNotice('');
+  }, [notice, toast.show]);
   async function operate(action: () => Promise<unknown>) {
     setWorking(true);
-    dispatch({ type: 'error', message: null });
     try {
       await action();
       await refresh();
-    } catch (e) {
-      onError(e);
+    } catch (error) {
+      onError(error);
       await refresh().catch(onError);
     } finally {
       setWorking(false);
     }
-  }
-  async function openDocument(id: string) {
-    ++serial.current;
-    documentIdRef.current = id || null;
-    setDocumentIdInLocation(id || null);
-    setNotice('');
-    await operate(async () => {});
   }
   async function choose(locator?: Locator, point?: { page: number; x: number; y: number }) {
     const context = contextRef.current;
@@ -228,8 +240,8 @@ function ScoreApp({
       const key = chosen && locatorKey(chosen);
       const locators = !chosen
         ? []
-        : selected.some((l) => locatorKey(l) === key)
-          ? selected.filter((l) => locatorKey(l) !== key)
+        : selected.some((locator) => locatorKey(locator) === key)
+          ? selected.filter((locator) => locatorKey(locator) !== key)
           : [...selected, chosen];
       const result = await api.selection(document.documentId, {
         documentId: document.documentId,
@@ -243,268 +255,188 @@ function ScoreApp({
         ++serial.current;
         applyContext(result);
       }
-    } catch (e) {
-      onError(e);
+    } catch (error) {
+      onError(error);
       await refresh().catch(onError);
     } finally {
       selecting.current = false;
     }
   }
-  function requestConfirmation(target: Version | 'discard') {
+  function requestRestore(version: Version) {
     const document = contextRef.current?.document;
-    if (document) setConfirm({ target, document });
+    if (document) setConfirm({ version, document });
   }
-  async function destructive() {
+  async function restore() {
     const pending = confirm;
     setConfirm(null);
     if (!pending) return;
-    const action = pending.target;
     const current = pending.document;
+    const version = pending.version;
     await operate(async () => {
-      if (action === 'discard') {
-        await api.edit({
-          action: 'discard',
-          documentId: current.documentId,
-          baseVersionId: current.headVersionId,
-          expectedSourceHash: current.sourceHash,
-          editId: null,
-          adoptWorkspace: false,
-          author: 'user',
-        });
-      } else {
-        const job = await api.restore(current.documentId, {
-          versionId: action.versionId,
-          baseVersionId: current.headVersionId,
-          expectedSourceHash: current.sourceHash,
-          author: 'user',
-          summary: t('restoreSummary', { version: action.seq }),
-          waitMs: null,
-        });
-        await api.waitJob(job);
-        setHistoryVersion(null);
-        setNotice(t('restoredVersion', { version: action.seq }));
-      }
+      const job = await api.restore(current.documentId, {
+        versionId: version.versionId,
+        baseVersionId: current.headVersionId,
+        expectedSourceHash: current.sourceHash,
+        author: 'user',
+        summary: t('restoreSummary', { version: version.seq }),
+        waitMs: null,
+      });
+      await api.waitJob(job);
+      setHistoryVersion(null);
+      setCompareVersion(null);
+      setNotice(t('restoredVersion', { version: version.seq }));
     });
   }
   const render = state.context?.render;
   const stale = !!doc && !!render && doc.sourceHash !== render.manifest.sourceHash;
   const jobs =
     state.status?.jobs.filter(
-      (j) => j.documentId === documentId && ['queued', 'running'].includes(j.state),
+      (job) => job.documentId === documentId && ['queued', 'running'].includes(job.state),
     ) ?? [];
   const selected = state.context?.selection?.locators ?? [];
   const connected = state.connection === 'connected';
+  const exportVersionId = historyVersion ?? doc?.headVersionId ?? null;
+  const documentHint = doc
+    ? [
+        doc.dirty ? t('dirtyWorkspace') : t('cleanWorkspace'),
+        state.context?.editActivity
+          ? t('editor', { author: state.context.editActivity.author })
+          : null,
+        doc.editState === 'active' ? t('editOccupied') : null,
+        ['interrupted', 'recovery-conflict'].includes(doc.editState) ? t('recoveryNeeded') : null,
+        stale ? t('staleRender') : null,
+        jobs.length
+          ? t('processing', {
+              jobs: jobs
+                .map(
+                  (job) =>
+                    `${t(jobKindKey(job.kind))} · ${t(phaseKey(job.phase))} (${t(
+                      jobStateKey(job.state),
+                    )})`,
+                )
+                .join(language === 'zh-CN' ? '；' : '; '),
+            })
+          : null,
+      ]
+        .filter(Boolean)
+        .join(language === 'zh-CN' ? '；' : ' · ')
+    : '';
   return (
-    <main className="app">
-      <header className="bar">
-        <h1>
+    <main className="app score-app">
+      <header className="bar score-topbar">
+        <h1 className="topbar-brand">
           <Music2 aria-hidden="true" size={20} /> {t('appName')}
         </h1>
-        <label className="document-switch">
-          {t('score')}{' '}
-          <select
-            aria-label={t('currentScore')}
-            value={documentId ?? ''}
-            disabled={!connected || working}
-            onChange={(e) => void openDocument(e.target.value)}
-          >
-            <option value="" disabled>
-              {t('chooseScore')}
-            </option>
-            {state.documents.map((d) => (
-              <option key={d.documentId} value={d.documentId}>
-                {d.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="connection" role="status">
-          {connected
-            ? t('connected')
-            : state.connection === 'connecting'
-              ? t('connecting')
-              : t('reconnecting')}
+        <span className="topbar-title" title={notFound ? undefined : doc?.title}>
+          {notFound ? t('scoreNotFoundTitle') : (doc?.title ?? '')}
         </span>
-      </header>
-      {state.error && (
-        <div className="message error" role="alert">
-          {state.error}
-          <button type="button" onClick={() => dispatch({ type: 'error', message: null })}>
-            {t('dismissNotice')}
-          </button>
-        </div>
-      )}
-      {notice && (
-        <p className="message" role="status">
-          {notice}
-        </p>
-      )}
-      <div className="workspace">
-        <aside className="library-column">
-          <ImportPanel api={api} onImported={(id) => void openDocument(id)} onError={onError} />
-          {doc && (
-            <HistoryPanel
+        <div className="topbar-right">
+          <span
+            className={`connection connection-${state.connection}`}
+            role="status"
+            data-state={state.connection}
+          >
+            <Circle className="connection-light" aria-hidden="true" size={9} fill="currentColor" />
+            <span className="connection-label">
+              {connected
+                ? t('connected')
+                : state.connection === 'connecting'
+                  ? t('connecting')
+                  : t('reconnecting')}
+            </span>
+          </span>
+          {doc && !notFound && (
+            <ScoreToolbar
+              api={api}
               versions={state.versions}
-              head={doc.headVersionId}
-              selected={historyVersion}
-              busy={working || !connected}
-              onSelect={(id) => {
-                setHistoryVersion(id);
-                setComparing(false);
+              viewingVersionId={historyVersion}
+              onViewVersion={(versionId) => {
+                setHistoryVersion(versionId);
+                setCompareVersion(null);
+                setNotice('');
               }}
-              onRestore={requestConfirmation}
+              compareVersionId={compareVersion}
+              onCompare={setCompareVersion}
+              documentTitle={doc.title}
+              currentRender={render ?? null}
+              documentHint={documentHint}
+              exportVersionId={exportVersionId}
+              exportDisabled={!!compareVersion}
+              onRestore={compareVersion ? undefined : requestRestore}
             />
           )}
-        </aside>
-        <div className="score-column">
-          {!doc ? (
-            <section className="panel empty">
-              <h2>{connected ? t('chooseOrImport') : t('connectingLibrary')}</h2>
-              <p>{t('emptyWorkspace')}</p>
-            </section>
+        </div>
+      </header>
+      {notFound ? (
+        <ScoreNotFound />
+      ) : doc ? (
+        <div className="score-workspace">
+          {compareVersion ? (
+            <CompareView
+              api={api}
+              documentId={doc.documentId}
+              versions={state.versions}
+              leftVersionId={historyVersion}
+              rightVersionId={compareVersion}
+              currentRender={render ?? null}
+              layout={layout}
+              onLayoutChange={setLayout}
+              leftZoom={leftZoom}
+              onLeftZoom={setLeftZoom}
+              rightZoom={rightZoom}
+              onRightZoom={setRightZoom}
+              selected={selected}
+              selectable={connected && !stale && !working && !historyVersion}
+              onPoint={(page, x, y) => void choose(undefined, { page, x, y })}
+            />
+          ) : historyVersion ? (
+            <VersionScore
+              api={api}
+              documentId={doc.documentId}
+              versionId={historyVersion}
+              layout={layout}
+              onLayoutChange={setLayout}
+              zoom={zoom}
+              onZoomChange={setZoom}
+            />
+          ) : render ? (
+            <ScoreView
+              api={api}
+              render={render}
+              layout={layout}
+              onLayoutChange={setLayout}
+              zoom={zoom}
+              onZoomChange={setZoom}
+              selected={selected}
+              selectable={connected && !stale && !working}
+              onPoint={(page, x, y) => void choose(undefined, { page, x, y })}
+            />
           ) : (
-            <>
-              <section className="panel document-status">
-                <h2>{doc.title}</h2>
-                <div className="row">
-                  <span className={doc.dirty ? 'warn' : 'hint'}>
-                    {doc.dirty ? t('dirtyWorkspace') : t('cleanWorkspace')}
-                  </span>
-                  {state.context?.editActivity && (
-                    <span>{t('editor', { author: state.context.editActivity.author })}</span>
-                  )}
-                  {doc.editState === 'active' && <span>{t('editOccupied')}</span>}
-                  {['interrupted', 'recovery-conflict'].includes(doc.editState) && (
-                    <span className="warn">{t('recoveryNeeded')}</span>
-                  )}
-                </div>
-                {jobs.length > 0 && (
-                  <p role="status">
-                    {t('processing', {
-                      jobs: jobs
-                        .map(
-                          (j) =>
-                            `${t(jobKindKey(j.kind))} · ${t(phaseKey(j.phase))} (${t(
-                              jobStateKey(j.state),
-                            )})`,
-                        )
-                        .join(language === 'zh-CN' ? '；' : '; '),
-                    })}
-                    <span className="hash"> · {doc.sourceHash.slice(0, 12)}</span>
-                  </p>
-                )}
-                <p className="hint hash">
-                  {t('source')} {doc.sourceHash.slice(0, 12)}
-                  {render ? ` · ${t('render')} ${render.manifest.sourceHash.slice(0, 12)}` : ''}
-                </p>
-                <div className="row">
-                  <button
-                    type="button"
-                    aria-pressed={!historyVersion && !comparing}
-                    onClick={() => {
-                      setHistoryVersion(null);
-                      setComparing(false);
-                    }}
-                  >
-                    <Music2 aria-hidden="true" size={15} /> {t('workspaceScore')}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={state.versions.length < 2}
-                    aria-pressed={comparing}
-                    onClick={() => {
-                      setComparing(!comparing);
-                      setHistoryVersion(null);
-                    }}
-                  >
-                    <GitCompare aria-hidden="true" size={15} /> {t('compareVersions')}
-                  </button>
-                  {doc.dirty && (
-                    <button
-                      type="button"
-                      disabled={!connected || working}
-                      onClick={() => requestConfirmation('discard')}
-                    >
-                      <Trash2 aria-hidden="true" size={15} /> {t('discardChanges')}
-                    </button>
-                  )}
-                </div>
-              </section>
-              {comparing ? (
-                <CompareView
-                  key={doc.documentId}
-                  api={api}
-                  documentId={doc.documentId}
-                  versions={state.versions}
-                />
-              ) : historyVersion ? (
-                <>
-                  <p className="message">
-                    {t('browsingVersion', {
-                      version:
-                        state.versions.find((v) => v.versionId === historyVersion)?.seq ?? '',
-                    })}
-                  </p>
-                  <VersionScore api={api} documentId={doc.documentId} versionId={historyVersion} />
-                </>
-              ) : (
-                <>
-                  {stale && (
-                    <p className="message warn" role="status">
-                      {t('staleRender')}
-                    </p>
-                  )}
-                  {render ? (
-                    <ScoreView
-                      api={api}
-                      render={render}
-                      selected={selected}
-                      selectable={connected && !stale && !working}
-                      onPoint={(page, x, y) => void choose(undefined, { page, x, y })}
-                      onToggle={(l) => void choose(l)}
-                    />
-                  ) : (
-                    <section className="panel empty">
-                      <h2>{t('noRenderTitle')}</h2>
-                      <p>{t('noRenderBody')}</p>
-                    </section>
-                  )}
-                </>
-              )}
-            </>
+            <section className="empty">
+              <h2>{t('noRenderTitle')}</h2>
+              <p>{t('noRenderBody')}</p>
+            </section>
           )}
         </div>
-        {doc && (
-          <DocumentDetails
-            api={api}
-            doc={doc}
-            render={render}
-            versions={state.versions}
-            selected={selected}
-            stale={stale}
-            connected={connected}
-            onClear={() => void choose()}
-            onError={onError}
-          />
-        )}
-      </div>
+      ) : (
+        <div className="score-workspace">
+          <p className="score-loading">{connected ? t('loadingScore') : t('connectingLibrary')}</p>
+        </div>
+      )}
       <dialog ref={dialog} onCancel={() => setConfirm(null)} aria-labelledby="confirm-title">
-        <h2 id="confirm-title">
-          {confirm?.target === 'discard'
-            ? t('discardTitle')
-            : t('restoreTitle', { version: confirm?.target.seq ?? '' })}
-        </h2>
-        <p>{confirm?.target === 'discard' ? t('discardBody') : t('restoreBody')}</p>
+        <h2 id="confirm-title">{t('restoreTitle', { version: confirm?.version.seq ?? '' })}</h2>
+        <p>{t('restoreBody')}</p>
         <div className="row">
           <button type="button" autoFocus onClick={() => setConfirm(null)}>
             {t('cancel')}
           </button>
-          <button type="button" onClick={() => void destructive()}>
+          <button type="button" onClick={() => void restore()}>
             {t('confirm')}
-            {confirm?.target === 'discard' ? t('confirmDiscard') : t('confirmRestore')}
+            {t('confirmRestore')}
           </button>
         </div>
       </dialog>
+      <ToastRegion toasts={toast.toasts} onDismiss={toast.dismiss} />
     </main>
   );
 }

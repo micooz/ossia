@@ -142,7 +142,7 @@ snapshots and commit authorization, and use a check to verify the actual result.
    version. Pass `waitMs` to wait for completion, or poll
    `ossia_job`. The top-level import outcome also reports `verification`.
 3. Call `ossia_open` with the selected `documentId`. The result is a stable
-   `score.html?documentId=…` URL plus the initial compact context. Open it in an
+   `scores?documentId=…` URL plus the initial compact context. Open it in an
    in-app browser when available; otherwise launch the system browser (`open
    <url>` on macOS, `xdg-open <url>` on Linux, or `Start-Process <url>` on
    Windows). The URL contains no credential and can be reused after restarts.

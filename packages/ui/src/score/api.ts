@@ -103,6 +103,7 @@ export function makeApi(language: () => UiLanguage, signal?: AbortSignal) {
     restore: (documentId: string, args: RestoreArgs) =>
       post<Job>(`/documents/${documentId}/restore`, args),
     output: (args: OutputArgs) => post<Job>('/outputs', args),
+    outputFile: async (jobId: string) => (await request(`/jobs/${jobId}/output`)).blob(),
     reveal: (id: string) => post<{ opened: boolean }>(`/jobs/${id}/reveal`),
     job: (id: string) => json<JobOutcome>(`/jobs/${id}`),
     cancel: (id: string) => post<JobOutcome>(`/jobs/${id}/cancel`),

@@ -605,7 +605,7 @@ export async function packageTarget(target, options = {}) {
   verifyTree(engine, lock, target === hostTarget() && process.platform !== 'win32');
   if (
     !fs.existsSync(path.join(ROOT, 'packages/ui/dist/main.html')) ||
-    !fs.existsSync(path.join(ROOT, 'packages/ui/dist/score.html'))
+    !fs.existsSync(path.join(ROOT, 'packages/ui/dist/scores.html'))
   )
     buildUI();
   const stage = path.join(ROOT, 'target/package', target);

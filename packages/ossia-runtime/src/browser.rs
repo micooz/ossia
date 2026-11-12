@@ -190,13 +190,23 @@ impl Runtime {
 
     /// Resolve a recorded output, never a caller-supplied filesystem path.
     pub fn export_location(&self, job: JobId) -> Result<PathBuf> {
+        self.verified_export(job).map(|(path, _, _)| path)
+    }
+
+    /// Read a recorded output after verifying its path, size and content hash.
+    pub fn export_bytes(&self, job: JobId) -> Result<(OutputOutcome, Vec<u8>)> {
+        self.verified_export(job)
+            .map(|(_, outcome, bytes)| (outcome, bytes))
+    }
+
+    fn verified_export(&self, job: JobId) -> Result<(PathBuf, OutputOutcome, Vec<u8>)> {
         let job = self.library.get_job(job)?;
         if job.kind != "output" || job.state != JobState::Done {
-            return Err(invalid("only completed outputs have an openable location"));
+            return Err(invalid("only completed outputs can be downloaded or opened"));
         }
         let outcome: OutputOutcome =
             decode(job.result.ok_or_else(|| storage("output result missing"))?)?;
-        let path = PathBuf::from(outcome.path);
+        let path = PathBuf::from(&outcome.path);
         let meta = std::fs::symlink_metadata(&path).map_err(storage)?;
         if !path.is_absolute() || !meta.is_file() || meta.file_type().is_symlink() {
             return Err(storage("output is no longer a regular file"));
@@ -205,7 +215,7 @@ impl Runtime {
         if bytes.len() as u64 != outcome.bytes || ContentHash::of(&bytes) != outcome.sha256 {
             return Err(storage("output changed since it was saved"));
         }
-        Ok(path)
+        Ok((path, outcome, bytes))
     }
 
     pub fn reveal_export(&self, job: JobId) -> Result<()> {

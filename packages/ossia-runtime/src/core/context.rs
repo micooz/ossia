@@ -8,8 +8,8 @@ impl Runtime {
             self.library.get_document(id)?;
         }
         Ok(match document {
-            Some(id) => format!("{}/score.html?documentId={id}", self.info.web_base_url),
-            None => format!("{}/score.html", self.info.web_base_url),
+            Some(id) => format!("{}/scores?documentId={id}", self.info.web_base_url),
+            None => format!("{}/", self.info.web_base_url),
         })
     }
 

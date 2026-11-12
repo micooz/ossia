@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '../i18n.tsx';
 
+import './toast.css';
+
 export type ToastKind = 'error' | 'success' | 'warning' | 'info';
 
 type ToastItem = {
