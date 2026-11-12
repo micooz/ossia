@@ -166,9 +166,27 @@ impl Library {
         if page == 0
             || (request.page.is_some() && !paged)
             || (request.width.is_some() && request.format != OutputFormat::Png)
+            || (request.pdf_password.is_some() && request.format != OutputFormat::Pdf)
+            || ((request.png_quality.is_some() || request.png_transparent.is_some())
+                && request.format != OutputFormat::Png)
         {
             return Err(AppError::invalid(
-                "page/width are valid only for SVG/PNG output",
+                "output options do not match the selected format",
+            ));
+        }
+        if request
+            .png_quality
+            .is_some_and(|quality| !(1..=100).contains(&quality))
+        {
+            return Err(AppError::invalid("PNG quality must be 1..100"));
+        }
+        if request
+            .pdf_password
+            .as_ref()
+            .is_some_and(|password| password.is_empty() || password.chars().count() > 128)
+        {
+            return Err(AppError::invalid(
+                "PDF password must contain 1..128 characters",
             ));
         }
         let (snapshot, engine_build_id, checked) = match &request.source {
@@ -218,9 +236,11 @@ impl Library {
                     .find(|page_asset| page_asset.page == page)
                     .ok_or_else(not_found)?;
                 let svg = self.read_artifact(&asset.artifact)?;
-                let raster = engine.rasterize_svg(
+                let raster = engine.rasterize_svg_with_options(
                     &svg,
                     request.width.unwrap_or(1600),
+                    request.png_quality,
+                    request.png_transparent.unwrap_or(false),
                     &self.artifact_root()?,
                     context,
                 )?;
@@ -246,7 +266,16 @@ impl Library {
                         .map(|e| e.error.clone())
                         .unwrap_or_else(|| AppError::unsupported("requested output is unavailable"))
                 })?;
-                self.read_artifact(asset)?
+                let bytes = self.read_artifact(asset)?;
+                if request.format == OutputFormat::Pdf {
+                    if let Some(password) = request.pdf_password.as_deref() {
+                        ossia_engine::protect_pdf(&bytes, password)?
+                    } else {
+                        bytes
+                    }
+                } else {
+                    bytes
+                }
             }
         };
         let mut output = OpenOptions::new()

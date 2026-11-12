@@ -185,6 +185,9 @@ async fn output_and_render_keys_enforce_version_ownership_and_do_not_overwrite()
         format: OutputFormat::Ly,
         page: None,
         width: None,
+        pdf_password: None,
+        png_quality: None,
+        png_transparent: None,
         output_path: Some(target.to_string_lossy().into_owned()),
         wait_ms: None,
     };
@@ -219,6 +222,9 @@ async fn job_outputs_use_the_captured_snapshot_and_validate_pages() {
             format: OutputFormat::Svg,
             page: None,
             width: None,
+            pdf_password: None,
+            png_quality: None,
+            png_transparent: None,
             output_path: Some(svg_path.to_string_lossy().into_owned()),
             wait_ms: None,
         })
@@ -234,6 +240,9 @@ async fn job_outputs_use_the_captured_snapshot_and_validate_pages() {
             format: OutputFormat::Ly,
             page: None,
             width: None,
+            pdf_password: None,
+            png_quality: None,
+            png_transparent: None,
             output_path: Some(ly_path.to_string_lossy().into_owned()),
             wait_ms: None,
         })
@@ -249,6 +258,9 @@ async fn job_outputs_use_the_captured_snapshot_and_validate_pages() {
             format: OutputFormat::Svg,
             page: Some(2),
             width: None,
+            pdf_password: None,
+            png_quality: None,
+            png_transparent: None,
             output_path: Some(missing_page.to_string_lossy().into_owned()),
             wait_ms: None,
         })
@@ -320,6 +332,9 @@ async fn running_import_restore_output_cancellation_finishes_before_publishing()
             format: OutputFormat::Pdf,
             page: None,
             width: None,
+            pdf_password: None,
+            png_quality: None,
+            png_transparent: None,
             output_path: Some(path.to_string_lossy().into_owned()),
             wait_ms: None,
         })
@@ -354,6 +369,9 @@ async fn reveal_only_resolves_intact_completed_output_results() {
             format: OutputFormat::Ly,
             page: None,
             width: None,
+            pdf_password: None,
+            png_quality: None,
+            png_transparent: None,
             output_path: Some(target.to_string_lossy().into_owned()),
             wait_ms: None,
         })

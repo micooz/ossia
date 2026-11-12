@@ -282,9 +282,10 @@ async fn api(
             header::CONTENT_DISPOSITION,
             HeaderValue::from_static("attachment"),
         );
-        response
-            .headers_mut()
-            .insert(header::CACHE_CONTROL, HeaderValue::from_static("private, no-store"));
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("private, no-store"),
+        );
         return Ok(response);
     }
     let runtime = state.runtime.clone();

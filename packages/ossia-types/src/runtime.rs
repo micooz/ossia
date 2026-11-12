@@ -173,6 +173,7 @@ pub enum OutputFormat {
 }
 
 /// Write one output file from a completed job snapshot or an immutable version.
+/// PDF may use an open password; PNG may use lossy quality and transparency options.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct OutputArgs {
@@ -180,6 +181,9 @@ pub struct OutputArgs {
     pub format: OutputFormat,
     pub page: Option<u32>,
     pub width: Option<u32>,
+    pub pdf_password: Option<String>,
+    pub png_quality: Option<u8>,
+    pub png_transparent: Option<bool>,
     pub output_path: Option<String>,
     pub wait_ms: Option<u64>,
 }

@@ -1,6 +1,6 @@
 import { zipSync } from 'fflate';
 import { FileText, Image, Music2, Shapes, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { describe } from '../../errors.ts';
 import type { OutputFormat, RenderReference, Version } from '../../generated/protocol.ts';
@@ -59,9 +59,12 @@ export function ExportDialog({
   const { t } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
   const [format, setFormat] = useState<ExportFormat>('pdf');
+  const [pdfPassword, setPdfPassword] = useState('');
   const [width, setWidth] = useState(1600);
+  const [pngQuality, setPngQuality] = useState(90);
+  const [pngTransparent, setPngTransparent] = useState(false);
   const [fileName, setFileName] = useState('');
-  const [previewRender, setPreviewRender] = useState<RenderReference | null>(null);
+  const [versionRender, setVersionRender] = useState<RenderReference | null>(null);
   const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
@@ -70,19 +73,21 @@ export function ExportDialog({
   const versionId = viewingVersion?.versionId ?? null;
   const versionDocumentId = viewingVersion?.documentId ?? null;
   const versionSeq = viewingVersion?.seq ?? null;
-  const pages = useMemo(
-    () =>
-      previewRender
-        ? [...previewRender.manifest.pages].sort((left, right) => left.page - right.page)
-        : [],
-    [previewRender],
-  );
-  const pageCount = pages.length;
+  const previewRender = versionId ? versionRender : currentRender;
+  const pageNumbers = previewRender
+    ? [...previewRender.manifest.pages]
+        .sort((left, right) => left.page - right.page)
+        .map((p) => p.page)
+    : [];
+  const pageCount = pageNumbers.length;
+  const previewKey = previewRender?.renderKey ?? '';
+  const pageKey = pageNumbers.join(',');
   const validWidth = Number.isInteger(width) && width >= 1 && width <= 4096;
+  const validQuality = Number.isInteger(pngQuality) && pngQuality >= 1 && pngQuality <= 100;
   const canExport =
     !!exportVersionId &&
     fileName.trim().length > 0 &&
-    (format !== 'png' || validWidth) &&
+    (format !== 'png' || (validWidth && validQuality)) &&
     (!['png', 'svg'].includes(format) || pageCount > 0);
 
   useEffect(() => {
@@ -91,7 +96,10 @@ export function ExportDialog({
       return;
     }
     setFormat('pdf');
+    setPdfPassword('');
     setWidth(1600);
+    setPngQuality(90);
+    setPngTransparent(false);
     setFileName(defaultFileName(documentTitle, versionSeq));
     setExportError('');
     setExporting(false);
@@ -102,18 +110,18 @@ export function ExportDialog({
     if (!open) return;
     setPreviewError('');
     if (!versionId || !versionDocumentId) {
-      setPreviewRender(currentRender);
+      setVersionRender(null);
       setPreviewLoading(false);
       return;
     }
     let live = true;
-    setPreviewRender(null);
+    setVersionRender(null);
     setPreviewLoading(true);
     api
       .renderVersion(versionDocumentId, versionId)
       .then((job) => api.waitJob<RenderReference>(job))
       .then((render) => {
-        if (live) setPreviewRender(render);
+        if (live) setVersionRender(render);
       })
       .catch((reason) => {
         if (live) setPreviewError(describe(reason));
@@ -124,22 +132,17 @@ export function ExportDialog({
     return () => {
       live = false;
     };
-  }, [api, currentRender, open, versionDocumentId, versionId]);
+  }, [api, open, versionDocumentId, versionId]);
 
   useEffect(() => {
-    if (!open || format === 'midi' || !previewRender || !pages.length) {
-      setPreviewUrls({});
-      return;
-    }
+    if (!open || !previewKey || !pageKey) return;
     let live = true;
     const urls: string[] = [];
+    setPreviewUrls({});
     setPreviewLoading(true);
     setPreviewError('');
-    Promise.all(
-      pages.map(
-        async (page) => [page.page, await api.page(previewRender.renderKey, page.page)] as const,
-      ),
-    )
+    const targets = pageKey.split(',').map(Number);
+    Promise.all(targets.map(async (page) => [page, await api.page(previewKey, page)] as const))
       .then((loaded) => {
         if (!live) return;
         const next: Record<number, string> = {};
@@ -160,7 +163,7 @@ export function ExportDialog({
       live = false;
       urls.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [api, format, open, pages, previewRender]);
+  }, [api, open, pageKey, previewKey]);
 
   function chooseFormat(next: ExportFormat) {
     setFormat(next);
@@ -177,9 +180,7 @@ export function ExportDialog({
         .replace(/[\\/:*?"<>|]+/g, '-')
         .replace(/[. ]+$/g, '');
       const safeBase = base || 'score';
-      const pageTargets = ['png', 'svg'].includes(format)
-        ? pages.map((candidate) => candidate.page)
-        : [null];
+      const pageTargets = ['png', 'svg'].includes(format) ? pageNumbers : [null];
       const files: { page: number | null; blob: Blob }[] = [];
       for (const page of pageTargets) {
         const job = await api.output({
@@ -187,6 +188,9 @@ export function ExportDialog({
           format,
           page,
           width: format === 'png' ? width : null,
+          pdfPassword: format === 'pdf' && pdfPassword ? pdfPassword : null,
+          pngQuality: format === 'png' ? pngQuality : null,
+          pngTransparent: format === 'png' ? pngTransparent : null,
           outputPath: null,
           waitMs: null,
         });
@@ -262,19 +266,57 @@ export function ExportDialog({
               onChange={(event) => setFileName(event.target.value)}
             />
           </label>
-          {format === 'png' && (
-            <label className="export-field" htmlFor="export-width">
-              <span>{t('pixelWidth')}</span>
+          {format === 'pdf' && (
+            <label className="export-field" htmlFor="export-pdf-password">
+              <span>{t('pdfPassword')}</span>
               <input
-                id="export-width"
-                type="number"
-                min={1}
-                max={4096}
-                step={1}
-                value={width}
-                onChange={(event) => setWidth(Number(event.target.value))}
+                id="export-pdf-password"
+                type="password"
+                autoComplete="new-password"
+                value={pdfPassword}
+                placeholder={t('optional')}
+                onChange={(event) => setPdfPassword(event.target.value)}
               />
             </label>
+          )}
+          {format === 'png' && (
+            <>
+              <label className="export-field" htmlFor="export-width">
+                <span>{t('pixelWidth')}</span>
+                <input
+                  id="export-width"
+                  type="number"
+                  min={1}
+                  max={4096}
+                  step={1}
+                  value={width}
+                  onChange={(event) => setWidth(Number(event.target.value))}
+                />
+              </label>
+              <label className="export-field" htmlFor="export-quality">
+                <span>
+                  {t('pngQuality')} · {pngQuality}
+                </span>
+                <input
+                  id="export-quality"
+                  type="range"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={pngQuality}
+                  onChange={(event) => setPngQuality(Number(event.target.value))}
+                />
+              </label>
+              <label className="export-check" htmlFor="export-transparent">
+                <input
+                  id="export-transparent"
+                  type="checkbox"
+                  checked={pngTransparent}
+                  onChange={(event) => setPngTransparent(event.target.checked)}
+                />
+                <span>{t('pngTransparent')}</span>
+              </label>
+            </>
           )}
           {exportError && (
             <p className="error" role="alert">
@@ -293,12 +335,12 @@ export function ExportDialog({
                 </p>
               ) : Object.keys(previewUrls).length ? (
                 <div className="export-preview-pages">
-                  {pages.map((page) =>
-                    previewUrls[page.page] ? (
+                  {pageNumbers.map((page) =>
+                    previewUrls[page] ? (
                       <img
-                        key={page.page}
-                        src={previewUrls[page.page]}
-                        alt={t('scoreAlt', { page: page.page })}
+                        key={page}
+                        src={previewUrls[page]}
+                        alt={t('scoreAlt', { page })}
                         draggable={false}
                       />
                     ) : null,

@@ -1,4 +1,5 @@
 import { Columns3, Minus, Plus, Rows3 } from 'lucide-react';
+import { useState } from 'react';
 
 import { Segmented } from '../../components/segmented.tsx';
 import { Button } from '../../components/ui/button.tsx';
@@ -26,9 +27,13 @@ export function ScoreControls({
   onZoomChange: (zoom: number) => void;
 }) {
   const { t } = useI18n();
+  const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const clampZoom = (value: number) => Math.min(400, Math.max(25, Math.round(value)));
   return (
-    <div className="score-controls" aria-label={t('viewControls')}>
+    <div
+      className={`score-controls ${zoomMenuOpen ? 'is-menu-open' : ''}`}
+      aria-label={t('viewControls')}
+    >
       <Segmented
         compact
         ariaLabel={t('layoutLabel')}
@@ -61,7 +66,7 @@ export function ScoreControls({
         >
           <Minus aria-hidden="true" size={15} />
         </Button>
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={setZoomMenuOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               type="button"

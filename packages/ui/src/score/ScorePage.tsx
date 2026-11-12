@@ -331,20 +331,6 @@ function ScoreApp({
           {notFound ? t('scoreNotFoundTitle') : (doc?.title ?? '')}
         </span>
         <div className="topbar-right">
-          <span
-            className={`connection connection-${state.connection}`}
-            role="status"
-            data-state={state.connection}
-          >
-            <Circle className="connection-light" aria-hidden="true" size={9} fill="currentColor" />
-            <span className="connection-label">
-              {connected
-                ? t('connected')
-                : state.connection === 'connecting'
-                  ? t('connecting')
-                  : t('reconnecting')}
-            </span>
-          </span>
           {doc && !notFound && (
             <ScoreToolbar
               api={api}
@@ -365,6 +351,20 @@ function ScoreApp({
               onRestore={compareVersion ? undefined : requestRestore}
             />
           )}
+          <span
+            className={`connection connection-${state.connection}`}
+            role="status"
+            data-state={state.connection}
+          >
+            <Circle className="connection-light" aria-hidden="true" size={9} fill="currentColor" />
+            <span className="connection-label">
+              {connected
+                ? t('connected')
+                : state.connection === 'connecting'
+                  ? t('connecting')
+                  : t('reconnecting')}
+            </span>
+          </span>
         </div>
       </header>
       {notFound ? (

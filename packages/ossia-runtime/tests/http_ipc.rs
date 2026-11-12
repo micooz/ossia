@@ -281,6 +281,9 @@ async fn http_document_routes_support_localhost_without_tokens_or_views() {
             format: OutputFormat::Ly,
             page: None,
             width: None,
+            pdf_password: None,
+            png_quality: None,
+            png_transparent: None,
             output_path: Some(output_path.to_string_lossy().into_owned()),
             wait_ms: None,
         })

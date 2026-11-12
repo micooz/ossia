@@ -69,11 +69,13 @@ export function ScoreToolbar({
             <Button
               type="button"
               variant="ghost"
-              size="icon"
+              size="sm"
+              className="topbar-action"
               aria-label={t('versionMenu')}
               title={activeVersion ? `${t('version')} ${activeVersion.seq}` : t('currentScore')}
             >
               <History aria-hidden="true" size={17} />
+              {t('version')}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -103,7 +105,8 @@ export function ScoreToolbar({
             <Button
               type="button"
               variant="ghost"
-              size="icon"
+              size="sm"
+              className="topbar-action"
               aria-label={t('compareMenu')}
               aria-pressed={!!compareVersion}
               title={
@@ -113,6 +116,7 @@ export function ScoreToolbar({
               }
             >
               <GitCompareArrows aria-hidden="true" size={17} />
+              {t('compare')}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -159,13 +163,15 @@ export function ScoreToolbar({
         <Button
           type="button"
           variant="ghost"
-          size="icon"
+          size="sm"
+          className="topbar-action"
           aria-label={t('exportAction')}
           title={t('exportAction')}
           disabled={exportDisabled || !exportVersionId}
           onClick={() => setExportOpen(true)}
         >
           <Download aria-hidden="true" size={17} />
+          {t('exportAction')}
         </Button>
       </div>
       <ExportDialog

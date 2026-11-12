@@ -12,13 +12,13 @@ test('score page focuses on one document, all pages and its title', async ({ con
   await expect(page.locator('.topbar-right .score-actions')).toBeVisible();
   await expect(
     page.locator('.topbar-right').getByRole('button', { name: 'Version', exact: true }),
-  ).toBeVisible();
+  ).toHaveText('Version');
   await expect(
     page.locator('.topbar-right').getByRole('button', { name: 'Export', exact: true }),
-  ).toBeVisible();
+  ).toHaveText('Export');
   await expect(
     page.locator('.topbar-right').getByRole('button', { name: 'Compare version', exact: true }),
-  ).toBeVisible();
+  ).toHaveText('Compare');
   await expect(page.locator('.score-pages.vertical')).toHaveCount(1);
   await expect(page.locator('.import, .history, .diagnostics, .selection')).toHaveCount(0);
   await expect(page.locator('.document-status, .hash')).toHaveCount(0);
@@ -163,6 +163,7 @@ test('floating controls change zoom with buttons and a menu', async ({ context, 
   await page.getByRole('button', { name: '缩小' }).click();
   await expect(zoom).toHaveText('100%');
   await zoom.click();
+  await expect(page.locator('.score-controls')).toHaveCSS('opacity', '1');
   await page.getByRole('menuitemradio', { name: '200%' }).click();
   await expect(zoom).toHaveText('200%');
 });
@@ -213,6 +214,7 @@ test('version selection, restore order and export dialog use the viewed version'
   ]);
   await expect(dialog.locator('.export-preview-stage img')).toHaveCount(2);
   await expect(dialog.getByText('共 2 页')).toBeVisible();
+  await dialog.getByLabel('PDF 密码').fill('secret');
   const pdfDownload = page.waitForEvent('download');
   await dialog.getByRole('button', { name: '导出', exact: true }).click();
   expect((await pdfDownload).suggestedFilename()).toBe('合成钢琴练习 - v1.pdf');
@@ -221,6 +223,9 @@ test('version selection, restore order and export dialog use the viewed version'
     format: 'pdf',
     page: null,
     width: null,
+    pdfPassword: 'secret',
+    pngQuality: null,
+    pngTransparent: null,
     source: { kind: 'version', versionId: olderVersionId },
   });
   await expect(page.locator('.export-result')).toHaveCount(0);
@@ -230,8 +235,16 @@ test('version selection, restore order and export dialog use the viewed version'
   await expect(dialog.locator('.export-dialog-body.no-preview')).toHaveCount(1);
   await dialog.getByRole('button', { name: /PNG/ }).click();
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('有损压缩图')).toBeVisible();
+  await expect(dialog.getByText('无损矢量图')).toBeVisible();
   await dialog.getByLabel('文件名').fill('版本导出');
   await dialog.getByLabel('像素宽度').fill('2400');
+  const quality = dialog.getByLabel('图片质量');
+  await quality.focus();
+  await page.keyboard.press('Home');
+  for (let index = 1; index < 72; index++) await page.keyboard.press('ArrowRight');
+  await expect(quality).toHaveValue('72');
+  await dialog.getByLabel('透明背景').check();
   await expect(dialog.getByLabel('页码')).toHaveCount(0);
   await expect(dialog.locator('.export-preview-stage img')).toHaveCount(2);
   const pngDownload = page.waitForEvent('download');
@@ -242,12 +255,18 @@ test('version selection, restore order and export dialog use the viewed version'
     format: 'png',
     page: 1,
     width: 2400,
+    pdfPassword: null,
+    pngQuality: 72,
+    pngTransparent: true,
     source: { kind: 'version', versionId: olderVersionId },
   });
   expect(h.outputs[2]).toMatchObject({
     format: 'png',
     page: 2,
     width: 2400,
+    pdfPassword: null,
+    pngQuality: 72,
+    pngTransparent: true,
     source: { kind: 'version', versionId: olderVersionId },
   });
   await expect(page.locator('.export-result')).toHaveCount(0);

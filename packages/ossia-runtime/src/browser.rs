@@ -202,7 +202,9 @@ impl Runtime {
     fn verified_export(&self, job: JobId) -> Result<(PathBuf, OutputOutcome, Vec<u8>)> {
         let job = self.library.get_job(job)?;
         if job.kind != "output" || job.state != JobState::Done {
-            return Err(invalid("only completed outputs can be downloaded or opened"));
+            return Err(invalid(
+                "only completed outputs can be downloaded or opened",
+            ));
         }
         let outcome: OutputOutcome =
             decode(job.result.ok_or_else(|| storage("output result missing"))?)?;

@@ -208,11 +208,15 @@ code {
 .score-actions {
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
-.score-actions .ui-button-icon {
-  inline-size: 2rem;
-  block-size: 2rem;
+.topbar-action {
+  min-block-size: 2rem;
+  padding-inline: 0.5rem;
+  color: var(--ink-soft);
+}
+.topbar-action > svg {
+  color: var(--ink);
 }
 .score-view {
   position: relative;
@@ -283,7 +287,8 @@ code {
   backdrop-filter: blur(10px);
 }
 .score-view:hover .score-controls,
-.score-view:focus-within .score-controls {
+.score-view:focus-within .score-controls,
+.score-controls.is-menu-open {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
@@ -443,6 +448,7 @@ code {
   inline-size: min(70rem, calc(100% - 2rem));
   max-inline-size: 70rem;
   max-block-size: min(90dvh, 54rem);
+  block-size: min(54rem, calc(100dvh - 2rem));
   padding: 0;
   overflow: hidden;
   opacity: 0;
@@ -456,7 +462,6 @@ code {
 .export-dialog[open] {
   display: flex;
   flex-direction: column;
-  block-size: min(54rem, calc(100dvh - 2rem));
   opacity: 1;
   transform: translateY(0) scale(1);
 }
@@ -564,6 +569,22 @@ code {
   color: var(--ink);
   font-weight: 400;
 }
+.export-field input[type='range'] {
+  padding-inline: 0;
+  accent-color: var(--accent);
+}
+.export-check {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+.export-check input {
+  inline-size: 1rem;
+  block-size: 1rem;
+  accent-color: var(--accent);
+}
 .export-preview {
   position: relative;
   min-inline-size: 0;
@@ -576,20 +597,22 @@ code {
 }
 .export-preview-stage {
   flex: 1 1 auto;
-  min-block-size: 20rem;
+  min-block-size: 0;
   display: flex;
   flex-direction: column;
   overflow: auto;
-  padding: 1rem 1rem 2.8rem;
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-  background: var(--score-bed);
+  padding: 0 0 2.8rem;
+  scrollbar-width: none;
+}
+.export-preview-stage::-webkit-scrollbar {
+  display: none;
 }
 .export-preview-pages {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 14px;
+  inline-size: 100%;
 }
 .export-preview-pages img {
   display: block;
@@ -603,8 +626,10 @@ code {
 }
 .export-page-count {
   position: absolute;
-  inset-inline-end: 1.55rem;
+  inset-inline: 0;
   inset-block-end: 1.55rem;
+  inline-size: max-content;
+  margin-inline: auto;
   padding: 0.2rem 0.55rem;
   border: 1px solid color-mix(in srgb, var(--ink) 14%, var(--rule));
   border-radius: 999px;

@@ -1632,7 +1632,7 @@
       },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
-      "description": "Write one output file from a completed job snapshot or an immutable version.",
+      "description": "Write one output file from a completed job snapshot or an immutable version.\nPDF may use an open password; PNG may use lossy quality and transparency options.",
       "properties": {
         "format": {
           "$ref": "#/$defs/OutputFormat"
@@ -1648,6 +1648,27 @@
           "minimum": 0,
           "type": [
             "integer",
+            "null"
+          ]
+        },
+        "pdfPassword": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pngQuality": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "pngTransparent": {
+          "type": [
+            "boolean",
             "null"
           ]
         },

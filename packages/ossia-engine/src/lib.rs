@@ -2,12 +2,14 @@
 mod cache;
 mod compile;
 mod diagnostics;
+mod pdf;
 mod process;
 mod raster;
 mod resources;
 mod source;
 
 pub use ossia_types::*;
+pub use pdf::protect_pdf;
 use process::{run, tool_path, Scratch};
 pub use process::{Cancellation, RunContext};
 use resources::{resource_files, Inventory, Target};

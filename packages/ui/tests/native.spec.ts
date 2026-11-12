@@ -261,6 +261,17 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   ] as const) {
     await dialog.getByRole('button', { name: new RegExp(label) }).click();
     if (format === 'pdf') {
+      await dialog.getByLabel('PDF 密码').fill('native-secret');
+    }
+    if (format === 'png') {
+      await dialog.getByLabel('透明背景').check();
+      const review = path.join(root, '.impeccable/review');
+      await page.screenshot({
+        path: path.join(review, 'export-dialog-png.png'),
+        fullPage: true,
+      });
+    }
+    if (format === 'pdf') {
       const review = path.join(root, '.impeccable/review');
       await fs.mkdir(review, { recursive: true });
       await page.screenshot({
@@ -285,11 +296,19 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
     const downloaded = await download.path();
     expect(downloaded).not.toBeNull();
     expect((await fs.stat(downloaded!)).size).toBeGreaterThan(0);
+    if (format === 'pdf') {
+      expect((await fs.readFile(downloaded!)).includes('/Encrypt')).toBeTruthy();
+    }
     if (format === 'png' || format === 'svg') {
       for (const page of geometry.pages) {
         expect(
           (await fs.stat(path.join(temporary, `export-${page.page}.${format}`))).size,
         ).toBeGreaterThan(0);
+      }
+      if (format === 'png') {
+        const png = await fs.readFile(path.join(temporary, 'export-1.png'));
+        expect(png[25]).toBe(3);
+        expect(png.includes('tRNS')).toBeTruthy();
       }
     } else {
       expect((await fs.stat(path.join(temporary, `export.${format}`))).size).toBeGreaterThan(0);

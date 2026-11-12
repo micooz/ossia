@@ -18,6 +18,19 @@ pub trait EngineBackend: Send + Sync {
         ))
     }
 
+    /// Produce a PNG with optional lossy quantization and transparency.
+    fn rasterize_svg_with_options(
+        &self,
+        svg: &[u8],
+        width: u32,
+        _quality: Option<u8>,
+        _transparent: bool,
+        root: &Path,
+        context: &RunContext,
+    ) -> Result<ArtifactRef> {
+        self.rasterize_svg(svg, width, root, context)
+    }
+
     fn build_id(&self) -> &str;
     fn convert(
         &self,
@@ -44,6 +57,18 @@ impl EngineBackend for Engine {
         context: &RunContext,
     ) -> Result<ArtifactRef> {
         self.rasterize_svg(svg, width, root, context)
+    }
+
+    fn rasterize_svg_with_options(
+        &self,
+        svg: &[u8],
+        width: u32,
+        quality: Option<u8>,
+        transparent: bool,
+        root: &Path,
+        context: &RunContext,
+    ) -> Result<ArtifactRef> {
+        self.rasterize_svg_with_options(svg, width, quality, transparent, root, context)
     }
 
     fn build_id(&self) -> &str {
