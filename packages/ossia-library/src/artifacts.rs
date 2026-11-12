@@ -329,7 +329,7 @@ impl Library {
                 RenderFormat::Pdf => render.pdf.is_some(),
                 RenderFormat::Midi => render.midi.is_some(),
             };
-            if available {
+            if available && !matches!(format, RenderFormat::Pdf | RenderFormat::Svg) {
                 return Ok(render.clone());
             }
             if render.engine_build_id != engine.build_id() {
@@ -343,7 +343,7 @@ impl Library {
             snapshot,
             &CompileOptions {
                 formats: vec![format],
-                point_and_click: true,
+                point_and_click: !matches!(format, RenderFormat::Pdf | RenderFormat::Svg),
             },
             &self.artifact_root()?,
             context,

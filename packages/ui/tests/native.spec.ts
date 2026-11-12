@@ -310,6 +310,10 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
         expect(png[25]).toBe(3);
         expect(png.includes('tRNS')).toBeTruthy();
       }
+      if (format === 'svg') {
+        const svg = await fs.readFile(path.join(temporary, 'export-1.svg'), 'utf8');
+        expect(svg).not.toContain('textedit://');
+      }
     } else {
       expect((await fs.stat(path.join(temporary, `export.${format}`))).size).toBeGreaterThan(0);
     }

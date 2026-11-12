@@ -450,6 +450,10 @@ fn native_scale_expectations_gate_commit_before_output() {
             .unwrap();
         assert!(Path::new(&artifact.path).is_file());
         assert_eq!(artifact.source_hash, hash);
+        if matches!(format, OutputFormat::Pdf | OutputFormat::Svg) {
+            let bytes = fs::read(&artifact.path).unwrap();
+            assert!(!bytes.windows(9).any(|window| window == b"textedit:"));
+        }
         if format == OutputFormat::Png {
             let bytes = fs::read(&artifact.path).unwrap();
             assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
