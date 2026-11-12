@@ -41,6 +41,7 @@ export function ScoreView({
   const [images, setImages] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [modifierDown, setModifierDown] = useState(false);
   const scroll = useRef<HTMLDivElement>(null);
   const zoomRef = useRef(zoom);
   const pendingAnchor = useRef<{
@@ -61,6 +62,18 @@ export function ScoreView({
   useEffect(() => {
     zoomRef.current = zoom;
   }, [zoom]);
+  useEffect(() => {
+    const syncModifier = (event: KeyboardEvent) => setModifierDown(event.metaKey || event.ctrlKey);
+    const clearModifier = () => setModifierDown(false);
+    window.addEventListener('keydown', syncModifier);
+    window.addEventListener('keyup', syncModifier);
+    window.addEventListener('blur', clearModifier);
+    return () => {
+      window.removeEventListener('keydown', syncModifier);
+      window.removeEventListener('keyup', syncModifier);
+      window.removeEventListener('blur', clearModifier);
+    };
+  }, []);
   useEffect(() => {
     let live = true;
     setGeometry(null);
@@ -169,7 +182,7 @@ export function ScoreView({
       )}
       <div
         ref={scroll}
-        className={`score-scroll ${dragging ? 'is-panning' : ''}`}
+        className={`score-scroll ${dragging ? 'is-panning' : ''} ${modifierDown ? 'can-pan' : ''}`}
         onPointerDown={(event) => {
           if (event.button !== 0 || (!event.metaKey && !event.ctrlKey)) return;
           event.preventDefault();
@@ -209,7 +222,6 @@ export function ScoreView({
             className={`score-canvas ${layout}`}
             style={{
               padding: CANVAS_PADDING,
-              cursor: canSelect ? 'crosshair' : 'default',
             }}
           >
             <div className={`score-pages ${layout}`} style={{ gap: PAGE_GAP }}>

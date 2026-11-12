@@ -1,11 +1,10 @@
-import { Download, GitCompareArrows, History, RotateCcw } from 'lucide-react';
+import { Download, GitCompareArrows, History } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from '../../components/ui/button.tsx';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -30,20 +29,18 @@ export function ScoreToolbar({
   documentHint,
   exportVersionId,
   exportDisabled,
-  onRestore,
 }: {
   api: Api;
   versions: Version[];
   viewingVersionId: string | null;
   onViewVersion: (versionId: string | null) => void;
   compareVersionId: string | null;
-  onCompare: (versionId: string | null) => void;
+  onCompare: (versionId: string) => void;
   documentTitle: string;
   currentRender: RenderReference | null;
   documentHint: string;
   exportVersionId: string | null;
   exportDisabled: boolean;
-  onRestore?: (version: Version) => void;
 }) {
   const { t } = useI18n();
   const [exportOpen, setExportOpen] = useState(false);
@@ -52,18 +49,6 @@ export function ScoreToolbar({
   return (
     <>
       <div className="score-actions">
-        {activeVersion && onRestore && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t('restoreVersion', { version: activeVersion.seq })}
-            title={t('restoreVersion', { version: activeVersion.seq })}
-            onClick={() => onRestore(activeVersion)}
-          >
-            <RotateCcw aria-hidden="true" size={17} />
-          </Button>
-        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -120,14 +105,6 @@ export function ScoreToolbar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {compareVersionId && (
-              <>
-                <DropdownMenuItem onSelect={() => onCompare(null)}>
-                  <span className="ui-menu-item-title">{t('exitCompare')}</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
             <DropdownMenuRadioGroup
               value={compareVersionId ?? ''}
               onValueChange={(value) => {

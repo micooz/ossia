@@ -102,10 +102,7 @@ export function CompareView({
     <section className="compare" aria-label={t('compareTitle')}>
       <div className="compare-pane">
         <div className="pane-bar">
-          <strong>
-            {t('leftVersion')} ·{' '}
-            {leftVersion ? `${t('version')} ${leftVersion.seq}` : t('currentScore')}
-          </strong>
+          <strong>{leftVersion ? `${t('version')} ${leftVersion.seq}` : t('currentScore')}</strong>
         </div>
         <div className="pane-body">
           {leftVersionId ? (
@@ -138,7 +135,6 @@ export function CompareView({
       <div className="compare-pane">
         <div className="pane-bar">
           <strong>
-            {t('rightVersion')} ·{' '}
             {rightVersion ? `${t('version')} ${rightVersion.seq}` : t('loadingHistoryScore')}
           </strong>
         </div>

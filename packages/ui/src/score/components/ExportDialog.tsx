@@ -1,7 +1,8 @@
 import { zipSync } from 'fflate';
-import { FileText, Image, Music2, Shapes, X } from 'lucide-react';
+import { Eye, EyeOff, FileText, Image, Music2, Shapes, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { Button } from '../../components/ui/button.tsx';
 import { describe } from '../../errors.ts';
 import type { OutputFormat, RenderReference, Version } from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
@@ -60,6 +61,7 @@ export function ExportDialog({
   const dialog = useRef<HTMLDialogElement>(null);
   const [format, setFormat] = useState<ExportFormat>('pdf');
   const [pdfPassword, setPdfPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [width, setWidth] = useState(1600);
   const [pngQuality, setPngQuality] = useState(90);
   const [pngTransparent, setPngTransparent] = useState(false);
@@ -97,6 +99,7 @@ export function ExportDialog({
     }
     setFormat('pdf');
     setPdfPassword('');
+    setPasswordVisible(false);
     setWidth(1600);
     setPngQuality(90);
     setPngTransparent(false);
@@ -267,17 +270,34 @@ export function ExportDialog({
             />
           </label>
           {format === 'pdf' && (
-            <label className="export-field" htmlFor="export-pdf-password">
-              <span>{t('pdfPassword')}</span>
-              <input
-                id="export-pdf-password"
-                type="password"
-                autoComplete="new-password"
-                value={pdfPassword}
-                placeholder={t('optional')}
-                onChange={(event) => setPdfPassword(event.target.value)}
-              />
-            </label>
+            <div className="export-field">
+              <label htmlFor="export-pdf-password">{t('pdfPassword')}</label>
+              <div className="export-password">
+                <input
+                  id="export-pdf-password"
+                  type={passwordVisible ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  value={pdfPassword}
+                  placeholder={t('optional')}
+                  onChange={(event) => setPdfPassword(event.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="export-password-toggle"
+                  aria-label={passwordVisible ? t('hidePassword') : t('showPassword')}
+                  aria-pressed={passwordVisible}
+                  onClick={() => setPasswordVisible((visible) => !visible)}
+                >
+                  {passwordVisible ? (
+                    <EyeOff aria-hidden="true" size={16} />
+                  ) : (
+                    <Eye aria-hidden="true" size={16} />
+                  )}
+                </Button>
+              </div>
+            </div>
           )}
           {format === 'png' && (
             <>

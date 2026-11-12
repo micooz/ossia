@@ -152,37 +152,76 @@ code {
 .connection {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 0.35rem;
   color: var(--ink-soft);
   font-size: 0.85rem;
+  white-space: nowrap;
 }
 .score-topbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
-  align-items: center;
-}
-.topbar-right {
-  justify-self: end;
   display: flex;
   align-items: center;
+  gap: 0.6rem 0.8rem;
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   gap: 0.55rem;
+  margin-inline-start: auto;
   min-inline-size: 0;
 }
 .topbar-brand {
-  justify-self: start;
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 0.4rem;
 }
 .topbar-title {
-  justify-self: center;
   min-inline-size: 0;
   max-inline-size: 100%;
   overflow: hidden;
   font: 650 1rem/1.3 var(--serif);
-  text-align: center;
+  text-align: start;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.topbar-title-static {
+  max-inline-size: 20rem;
+}
+.score-title-trigger {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  max-inline-size: 20rem;
+  justify-content: flex-start;
+  gap: 0.2rem;
+  padding-inline: 0.45rem;
+  color: var(--ink);
+}
+.score-title-trigger .topbar-title {
+  flex: 0 1 auto;
+}
+.score-title-chevron {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  transition: transform 120ms ease;
+}
+.score-title-trigger[data-state='open'] .score-title-chevron {
+  transform: rotate(180deg);
+}
+.score-title-menu {
+  min-inline-size: min(20rem, calc(100vw - 1.5rem));
+}
+.score-title-menu .ui-menu-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.score-title-error {
+  margin: 0.35rem 0.6rem;
+  color: var(--bad);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
 }
 .connection-light {
   flex: 0 0 auto;
@@ -204,10 +243,27 @@ code {
   flex-direction: column;
   inline-size: 100%;
   overflow: hidden;
+  background: var(--score-bed);
+}
+.score-context-region {
+  flex: 0 0 auto;
+  padding-block: 0.75rem;
+  background: var(--score-bed);
+}
+.score-context-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-inline: 1rem;
+}
+.score-context-action {
+  min-block-size: 2rem;
 }
 .score-actions {
   display: inline-flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 0.2rem;
 }
 .topbar-action {
@@ -217,6 +273,12 @@ code {
 }
 .topbar-action > svg {
   color: var(--ink);
+}
+.score-topbar .ui-button[data-variant='ghost']:hover:not(:disabled),
+.score-topbar .ui-button[data-variant='ghost'][data-state='open'],
+.score-topbar .ui-button[data-variant='ghost'][aria-pressed='true'] {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ink) 7%, var(--paper));
 }
 .score-view {
   position: relative;
@@ -237,9 +299,12 @@ code {
   overflow: auto;
   overscroll-behavior: contain;
   background: var(--score-bed);
+  cursor: default;
+  user-select: none;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--ink) 42%, transparent) var(--score-bed);
+  -webkit-user-select: none;
 }
 .score-scroll::-webkit-scrollbar {
   inline-size: 10px;
@@ -300,6 +365,18 @@ code {
   min-inline-size: 30px;
   min-block-size: 30px;
 }
+.score-controls .segmented .segment-button:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
+}
+.score-controls .segmented .segment-button[aria-pressed='true'],
+.score-controls .segmented .segment-button[aria-pressed='true']:hover:not(:disabled) {
+  border-color: var(--rule);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+}
 .score-controls-divider {
   inline-size: 1px;
   block-size: 20px;
@@ -324,6 +401,7 @@ code {
   min-block-size: 100%;
   inline-size: max-content;
   block-size: max-content;
+  cursor: default;
 }
 .score-pages {
   display: flex;
@@ -360,7 +438,15 @@ code {
 }
 .overlay.interactive {
   pointer-events: auto;
-  cursor: crosshair;
+  cursor: default;
+}
+.score-scroll.can-pan .page-host,
+.score-scroll.can-pan .overlay.interactive {
+  cursor: grab;
+}
+.score-scroll.is-panning .page-host,
+.score-scroll.is-panning .overlay.interactive {
+  cursor: grabbing;
 }
 .selection-box {
   fill: color-mix(in srgb, var(--sel) 20%, transparent);
@@ -449,6 +535,8 @@ code {
   max-inline-size: 70rem;
   max-block-size: min(90dvh, 54rem);
   block-size: min(54rem, calc(100dvh - 2rem));
+  display: flex;
+  flex-direction: column;
   padding: 0;
   overflow: hidden;
   opacity: 0;
@@ -459,9 +547,10 @@ code {
     display 160ms allow-discrete,
     overlay 160ms allow-discrete;
 }
+.export-dialog:not([open]) {
+  display: none;
+}
 .export-dialog[open] {
-  display: flex;
-  flex-direction: column;
   opacity: 1;
   transform: translateY(0) scale(1);
 }
@@ -573,6 +662,30 @@ code {
   padding-inline: 0;
   accent-color: var(--accent);
 }
+.export-password {
+  position: relative;
+}
+.export-password input {
+  padding-inline-end: 2.6rem;
+}
+.export-password .export-password-toggle {
+  position: absolute;
+  inset-inline-end: 4px;
+  inset-block-start: 50%;
+  inline-size: 2rem;
+  block-size: 2rem;
+  min-block-size: 2rem;
+  transform: translateY(-50%);
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+}
+.export-password .export-password-toggle:hover:not(:disabled),
+.export-password .export-password-toggle[aria-pressed='true'] {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
+}
 .export-check {
   display: flex;
   align-items: center;
@@ -631,7 +744,6 @@ code {
   inline-size: max-content;
   margin-inline: auto;
   padding: 0.2rem 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--ink) 14%, var(--rule));
   border-radius: 999px;
   background: color-mix(in srgb, var(--paper) 90%, transparent);
   color: var(--ink-soft);
@@ -671,6 +783,67 @@ dialog {
 dialog::backdrop {
   background: rgb(10 10 14 / 48%);
   backdrop-filter: blur(5px);
+}
+.confirm-dialog {
+  inline-size: min(28rem, calc(100% - 2rem));
+  max-inline-size: 28rem;
+  max-block-size: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  outline: none;
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    display 160ms allow-discrete,
+    overlay 160ms allow-discrete;
+}
+.confirm-dialog:not([open]) {
+  display: none;
+}
+.confirm-dialog[open] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+@starting-style {
+  .confirm-dialog[open] {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+.confirm-dialog-header {
+  padding: 1rem 1.1rem 0.8rem;
+  border-block-end: 1px solid var(--rule);
+}
+.confirm-dialog-header h2 {
+  margin: 0;
+}
+.confirm-dialog-body {
+  padding: 1.05rem 1.1rem;
+  color: var(--ink-soft);
+}
+.confirm-dialog-body p {
+  margin: 0;
+}
+.confirm-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.8rem 1.1rem;
+  border-block-start: 1px solid var(--rule);
+  background: var(--paper);
+}
+.confirm-dialog .confirm-dialog-submit {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.confirm-dialog .confirm-dialog-submit:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 88%, #000);
 }
 .export-dialog::backdrop {
   opacity: 0;
@@ -732,7 +905,9 @@ dialog::backdrop {
     margin: 0;
   }
   .score-topbar {
+    display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.45rem 0.75rem;
   }
   .topbar-brand {
     grid-column: 1;
@@ -741,11 +916,15 @@ dialog::backdrop {
   .topbar-right {
     grid-column: 2;
     grid-row: 1;
+    margin-inline-start: 0;
   }
-  .topbar-title {
+  .score-title-trigger,
+  .topbar-title-static {
     grid-column: 1 / -1;
     grid-row: 2;
-    inline-size: 100%;
+    inline-size: max-content;
+    max-inline-size: min(20rem, 100%);
+    justify-self: start;
   }
   .connection-label {
     display: none;
@@ -781,6 +960,12 @@ dialog::backdrop {
     scroll-behavior: auto;
   }
   .score-controls {
+    transition: none;
+  }
+  .export-dialog {
+    transition: none;
+  }
+  .confirm-dialog {
     transition: none;
   }
 }

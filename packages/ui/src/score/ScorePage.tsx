@@ -2,6 +2,7 @@ import { Circle, Music2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { ToastRegion, useToasts } from '../components/Toast.tsx';
+import { Button } from '../components/ui/button.tsx';
 import { describe } from '../errors.ts';
 import type {
   DocumentContext,
@@ -22,10 +23,11 @@ import {
 import { ApiError, delay, locatorKey, makeApi } from './api.ts';
 import { CompareView, VersionScore } from './components/CompareView.tsx';
 import { ScoreNotFound } from './components/ScoreNotFound.tsx';
+import { ScoreTitleMenu } from './components/ScoreTitleMenu.tsx';
 import { ScoreToolbar } from './components/ScoreToolbar.tsx';
 import type { ScoreLayout } from './components/ScoreToolbar.tsx';
 import { ScoreView } from './components/ScoreView.tsx';
-import { documentIdFromLocation } from './endpoint.ts';
+import { documentIdFromLocation, pushDocumentIdToLocation } from './endpoint.ts';
 import { initialState, reducer } from './state.ts';
 
 export function ScorePage({ fallbackLanguage }: { fallbackLanguage: UiLanguage }) {
@@ -84,6 +86,12 @@ function ScoreApp({
     contextRef.current = context;
     dispatch({ type: 'context', context });
   }, []);
+  const resetDocumentView = useCallback(() => {
+    setHistoryVersion(null);
+    setCompareVersion(null);
+    setConfirm(null);
+    setNotice('');
+  }, []);
   const refresh = useCallback(async () => {
     const generation = ++serial.current;
     const documentId = documentIdRef.current;
@@ -120,6 +128,27 @@ function ScoreApp({
     }
     return { context, status };
   }, [api, lifetime, onLanguage, toast.show]);
+  const selectDocument = useCallback(
+    (next: string) => {
+      if (next === documentIdRef.current) return;
+      resetDocumentView();
+      documentIdRef.current = next;
+      pushDocumentIdToLocation(next);
+      void refresh().catch(onError);
+    },
+    [onError, refresh, resetDocumentView],
+  );
+  useEffect(() => {
+    const onPopState = () => {
+      const next = documentIdFromLocation();
+      if (next === documentIdRef.current) return;
+      resetDocumentView();
+      documentIdRef.current = next;
+      void refresh().catch(onError);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [onError, refresh, resetDocumentView]);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let refreshing = false;
@@ -182,11 +211,8 @@ function ScoreApp({
   const doc = state.context?.document;
   const documentId = doc?.documentId;
   useEffect(() => {
-    setHistoryVersion(null);
-    setCompareVersion(null);
-    setConfirm(null);
-    setNotice('');
-  }, [documentId]);
+    resetDocumentView();
+  }, [documentId, resetDocumentView]);
   useEffect(() => {
     document.title = notFound ? t('scoreNotFoundDocumentTitle') : (doc?.title ?? t('appName'));
   }, [doc?.title, language, notFound, t]);
@@ -296,6 +322,8 @@ function ScoreApp({
   const selected = state.context?.selection?.locators ?? [];
   const connected = state.connection === 'connected';
   const exportVersionId = historyVersion ?? doc?.headVersionId ?? null;
+  const viewingVersion =
+    state.versions.find((version) => version.versionId === historyVersion) ?? null;
   const documentHint = doc
     ? [
         doc.dirty ? t('dirtyWorkspace') : t('cleanWorkspace'),
@@ -327,9 +355,21 @@ function ScoreApp({
         <h1 className="topbar-brand">
           <Music2 aria-hidden="true" size={20} /> {t('appName')}
         </h1>
-        <span className="topbar-title" title={notFound ? undefined : doc?.title}>
-          {notFound ? t('scoreNotFoundTitle') : (doc?.title ?? '')}
-        </span>
+        {doc && !notFound ? (
+          <ScoreTitleMenu
+            api={api}
+            documentId={doc.documentId}
+            title={doc.title}
+            onSelect={selectDocument}
+          />
+        ) : (
+          <span
+            className="topbar-title topbar-title-static"
+            title={notFound ? undefined : doc?.title}
+          >
+            {notFound ? t('scoreNotFoundTitle') : (doc?.title ?? '')}
+          </span>
+        )}
         <div className="topbar-right">
           {doc && !notFound && (
             <ScoreToolbar
@@ -348,7 +388,6 @@ function ScoreApp({
               documentHint={documentHint}
               exportVersionId={exportVersionId}
               exportDisabled={!!compareVersion}
-              onRestore={compareVersion ? undefined : requestRestore}
             />
           )}
           <span
@@ -367,6 +406,48 @@ function ScoreApp({
           </span>
         </div>
       </header>
+      {doc && !notFound && (compareVersion || viewingVersion) && (
+        <div className="score-context-region">
+          <div className="score-context-bar">
+            {compareVersion ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="score-context-action"
+                onClick={() => setCompareVersion(null)}
+              >
+                {t('exitCompare')}
+              </Button>
+            ) : viewingVersion ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="score-context-action"
+                  onClick={() => {
+                    setHistoryVersion(null);
+                    setNotice('');
+                  }}
+                >
+                  {t('backToCurrentVersion')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="score-context-action"
+                  title={t('restoreVersion', { version: viewingVersion.seq })}
+                  onClick={() => requestRestore(viewingVersion)}
+                >
+                  {t('restoreThisVersion')}
+                </Button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
       {notFound ? (
         <ScoreNotFound />
       ) : doc ? (
@@ -423,17 +504,27 @@ function ScoreApp({
           <p className="score-loading">{connected ? t('loadingScore') : t('connectingLibrary')}</p>
         </div>
       )}
-      <dialog ref={dialog} onCancel={() => setConfirm(null)} aria-labelledby="confirm-title">
-        <h2 id="confirm-title">{t('restoreTitle', { version: confirm?.version.seq ?? '' })}</h2>
-        <p>{t('restoreBody')}</p>
-        <div className="row">
-          <button type="button" autoFocus onClick={() => setConfirm(null)}>
+      <dialog
+        ref={dialog}
+        className="confirm-dialog"
+        onCancel={() => setConfirm(null)}
+        aria-labelledby="confirm-title"
+        aria-describedby="confirm-body"
+      >
+        <div className="confirm-dialog-header">
+          <h2 id="confirm-title">{t('restoreTitle', { version: confirm?.version.seq ?? '' })}</h2>
+        </div>
+        <div className="confirm-dialog-body">
+          <p id="confirm-body">{t('restoreBody')}</p>
+        </div>
+        <div className="confirm-dialog-footer">
+          <Button type="button" variant="outline" autoFocus onClick={() => setConfirm(null)}>
             {t('cancel')}
-          </button>
-          <button type="button" onClick={() => void restore()}>
+          </Button>
+          <Button type="button" className="confirm-dialog-submit" onClick={() => void restore()}>
             {t('confirm')}
             {t('confirmRestore')}
-          </button>
+          </Button>
         </div>
       </dialog>
       <ToastRegion toasts={toast.toasts} onDismiss={toast.dismiss} />

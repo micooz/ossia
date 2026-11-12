@@ -3,6 +3,7 @@ import type { BrowserContext } from '@playwright/test';
 import type {
   DocumentContext,
   DocumentState,
+  DocumentSummary,
   Job,
   OutputArgs,
   RenderGeometry,
@@ -102,7 +103,10 @@ function doneJob(id: string, result: unknown): Job {
 /** Install a synthetic document-scoped runtime with controllable selections and events. */
 export async function mockScoreRuntime(
   context: BrowserContext,
-  options: { languageEvent?: 'en-US' } = {},
+  options: {
+    languageEvent?: 'en-US';
+    delays?: { context?: number; versionRender?: number };
+  } = {},
 ) {
   let seq = 1;
   let loseEvents = false;
@@ -204,12 +208,32 @@ export async function mockScoreRuntime(
         contentType: 'image/svg+xml',
         body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140"><rect x="10" y="20" width="70" height="10" fill="#ddd"/><rect x="10" y="50" width="70" height="10" fill="#ddd"/></svg>',
       });
+    if (path === '/documents' && req.method() === 'GET') {
+      const items: DocumentSummary[] = states.map(
+        ({ documentId, title, headVersionId, sourceHash, dirty, editState }) => ({
+          documentId,
+          title,
+          headVersionId,
+          sourceHash,
+          dirty,
+          editState,
+        }),
+      );
+      return reply({ items, total: items.length, offset: 0, nextOffset: null });
+    }
     const parts = path.split('/').filter(Boolean);
     const documentId = parts[0] === 'documents' ? (parts[1] ?? '') : '';
     if (!contextFor(documentId)) return reply({ error: { code: 'not-found', message: path } }, 404);
-    if (parts[2] === 'context') return reply(contextFor(documentId)!);
-    if (parts[2] === 'versions' && parts[4] === 'render')
+    if (parts[2] === 'context') {
+      if (options.delays?.context)
+        await new Promise((resolve) => setTimeout(resolve, options.delays?.context));
+      return reply(contextFor(documentId)!);
+    }
+    if (parts[2] === 'versions' && parts[4] === 'render') {
+      if (options.delays?.versionRender)
+        await new Promise((resolve) => setTimeout(resolve, options.delays?.versionRender));
       return reply(doneJob('version-render', reference));
+    }
     if (parts[2] === 'versions')
       return reply({
         items: versionList(documentId),

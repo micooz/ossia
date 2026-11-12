@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { firstId, mockScoreRuntime, olderVersionId } from './score-runtime.ts';
+import { firstId, mockScoreRuntime, olderVersionId, secondId } from './score-runtime.ts';
 
 test('score page focuses on one document, all pages and its title', async ({ context, page }) => {
   await mockScoreRuntime(context, { languageEvent: 'en-US' });
@@ -36,6 +36,53 @@ test('score page focuses on one document, all pages and its title', async ({ con
       getComputedStyle(globalThis.document.documentElement).getPropertyValue('--page').trim(),
     ),
   ).toBe('#1c1c20');
+});
+
+test('score loading stages use the rendered score background', async ({ context, page }) => {
+  await mockScoreRuntime(context, { delays: { context: 300, versionRender: 500 } });
+  await page.goto(`/scores?documentId=${firstId}`);
+  await expect(page.locator('.score-loading')).toBeVisible();
+  const initialBackground = await page
+    .locator('.score-workspace')
+    .evaluate((node) => getComputedStyle(node).backgroundColor);
+  await expect(page.locator('.score-image')).toHaveCount(2);
+  const renderedBackground = await page
+    .locator('.score-view')
+    .evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(initialBackground).toBe(renderedBackground);
+
+  await page.getByLabel('版本', { exact: true }).click();
+  await page.getByRole('menuitemradio', { name: /版本 1/ }).click();
+  await expect(page.getByText('载入历史谱面…')).toBeVisible();
+  expect(
+    await page
+      .locator('.score-workspace')
+      .evaluate((node) => getComputedStyle(node).backgroundColor),
+  ).toBe(renderedBackground);
+  await expect(page.locator('.score-image')).toHaveCount(2);
+});
+
+test('score title menu switches documents and follows browser history', async ({
+  context,
+  page,
+}) => {
+  await mockScoreRuntime(context);
+  await page.goto(`/scores?documentId=${firstId}`);
+  const title = page.getByRole('button', { name: /选择乐谱/ });
+  await title.click();
+  await expect(page.getByRole('menuitemradio', { name: '合成钢琴练习' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.getByRole('menuitemradio', { name: '另一份乐谱' }).click();
+  await expect(page.locator('.topbar-title')).toHaveText('另一份乐谱');
+  await expect(page).toHaveURL(new RegExp(`documentId=${secondId}`));
+  await page.goBack();
+  await expect(page.locator('.topbar-title')).toHaveText('合成钢琴练习');
+  await expect(page).toHaveURL(new RegExp(`documentId=${firstId}`));
+  await page.goForward();
+  await expect(page.locator('.topbar-title')).toHaveText('另一份乐谱');
+  await expect(page).toHaveURL(new RegExp(`documentId=${secondId}`));
 });
 
 test('missing and unknown documents use the visual 404 page and the old route is gone', async ({
@@ -76,6 +123,22 @@ test('all pages share one selection and draw it directly on the score', async ({
     position: { x: selectedBox!.width * 0.4, y: (selectedBox!.height * 55) / 140 },
   });
   await expect(page.locator('.selection-box')).toHaveCount(0);
+});
+
+test('double click on the rendered score does not select the page', async ({ context, page }) => {
+  await mockScoreRuntime(context);
+  await page.goto(`/scores?documentId=${firstId}`);
+  const host = page.locator('.page-host').first();
+  const box = await host.boundingBox();
+  expect(box).not.toBeNull();
+  await expect(page.locator('.score-scroll')).toHaveCSS('user-select', 'none');
+  await host.dblclick({ position: { x: box!.width / 2, y: box!.height / 2 } });
+  expect(
+    await page.evaluate(() => {
+      const selection = window.getSelection();
+      return !!selection && selection.rangeCount > 0 && !selection.isCollapsed;
+    }),
+  ).toBe(false);
 });
 
 test('layout, zoom and modifier pan apply to the whole document', async ({ context, page }) => {
@@ -148,6 +211,46 @@ test('layout, zoom and modifier pan apply to the whole document', async ({ conte
     .toBeGreaterThan(beforePan);
 });
 
+test('score page uses default selection cursors and immediate modifier drag cursors', async ({
+  context,
+  page,
+}) => {
+  await mockScoreRuntime(context);
+  await page.goto(`/scores?documentId=${firstId}`);
+  const overlay = page.locator('.overlay').first();
+  await overlay.hover();
+  await expect(overlay).toHaveCSS('cursor', 'default');
+  await page.keyboard.down('Control');
+  await expect(overlay).toHaveCSS('cursor', 'grab');
+  await page.mouse.down();
+  await expect(overlay).toHaveCSS('cursor', 'grabbing');
+  await page.mouse.up();
+  await expect(overlay).toHaveCSS('cursor', 'grab');
+  await page.keyboard.up('Control');
+  await expect(overlay).toHaveCSS('cursor', 'default');
+});
+
+test('topbar and layout controls keep neutral hover states and connection text stays inline', async ({
+  context,
+  page,
+}) => {
+  await mockScoreRuntime(context);
+  await page.setViewportSize({ width: 760, height: 800 });
+  await page.goto(`/scores?documentId=${firstId}`);
+  const version = page.getByRole('button', { name: '版本', exact: true });
+  await version.hover();
+  await expect(version).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
+  expect(await version.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toBe(
+    'rgba(0, 0, 0, 0)',
+  );
+  const connection = page.locator('.connection-label');
+  expect((await connection.boundingBox())!.height).toBeLessThan(30);
+  await page.locator('.score-view').hover();
+  const horizontal = page.getByRole('button', { name: '横向' });
+  await horizontal.hover();
+  await expect(horizontal).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
+});
+
 test('floating controls change zoom with buttons and a menu', async ({ context, page }) => {
   await mockScoreRuntime(context);
   await page.goto(`/scores?documentId=${firstId}`);
@@ -189,10 +292,40 @@ test('version selection, restore order and export dialog use the viewed version'
   await page.goto(`/scores?documentId=${firstId}`);
   await page.getByLabel('版本', { exact: true }).click();
   await page.getByRole('menuitemradio', { name: /版本 1/ }).click();
-  const restore = page.getByRole('button', { name: '恢复至版本 1' });
-  const version = page.getByRole('button', { name: '版本', exact: true });
+  const back = page.getByRole('button', { name: '回到当前版本' });
+  const restore = page.getByRole('button', { name: '恢复至此版本' });
+  await expect(back).toBeVisible();
   await expect(restore).toBeVisible();
-  expect((await restore.boundingBox())!.x).toBeLessThan((await version.boundingBox())!.x);
+  const header = await page.locator('.score-topbar').boundingBox();
+  const region = await page.locator('.score-context-region').boundingBox();
+  const bar = await page.locator('.score-context-bar').boundingBox();
+  const backBox = await back.boundingBox();
+  const restoreBox = await restore.boundingBox();
+  expect(bar!.y - (header!.y + header!.height)).toBeGreaterThanOrEqual(8);
+  expect(
+    await page.locator('.score-context-region').evaluate((node) => {
+      const score = document.querySelector('.score-scroll');
+      return (
+        !!score &&
+        getComputedStyle(node).backgroundColor === getComputedStyle(score).backgroundColor
+      );
+    }),
+  ).toBe(true);
+  expect(restoreBox!.y + restoreBox!.height / 2).toBeCloseTo(region!.y + region!.height / 2, 0);
+  expect(backBox!.x).toBeLessThan(restoreBox!.x);
+  expect(restoreBox!.y).toBeGreaterThan(header!.y + header!.height);
+  expect((backBox!.x + restoreBox!.x + restoreBox!.width) / 2).toBeCloseTo(
+    (await page.evaluate(() => window.innerWidth)) / 2,
+    0,
+  );
+  await expect(
+    page.locator('.topbar-right').getByRole('button', { name: /恢复至版本/ }),
+  ).toHaveCount(0);
+  await back.click();
+  await expect(back).toHaveCount(0);
+  await expect(restore).toHaveCount(0);
+  await page.getByLabel('版本', { exact: true }).click();
+  await page.getByRole('menuitemradio', { name: /版本 1/ }).click();
   await page.getByRole('button', { name: '对比版本' }).click();
   await expect(page.getByRole('menuitemradio', { name: /版本 1 · 当前/ })).toHaveAttribute(
     'data-disabled',
@@ -214,7 +347,14 @@ test('version selection, restore order and export dialog use the viewed version'
   ]);
   await expect(dialog.locator('.export-preview-stage img')).toHaveCount(2);
   await expect(dialog.getByText('共 2 页')).toBeVisible();
-  await dialog.getByLabel('PDF 密码').fill('secret');
+  await expect(dialog.locator('.export-page-count')).toHaveCSS('border-top-width', '0px');
+  const password = dialog.getByLabel('PDF 密码');
+  await password.fill('secret');
+  await dialog.getByRole('button', { name: '显示密码' }).click();
+  await expect(password).toHaveAttribute('type', 'text');
+  await expect(password).toHaveValue('secret');
+  await dialog.getByRole('button', { name: '隐藏密码' }).click();
+  await expect(password).toHaveAttribute('type', 'password');
   const pdfDownload = page.waitForEvent('download');
   await dialog.getByRole('button', { name: '导出', exact: true }).click();
   expect((await pdfDownload).suggestedFilename()).toBe('合成钢琴练习 - v1.pdf');
@@ -274,7 +414,18 @@ test('version selection, restore order and export dialog use the viewed version'
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: '关闭' }).click();
   await expect(dialog).not.toBeVisible();
-  await page.getByRole('button', { name: '恢复至版本 1' }).click();
+  expect(await dialog.evaluate((node) => getComputedStyle(node).flexDirection)).toBe('column');
+  await page.getByRole('button', { name: '导出' }).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel('PDF 密码')).toHaveAttribute('type', 'password');
+  await expect(dialog.getByLabel('PDF 密码')).toHaveValue('');
+  await dialog.getByRole('button', { name: '关闭' }).click();
+  await expect(dialog).not.toBeVisible();
+  await page.getByRole('button', { name: '恢复至此版本' }).click();
+  await expect(page.getByRole('heading', { name: '恢复至版本 1？' })).toBeVisible();
+  const confirmDialog = page.locator('.confirm-dialog');
+  await expect(confirmDialog.locator('.confirm-dialog-footer')).toBeVisible();
+  await expect(confirmDialog).toHaveCSS('outline-style', 'none');
   await page.getByRole('button', { name: '确认恢复' }).click();
   await expect.poll(() => h.restores).toHaveLength(1);
   expect(h.restores[0]).toMatchObject({
@@ -299,6 +450,7 @@ test('comparison shows every page on both sides and keeps independent zoom', asy
   );
   await page.getByRole('menuitemradio', { name: /版本 1/ }).click();
   await expect(page.locator('.compare .score-image')).toHaveCount(4);
+  await expect(page.locator('.compare .pane-bar strong')).toHaveText(['当前乐谱', '版本 1']);
   await expect(page.getByRole('button', { name: '导出' })).toBeDisabled();
   await page.locator('.compare-pane').first().hover();
   await page.getByRole('button', { name: '横向' }).first().click();
@@ -314,7 +466,18 @@ test('comparison shows every page on both sides and keeps independent zoom', asy
   await expect(zoom.nth(0)).toHaveText('120%');
   await expect(zoom.nth(1)).toHaveText('100%');
   await page.getByLabel('对比版本', { exact: true }).click();
-  await page.getByRole('menuitem', { name: '退出对比' }).click();
+  await expect(page.getByRole('menuitem', { name: '退出对比' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  const exitCompare = page.getByRole('button', { name: '退出对比' });
+  await expect(exitCompare).toBeVisible();
+  const header = await page.locator('.score-topbar').boundingBox();
+  const exitBox = await exitCompare.boundingBox();
+  expect(exitBox!.y).toBeGreaterThan(header!.y + header!.height);
+  expect(exitBox!.x + exitBox!.width / 2).toBeCloseTo(
+    (await page.evaluate(() => window.innerWidth)) / 2,
+    0,
+  );
+  await exitCompare.click();
   await expect(page.locator('.compare')).toHaveCount(0);
   await expect(page.locator('.score-image')).toHaveCount(2);
   expect(h.outputs).toHaveLength(0);
