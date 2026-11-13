@@ -35,10 +35,12 @@ struct State {
     mutating_documents: HashMap<DocumentId, usize>,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq)]
 struct SelectionState {
     selection: Selection,
     identity: ossia_score::MusicIdentity,
+    regions: Vec<SelectionRegion>,
+    source: String,
 }
 
 pub struct Runtime {

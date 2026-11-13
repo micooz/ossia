@@ -1,4 +1,4 @@
-use super::svg::{BBox, SvgElement};
+use super::svg::{BBox, SvgElement, SvgObject};
 use crate::AppError;
 use serde::{Deserialize, Serialize};
 
@@ -32,6 +32,7 @@ fn sorted_unique(mut n: Vec<f64>) -> Vec<f64> {
 
 pub(super) fn systems(
     elements: &[SvgElement],
+    objects: &[SvgObject],
     staff_count: usize,
 ) -> Result<(f64, Vec<SystemGeometry>), AppError> {
     let lines: Vec<_> = elements
@@ -100,7 +101,16 @@ pub(super) fn systems(
             staves: group.to_vec(),
             bar_xs: Vec::new(),
         };
-        system.bar_xs = barlines(elements, &system);
+        let bars: Vec<_> = objects
+            .iter()
+            .filter(|o| o.kind == "BarLine" && o.bbox.y1 >= system.top && o.bbox.y0 <= system.bot)
+            .map(|o| o.bbox.x0)
+            .collect();
+        system.bar_xs = if bars.is_empty() {
+            barlines(elements, &system)
+        } else {
+            sorted_unique(bars)
+        };
         let left = group.iter().map(|s| s.x0).fold(f64::INFINITY, f64::min);
         if let Some(first) = system.bar_xs.first().copied() {
             if first - left > staff_space

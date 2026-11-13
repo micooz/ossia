@@ -7,6 +7,7 @@ use std::{
 
 const SKILL: &[u8] = include_bytes!("../resources/skill/ossia/SKILL.md");
 const ICON: &[u8] = include_bytes!("../resources/assets/ossia.svg");
+const DSH_HOST: &[u8] = include_bytes!("../resources/dsh/index.js");
 const DSH_CLIENT: &[u8] = include_bytes!("../resources/dsh/client.js");
 const DSH_LOCALE_EN: &[u8] = include_bytes!("../resources/dsh/locale/en.json");
 const DSH_LOCALE_ZH: &[u8] = include_bytes!("../resources/dsh/locale/zh.json");
@@ -16,6 +17,7 @@ const DSH_LOCALE_ZH: &[u8] = include_bytes!("../resources/dsh/locale/zh.json");
 pub(crate) enum Resource {
     Skill,
     Icon,
+    DshHost,
     DshClient,
     DshLocaleEn,
     DshLocaleZh,
@@ -26,6 +28,7 @@ impl Resource {
         match self {
             Self::Skill => "skill/ossia/SKILL.md",
             Self::Icon => "assets/ossia.svg",
+            Self::DshHost => "dsh/index.js",
             Self::DshClient => "dsh/client.js",
             Self::DshLocaleEn => "dsh/locale/en.json",
             Self::DshLocaleZh => "dsh/locale/zh.json",
@@ -36,6 +39,7 @@ impl Resource {
         match self {
             Self::Skill => SKILL,
             Self::Icon => ICON,
+            Self::DshHost => DSH_HOST,
             Self::DshClient => DSH_CLIENT,
             Self::DshLocaleEn => DSH_LOCALE_EN,
             Self::DshLocaleZh => DSH_LOCALE_ZH,

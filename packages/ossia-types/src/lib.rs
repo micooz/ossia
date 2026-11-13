@@ -5,7 +5,9 @@ use sha2::{Digest, Sha256};
 use std::{fmt, fmt::Write as _, str::FromStr};
 use uuid::Uuid;
 
-pub const PROTOCOL_VERSION: u32 = 1;
+pub const PROTOCOL_VERSION: u32 = 2;
+/// Version of interactive SVG metadata and derived render caches.
+pub const INTERACTION_VERSION: u32 = 2;
 pub const SCHEMA_VERSION: u32 = 2;
 /// Semantic version of derived music evidence. Increment when evidence changes.
 pub const EVIDENCE_ANALYSIS_VERSION: u32 = 2;
@@ -497,7 +499,9 @@ pub struct CheckOutcome {
 }
 
 mod runtime;
+mod selection;
 pub use runtime::*;
+pub use selection::*;
 mod storage;
 pub use storage::*;
 mod integration;

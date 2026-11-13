@@ -179,6 +179,8 @@ pub(crate) fn known_command(cmd: &str) -> bool {
             | "cresc"
             | "decresc"
             | "dim"
+            | "<"
+            | ">"
             | "!"
             | "("
             | ")"

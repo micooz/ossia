@@ -19,7 +19,7 @@ pub struct RuntimeInfo {
 pub struct Selection {
     pub document_id: DocumentId,
     pub source_hash: ContentHash,
-    pub locators: Vec<Locator>,
+    pub targets: Vec<SelectionTarget>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
@@ -36,7 +36,7 @@ pub struct DocumentContext {
     pub seq: u64,
     pub document: DocumentState,
     pub selection: Option<Selection>,
-    pub regions: Vec<LocatedRegion>,
+    pub regions: Vec<SelectionRegion>,
     pub render: Option<RenderReference>,
     pub edit_activity: Option<EditActivity>,
 }
@@ -288,7 +288,7 @@ pub struct LocateArgs {
 pub struct LocateOutcome {
     pub capability: LocationCapability,
     pub reason: Option<String>,
-    pub region: Option<LocatedRegion>,
+    pub region: Option<SelectionRegion>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -317,7 +317,7 @@ pub struct EditActivity {
     pub status: EditStatus,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct GeometryBounds {
     pub x0: f64,
@@ -340,6 +340,7 @@ pub struct GeometryPage {
     pub capability: LocationCapability,
     pub reason: Option<String>,
     pub regions: Vec<GeometryRegion>,
+    pub elements: Vec<GeometryElement>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]

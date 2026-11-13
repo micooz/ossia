@@ -452,6 +452,7 @@ code {
   fill: color-mix(in srgb, var(--sel) 20%, transparent);
   stroke: var(--sel);
   stroke-width: 0.25;
+  pointer-events: none;
 }
 .score-loading {
   display: grid;

@@ -49,6 +49,8 @@ Structural scanning handles `#{ … #}` music nested inside Scheme, including th
 
 Point-and-click source overrides are replaced with equal-length whitespace only in a derived file. Inserted MIDI text has no original source position; unchanged segments map byte-for-byte. SVG links are normalized to `textedit://score.ly:line:char:column`; library/inserted-text links are removed. Diagnostics retain sanitized raw locations plus optional original byte/scalar positions. Library diagnostics never point into user source.
 
+Interactive SVG derivation wraps visible notation and header stencils with invisible geometry rectangles. Normalization replaces internal geometry links with `data-ossia-*` attributes carrying element type, owning staff and validated original source ranges. Displayed header fields preserve strings, markup, variables and Scheme values, including hidden values. Non-display header metadata is left verbatim. Default context symbols expose their staff without inventing a source range. `render_options_hash` identifies the derivation for cache reuse. Static SVG/PDF and MIDI omit interaction instrumentation.
+
 Subprocesses use a private cwd, writable HOME/cache/tmp directories, UTF-8 C locale and no inherited Python/Guile module overrides. Calls pass arguments directly to the native executable or bundled Python. Unix process groups and Windows kill-on-close jobs terminate descendants on every exit path. The deadline and 16 MiB log limit control runaway tools. Signed resources remain read-only.
 
 ## Validation

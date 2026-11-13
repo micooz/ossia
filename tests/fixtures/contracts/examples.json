@@ -168,7 +168,7 @@
   },
   "runtimeInfo": {
     "runtimeVersion": "0.0.0",
-    "protocolVersion": 1,
+    "protocolVersion": 2,
     "schemaVersion": 2,
     "instanceId": "synthetic-instance",
     "home": "/synthetic/ossia",
@@ -185,12 +185,15 @@
   "selection": {
     "documentId": "10000000-0000-4000-8000-000000000001",
     "sourceHash": "7182e8457ad62ba44f2fa762b486525056fd0e73ff862f1fcc73dae207e84727",
-    "locators": [
+    "targets": [
       {
-        "staffIndex": 0,
-        "measureStart": 1,
-        "measureEnd": 1,
-        "voice": null
+        "kind": "measure",
+        "locator": {
+          "staffIndex": 0,
+          "measureStart": 1,
+          "measureEnd": 1,
+          "voice": null
+        }
       }
     ]
   },

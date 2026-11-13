@@ -7,9 +7,39 @@ const CACHE_ENTRIES: usize = 8;
 pub(super) struct AnalysisCache {
     indexes: VecDeque<(ContentHash, Arc<ScoreIndex>)>,
     layouts: VecDeque<(ContentHash, Arc<ScoreLayout>)>,
+    geometries: VecDeque<(ContentHash, Arc<Vec<GeometryPage>>)>,
 }
 
 impl Runtime {
+    pub(crate) fn score_geometry(
+        &self,
+        snapshot: &SourceSnapshot,
+        manifest: &RenderManifest,
+    ) -> Result<Arc<Vec<GeometryPage>>> {
+        if snapshot.source_hash() != &manifest.source_hash {
+            return Err(stale());
+        }
+        let key = ossia_library::render_key(snapshot.document_id(), manifest);
+        {
+            let mut cache = self.analysis.lock().expect("analysis cache poisoned");
+            if let Some(position) = cache.geometries.iter().position(|(hash, _)| hash == &key) {
+                let entry = cache.geometries.remove(position).expect("cached geometry");
+                let pages = entry.1.clone();
+                cache.geometries.push_back(entry);
+                return Ok(pages);
+            }
+        }
+        let index = self.score_index(snapshot);
+        let layout = self.score_layout(snapshot, manifest)?;
+        let pages = Arc::new(ossia_score::selection_geometry(&index, &layout)?);
+        let mut cache = self.analysis.lock().expect("analysis cache poisoned");
+        cache.geometries.push_back((key, pages.clone()));
+        if cache.geometries.len() > CACHE_ENTRIES {
+            cache.geometries.pop_front();
+        }
+        Ok(pages)
+    }
+
     pub(crate) fn score_index(&self, snapshot: &SourceSnapshot) -> Arc<ScoreIndex> {
         let mut cache = self.analysis.lock().expect("analysis cache poisoned");
         let entry = cache

@@ -229,7 +229,7 @@ pub struct AgentDocumentContext {
     pub seq: u64,
     pub document: AgentDocument,
     pub selection: Option<Selection>,
-    pub regions: Vec<LocatedRegion>,
+    pub regions: Vec<SelectionRegion>,
     pub render: Option<AgentRender>,
     pub edit_activity: Option<EditActivity>,
 }

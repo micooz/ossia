@@ -30,6 +30,8 @@ pub fn measured_midi() -> Vec<u8> {
 pub struct Engine {
     pub hold: AtomicBool,
     pub midi: AtomicBool,
+    pub interaction: AtomicBool,
+    pub legacy_render: AtomicBool,
     pub active: AtomicUsize,
     pub peak: AtomicUsize,
     pub documents: Mutex<Vec<DocumentId>>,
@@ -105,9 +107,24 @@ impl EngineBackend for Engine {
             std::thread::sleep(Duration::from_millis(5));
         }
         context.check()?;
+        let objects = if self.interaction.load(Ordering::Acquire) {
+            let mut objects = String::from("<a data-ossia-kind='Clef' data-ossia-staff='0'><rect x='5' y='20' width='3' height='6'/></a>");
+            for (i, token) in ossia_score::tokenize(snapshot.source())
+                .iter()
+                .filter(|t| t.kind == ossia_score::TokenKind::Note)
+                .enumerate()
+            {
+                for y in [20, 50] {
+                    objects.push_str(&format!("<a data-ossia-kind='NoteHead' data-ossia-staff='0' data-ossia-source='{}:{}'><rect x='{}' y='{y}' width='2' height='1'/></a>", token.byte_start, token.byte_end, 20 + i * 10));
+                }
+            }
+            objects
+        } else {
+            String::new()
+        };
         let bytes = format!(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><!-- {} --></svg>",
-            snapshot.source_hash()
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><!-- {} -->{objects}</svg>",
+            snapshot.source_hash(),
         )
         .into_bytes();
         let hash = ContentHash::of(&bytes);
@@ -136,7 +153,11 @@ impl EngineBackend for Engine {
         Ok(RenderManifest {
             source_hash: snapshot.source_hash().clone(),
             engine_build_id: self.build_id().into(),
-            options_hash: ContentHash::of(&serde_json::to_vec(options).unwrap()),
+            options_hash: if self.legacy_render.load(Ordering::Acquire) {
+                ContentHash::of(b"legacy")
+            } else {
+                ossia_engine::render_options_hash(options.point_and_click)
+            },
             pages: if broken {
                 vec![]
             } else {

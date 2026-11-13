@@ -123,7 +123,9 @@ impl Engine {
 fn encode_quantized_png(pixmap: &tiny_skia::Pixmap, quality: u8) -> Result<Vec<u8>, AppError> {
     let pixels = pixmap
         .data()
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .map(|pixel| {
             let alpha = pixel[3];
             if alpha == 0 {

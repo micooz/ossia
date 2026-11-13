@@ -34,9 +34,7 @@ fn converter_markup_does_not_block_anchors_or_midi() {
 "#;
     for format in [RenderFormat::Svg, RenderFormat::Pdf, RenderFormat::Midi] {
         let derived = source::derive(text, format, true).unwrap();
-        assert!(derived
-            .text
-            .starts_with(&" ".repeat("\\pointAndClickOff".len())));
+        assert!(!derived.text.contains("\\pointAndClickOff"));
         let note = derived.text.find("c'1").unwrap();
         assert_eq!(derived.original_byte(note), text.find("c'1"));
         assert!(derived.text.contains("#{ \\markup \\box"));
@@ -123,7 +121,7 @@ fn svg_links_map_original_unicode_and_never_map_library_files() {
 fn print_derivation_hides_only_the_default_tagline() {
     let without_tagline =
         "\\version \"2.26.0\"\n\\header { title = \"Scale\" }\n\\score { { c'1 } \\layout {} }\n";
-    let derived = source::derive(without_tagline, RenderFormat::Svg, true).unwrap();
+    let derived = source::derive(without_tagline, RenderFormat::Svg, false).unwrap();
     assert_eq!(
         derived.text,
         format!("{without_tagline}\n\\paper {{ tagline = ##f }}\n")

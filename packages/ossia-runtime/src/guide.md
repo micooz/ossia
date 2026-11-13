@@ -157,10 +157,16 @@ snapshots and commit authorization, and use a check to verify the actual result.
 4. Call `ossia_context` with that `documentId` when you need to refresh the
    document, shared selection, source spans and edit state. Selections belong to
    the document and are shared by its browser tabs. The compact response has no
-   source filesystem path. After a source-hash change, a selection is retained
-   only when the conservative music identity and every locator remain reliable;
-   annotations and ordinary layout changes preserve it, while music or staff
-   structure changes clear it.
+   source filesystem path. `selection.targets` contains `measure` targets with a
+   `locator`, or `element` targets with an `elementId`. The matching `regions`
+   provide authoritative source spans, element types and printed `occurrences`.
+   A reused source object can affect several printed locations. Generated clefs
+   and signatures have an empty `spans` list and a zero-width `insertionAnchor`
+   inside their owning music body; read the surrounding source before inserting
+   an explicit command. After a source-hash change, measure targets require an
+   unchanged reliable music identity. Element targets survive only an
+   unambiguous source correspondence; deleted, replaced or ambiguous targets
+   are cleared individually. Refresh context before using any retained span.
 5. Call `ossia_edit` with action `begin`, the current `baseVersionId`, and the
    exact `expectedSourceHash`. Keep `editId` private.
 6. Use `ossia_read_source` with that source hash. Start with

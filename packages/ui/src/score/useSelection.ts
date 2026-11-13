@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
-import type { DocumentContext, Locator, Selection } from '../generated/protocol.ts';
-import { locatorKey } from './api.ts';
+import type { DocumentContext, SelectionTarget, Selection } from '../generated/protocol.ts';
+import { selectionKey } from './api.ts';
 import type { Api } from './api.ts';
 
 type PendingSelection = {
@@ -81,25 +81,25 @@ export function useSelection(
     }
   }
 
-  function choose(locator: Locator) {
+  function choose(target: SelectionTarget) {
     const current = contextRef.current;
     if (!current?.render || current.render.manifest.sourceHash !== current.document.sourceHash)
       return;
     const selected =
       pending.current && matches(pending.current, current)
-        ? pending.current.selection.locators
-        : (current.selection?.locators ?? []);
-    const key = locatorKey(locator);
-    const locators = selected.some((item) => locatorKey(item) === key)
-      ? selected.filter((item) => locatorKey(item) !== key)
-      : [...selected, locator];
+        ? pending.current.selection.targets
+        : (current.selection?.targets ?? []);
+    const key = selectionKey(target);
+    const targets = selected.some((item) => selectionKey(item) === key)
+      ? selected.filter((item) => selectionKey(item) !== key)
+      : [...selected, target];
     const next: PendingSelection = {
       instanceId: current.instanceId,
       renderKey: current.render.renderKey,
       selection: {
         documentId: current.document.documentId,
         sourceHash: current.document.sourceHash,
-        locators,
+        targets,
       },
     };
     pending.current = next;
@@ -111,7 +111,7 @@ export function useSelection(
     choose,
     selected:
       optimistic && matches(optimistic, context)
-        ? optimistic.selection.locators
-        : (context?.selection?.locators ?? []),
+        ? optimistic.selection.targets
+        : (context?.selection?.targets ?? []),
   };
 }

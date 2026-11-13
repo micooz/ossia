@@ -35,13 +35,7 @@ impl Runtime {
             .is_none_or(|old| state.selections.get(&document) == Some(old));
         if prior_is_current {
             if let Some(selection) = &retained {
-                state.selections.insert(
-                    document,
-                    SelectionState {
-                        selection: selection.clone(),
-                        identity: prior.as_ref().expect("retained selection").identity.clone(),
-                    },
-                );
+                state.selections.insert(document, selection.clone());
             } else if prior.is_some() {
                 state.selections.remove(&document);
             }
@@ -54,6 +48,9 @@ impl Runtime {
             json!({}),
         );
         if prior.is_some() && prior_is_current {
+            let target_count = retained
+                .as_ref()
+                .map_or(0, |selection| selection.regions.len());
             self.emit_locked(
                 &mut state,
                 "selection-changed",
@@ -64,7 +61,8 @@ impl Runtime {
                         "source-music-preserved"
                     } else {
                         "source-structure-changed"
-                    }
+                    },
+                    "targetCount": target_count
                 }),
             );
         }
@@ -73,37 +71,45 @@ impl Runtime {
 
     pub fn context(&self, document_id: DocumentId) -> Result<DocumentContext> {
         let document = self.observe(document_id)?;
-        let (selection, seq) = {
-            let state = self.state();
+        let (selection, mut regions, seq) = {
+            let mut state = self.state();
+            if state
+                .selections
+                .get(&document_id)
+                .is_some_and(|s| s.selection.source_hash != document.source_hash)
+            {
+                state.selections.remove(&document_id);
+            }
+            let selected = state.selections.get(&document_id);
             (
-                state
-                    .selections
-                    .get(&document_id)
-                    .map(|state| state.selection.clone()),
+                selected.map(|s| s.selection.clone()),
+                selected.map(|s| s.regions.clone()).unwrap_or_default(),
                 state.seq,
             )
         };
-        let selection = if let Some(selection) = selection {
-            if selection.source_hash != document.source_hash {
-                self.state().selections.remove(&document_id);
-                None
-            } else {
-                Some(selection)
-            }
-        } else {
-            None
-        };
-        let mut regions = Vec::new();
-        if let Some(selection) = &selection {
-            let source = self.library.source_snapshot(document_id)?;
-            if source.source_hash() != &selection.source_hash {
-                return Err(stale());
-            }
-            let index = self.score_index(&source);
-            for locator in &selection.locators {
-                regions.push(ossia_score::resolve_locator(&index, locator)?);
+        if regions
+            .iter()
+            .any(|r| matches!(r.target, SelectionTarget::Element { .. }))
+        {
+            if let Some(manifest) = document
+                .last_successful_render
+                .as_ref()
+                .filter(|r| r.source_hash == document.source_hash)
+            {
+                let snapshot = self.library.source_snapshot(document_id)?;
+                let geometry = self.score_geometry(&snapshot, manifest)?;
+                for region in &mut regions {
+                    if let Some(current) = geometry
+                        .iter()
+                        .flat_map(|p| &p.elements)
+                        .find(|e| e.region.target == region.target)
+                    {
+                        *region = current.region.clone();
+                    }
+                }
             }
         }
+        self.ensure_interaction_render(&document)?;
         let render = document
             .last_successful_render
             .as_ref()
@@ -138,21 +144,61 @@ impl Runtime {
             return Err(stale());
         }
         let index = self.score_index(&snapshot);
-        for locator in &selection.locators {
-            let region = ossia_score::resolve_locator(&index, locator)?;
-            if region.capability != LocationCapability::Measure {
+        let mut regions = Vec::new();
+        let geometry = if selection
+            .targets
+            .iter()
+            .any(|t| matches!(t, SelectionTarget::Element { .. }))
+        {
+            let document = self.library.get_document(selection.document_id)?;
+            let manifest = document
+                .last_successful_render
+                .filter(|r| r.source_hash == selection.source_hash)
+                .ok_or_else(|| {
+                    AppError::unsupported("element selection requires a current render")
+                })?;
+            self.score_geometry(&snapshot, &manifest)?
+        } else {
+            Arc::new(Vec::new())
+        };
+        let identity = ossia_score::music_identity_with_index(&index, snapshot.source());
+        for target in &selection.targets {
+            if regions
+                .iter()
+                .any(|r: &SelectionRegion| &r.target == target)
+            {
+                continue;
+            }
+            let region = match target {
+                SelectionTarget::Measure { locator } => {
+                    if !identity.reliable {
+                        return Err(AppError::unsupported(
+                            "measure selection requires reliable musical identity",
+                        ));
+                    }
+                    ossia_score::measure_selection(&index, locator)?
+                }
+                SelectionTarget::Element { .. } => geometry
+                    .iter()
+                    .flat_map(|p| &p.elements)
+                    .find(|e| &e.region.target == target)
+                    .map(|e| e.region.clone())
+                    .ok_or_else(|| {
+                        AppError::new(ErrorCode::NotFound, "element not found in current render")
+                    })?,
+            };
+            if region.spans.is_empty() && region.insertion_anchor.is_none() {
                 return Err(AppError::unsupported(
-                    "selection requires reliable measure locations",
+                    region
+                        .reason
+                        .as_deref()
+                        .unwrap_or("element has no source mapping"),
                 ));
             }
-        }
-        let identity = ossia_score::music_identity_with_index(&index, snapshot.source());
-        if !identity.reliable {
-            return Err(AppError::unsupported(
-                "selection requires reliable musical identity",
-            ));
+            regions.push(region);
         }
         {
+            let target_count = regions.len();
             let mut state = self.state();
             state.selections.insert(
                 selection.document_id,
@@ -160,9 +206,11 @@ impl Runtime {
                     selection: Selection {
                         document_id: selection.document_id,
                         source_hash: selection.source_hash.clone(),
-                        locators: selection.locators.clone(),
+                        targets: regions.iter().map(|r| r.target.clone()).collect(),
                     },
                     identity,
+                    regions,
+                    source: snapshot.source().into(),
                 },
             );
             state
@@ -173,7 +221,10 @@ impl Runtime {
                 "selection-changed",
                 Some(selection.document_id),
                 Some(selection.source_hash.clone()),
-                client_id.map_or_else(|| json!({}), |client_id| json!({ "clientId": client_id })),
+                client_id.map_or_else(
+                    || json!({ "targetCount": target_count }),
+                    |client_id| json!({ "clientId": client_id, "targetCount": target_count }),
+                ),
             );
         }
         let context = self.context(selection.document_id)?;
@@ -191,28 +242,126 @@ impl Runtime {
         &self,
         prior: &SelectionState,
         snapshot: &SourceSnapshot,
-    ) -> Option<Selection> {
+    ) -> Option<SelectionState> {
         let index = self.score_index(snapshot);
         let identity = ossia_score::music_identity_with_index(&index, snapshot.source());
-        if !prior.identity.reliable || !identity.reliable || prior.identity != identity {
+        let same_music = prior.identity.reliable && identity.reliable && prior.identity == identity;
+        let mut regions = Vec::new();
+        for old in &prior.regions {
+            let region = match &old.target {
+                SelectionTarget::Measure { locator } => {
+                    if !same_music {
+                        continue;
+                    }
+                    let Ok(region) = ossia_score::measure_selection(&index, locator) else {
+                        continue;
+                    };
+                    region
+                }
+                SelectionTarget::Element { .. } => {
+                    let mut region = old.clone();
+                    region.occurrences.clear();
+                    if old.spans.is_empty() {
+                        if !same_music {
+                            continue;
+                        }
+                        region.insertion_anchor = old
+                            .staff_index
+                            .and_then(|i| ossia_score::property_insertion_anchor(&index, i));
+                        if region.insertion_anchor.is_none() {
+                            continue;
+                        }
+                        region.voice = old
+                            .staff_index
+                            .and_then(|i| index.staves.get(i))
+                            .filter(|s| s.voices.len() == 1)
+                            .map(|s| s.voices[0].clone());
+                    } else {
+                        let Some(spans) = old
+                            .spans
+                            .iter()
+                            .map(|span| {
+                                ossia_score::remap_selection_span(
+                                    &prior.source,
+                                    snapshot.source(),
+                                    *span,
+                                )
+                            })
+                            .collect::<Option<Vec<_>>>()
+                        else {
+                            continue;
+                        };
+                        region.spans = spans;
+                        region.voice = region
+                            .spans
+                            .first()
+                            .and_then(|span| {
+                                index.voices.iter().find(|v| {
+                                    span.byte_start >= v.music_span.byte_start
+                                        && span.byte_end <= v.music_span.byte_end
+                                })
+                            })
+                            .map(|v| v.name.clone());
+                    }
+                    region.target = ossia_score::element_target(snapshot.source_hash(), &region);
+                    region
+                }
+            };
+            regions.push(region);
+        }
+        if regions.is_empty() {
             return None;
         }
-        let locators = prior
-            .selection
-            .locators
-            .iter()
-            .map(|locator| {
-                ossia_score::resolve_locator(&index, locator)
-                    .ok()
-                    .filter(|region| region.capability == LocationCapability::Measure)
-                    .map(|region| region.locator)
-            })
-            .collect::<Option<Vec<_>>>()?;
-        Some(Selection {
-            document_id: snapshot.document_id(),
-            source_hash: snapshot.source_hash().clone(),
-            locators,
+        Some(SelectionState {
+            selection: Selection {
+                document_id: snapshot.document_id(),
+                source_hash: snapshot.source_hash().clone(),
+                targets: regions.iter().map(|r| r.target.clone()).collect(),
+            },
+            regions,
+            identity,
+            source: snapshot.source().into(),
         })
+    }
+
+    fn ensure_interaction_render(&self, document: &DocumentState) -> Result<()> {
+        let outdated = document.last_successful_render.as_ref().is_some_and(|r| {
+            r.source_hash == document.source_hash
+                && r.options_hash != ossia_engine::render_options_hash(true)
+        });
+        if !outdated {
+            return Ok(());
+        }
+        let (pending, running) = {
+            let state = self.state();
+            (
+                state
+                    .pending
+                    .iter()
+                    .any(|p| p.job.document_id == Some(document.document_id)),
+                state.running.keys().copied().collect::<Vec<_>>(),
+            )
+        };
+        let busy = pending
+            || running.into_iter().any(|id| {
+                self.library
+                    .get_job(id)
+                    .is_ok_and(|job| job.document_id == Some(document.document_id))
+            });
+        if !busy {
+            self.check(
+                CheckArgs {
+                    document_id: Some(document.document_id),
+                    edit_id: None,
+                    expected_source_hash: document.source_hash.clone(),
+                    expect: None,
+                    reference: None,
+                    wait_ms: None,
+                },
+                true,
+            )?;
+        }
+        Ok(())
     }
 
     pub fn clear_selection(&self, document_id: DocumentId) -> Result<DocumentContext> {
@@ -224,7 +373,7 @@ impl Runtime {
             "selection-changed",
             Some(document_id),
             None,
-            json!({}),
+            json!({ "targetCount": 0 }),
         );
         drop(state);
         self.context(document_id)
@@ -241,20 +390,24 @@ impl Runtime {
             .filter(|render| render.source_hash == args.source_hash)
             .ok_or_else(|| AppError::unsupported("no current successful render"))?;
         let index = self.score_index(&snapshot);
-        let layout = self.score_layout(&snapshot, &manifest)?;
-        let result = ossia_score::locate(
-            &index,
-            &layout,
-            &ossia_score::LocateQuery::Point {
-                page: args.page,
-                x: args.x,
-                y: args.y,
-            },
-        )?;
+        let geometry = self.score_geometry(&snapshot, &manifest)?;
+        let mut region = ossia_score::hit_selection(&index, &geometry, args.page, args.x, args.y)?;
+        let reason = if region
+            .as_ref()
+            .is_some_and(|r| r.spans.is_empty() && r.insertion_anchor.is_none())
+        {
+            region.take().and_then(|r| r.reason)
+        } else {
+            region.is_none().then(|| "no-hit".into())
+        };
         Ok(LocateOutcome {
-            capability: result.capability,
-            reason: result.reason,
-            region: result.region,
+            capability: match region.as_ref().map(|r| &r.target) {
+                Some(SelectionTarget::Measure { .. }) => LocationCapability::Measure,
+                Some(SelectionTarget::Element { .. }) => LocationCapability::AnchorOnly,
+                None => LocationCapability::None,
+            },
+            reason,
+            region,
         })
     }
 

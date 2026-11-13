@@ -12,6 +12,10 @@ fn bundled_resources_are_complete() {
         .read_text(Resource::DshClient)
         .unwrap()
         .contains("__ModuleLoader__"));
+    assert!(resources
+        .read_text(Resource::DshHost)
+        .unwrap()
+        .contains("/ossia-selection"));
     for resource in [Resource::DshLocaleEn, Resource::DshLocaleZh] {
         let locale: serde_json::Value =
             serde_json::from_slice(&resources.read(resource).unwrap()).unwrap();

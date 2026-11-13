@@ -170,6 +170,7 @@ pub(super) fn run(ctx: &AgentContext, args: &[&str]) -> Result<String, AppError>
 pub(super) fn plugin_files(ctx: &AgentContext) -> Result<Vec<FilePlan>, AppError> {
     let root = bundle_dir(ctx);
     let skill = ctx.skill()?;
+    let host = ctx.resource(Resource::DshHost)?;
     let client = ctx.resource(Resource::DshClient)?;
     let icon = ctx.icon()?;
     let locale_en = ctx.resource(Resource::DshLocaleEn)?;
@@ -192,9 +193,16 @@ pub(super) fn plugin_files(ctx: &AgentContext) -> Result<Vec<FilePlan>, AppError
         },
         FilePlan {
             path: root.join("index.js"),
-            bytes: b"/** Host half; MCP and Skill rows are the contribution. */\nexport function apply() {}\n".to_vec(),
+            bytes: host,
             kind: "host-entry",
         },
+        json_file(
+            root.join("config.json"),
+            json!({
+                "home": ctx.integrator.home().to_string_lossy(),
+            }),
+            "host-config",
+        ),
         FilePlan {
             path: root.join("client.js"),
             bytes: client,
@@ -239,12 +247,14 @@ fn plugin_manifest() -> Value {
             ".": "./index.js",
             "./client": "./client.js",
             "./skill": "./skill.js",
+            "./config.json": "./config.json",
             "./locale/*.json": "./locale/*.json",
             "./icon": "./icon.svg",
             "./skills/*": "./skills/*"
         },
         "files": [
             "index.js",
+            "config.json",
             "client.js",
             "skill.js",
             "cordis.patch.yml",
@@ -271,7 +281,7 @@ fn plugin_patch(ctx: &AgentContext, enable_browser: bool) -> String {
         ""
     };
     format!(
-        "{browser}- insert:\n    - id: ossia-mcp\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: ossia\n        transport: stdio\n        command: {}\n        args: {}\n        env: {}\n        failOnStartupError: true\n    - id: ossia-skill\n      name: 'ossia-dsh-plugin/skill'\n",
+        "{browser}- insert:\n    - id: ossia-plugin\n      name: 'ossia-dsh-plugin'\n    - id: ossia-mcp\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: ossia\n        transport: stdio\n        command: {}\n        args: {}\n        env: {}\n        failOnStartupError: true\n    - id: ossia-skill\n      name: 'ossia-dsh-plugin/skill'\n",
         yaml_string(&ctx.executable().to_string_lossy()),
         yaml_array(&ctx.mcp_command()),
         yaml_env(&ctx.integrator.paths().launch_env),

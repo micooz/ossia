@@ -16,6 +16,8 @@ import type {
   Job,
   JobOutcome,
   RenderGeometry,
+  GeometryPage,
+  GeometryRegion,
 } from '../src/generated/protocol.ts';
 
 const exec = promisify(execFile);
@@ -25,6 +27,22 @@ const engine =
   process.env.OSSIA_TEST_LILYPOND_ROOT ?? path.join(root, 'vendor/lilypond/2.26.0-darwin-arm64');
 let temporary: string;
 let home: string;
+
+function measureWhitespace(page: GeometryPage, region: GeometryRegion) {
+  for (const dy of [0.2, 0.5, 0.8]) {
+    for (const dx of [0.5, 0.3, 0.7, 0.1, 0.9]) {
+      const x = region.bounds.x0 + (region.bounds.x1 - region.bounds.x0) * dx;
+      const y = region.bounds.y0 + (region.bounds.y1 - region.bounds.y0) * dy;
+      if (
+        !page.elements.some(
+          ({ bounds }) => x >= bounds.x0 && x <= bounds.x1 && y >= bounds.y0 && y <= bounds.y1,
+        )
+      )
+        return { x, y };
+    }
+  }
+  throw new Error('measure fixture has no selectable whitespace');
+}
 const fixtures = path.join(root, 'tests/fixtures/inputs');
 async function cli<T>(command: string, args?: unknown): Promise<T> {
   const { stdout } = await exec(
@@ -104,6 +122,76 @@ test.afterAll(async () => {
   if (home) await cli('stop').catch(() => {});
   if (temporary) await fs.rm(temporary, { recursive: true, force: true });
 });
+test('a supplied score selects notes and excludes the first measure prefix', async ({ page }) => {
+  const source = process.env.OSSIA_TEST_SELECTION_SOURCE;
+  test.skip(!source, 'requires OSSIA_TEST_SELECTION_SOURCE');
+  await waitJob(
+    await cli<Job>('import', {
+      title: '实际谱面点选回归',
+      path: source,
+      format: 'ly',
+      confirmation: null,
+      author: 'test',
+    }),
+  );
+  const docs = await cli<DocumentPage>('list');
+  const documentId = docs.items.find((doc) => doc.title === '实际谱面点选回归')!.documentId;
+  const opened = await cli<AgentOpenOutcome>('open', { documentId });
+  await page.goto(opened.url);
+  await expect(page.getByText('已连接')).toBeVisible();
+  const origin = new URL(opened.url).origin;
+  const context: DocumentContext = await (
+    await page.request.get(`${origin}/api/v1/documents/${documentId}/context`)
+  ).json();
+  const geometry: RenderGeometry = await (
+    await page.request.get(`${origin}/api/v1/renders/${context.render!.renderKey}/geometry`)
+  ).json();
+  await expect(page.locator('.score-image')).toHaveCount(geometry.pages.length);
+  const first = geometry.pages[0]!;
+  const box = first.viewBox!;
+  const region = first.regions.find((r) => r.locator.staffIndex === 0)!;
+  const note = first.elements
+    .filter(
+      (e) =>
+        e.region.elementKind === 'NoteHead' &&
+        e.region.staffIndex === 0 &&
+        e.bounds.x0 > region.bounds.x0 &&
+        e.bounds.x1 < region.bounds.x1 &&
+        e.bounds.y0 > region.bounds.y0 - 5 &&
+        e.bounds.y1 < region.bounds.y1 + 5,
+    )
+    .sort((a, b) => a.bounds.x0 - b.bounds.x0)[0]!;
+  expect(note).toBeTruthy();
+  const click = (x: number, y: number) =>
+    clickScore(
+      page.locator('.overlay').first(),
+      (x - box.x0) / (box.x1 - box.x0),
+      (y - box.y0) / (box.y1 - box.y0),
+    );
+  const x = (note.bounds.x0 + note.bounds.x1) / 2,
+    y = (note.bounds.y0 + note.bounds.y1) / 2;
+  await click(x, y);
+  await expect(page.locator('.element-selection')).toHaveCount(note.region.occurrences.length);
+  await expect
+    .poll(
+      async () => (await cli<AgentDocumentContext>('context', { documentId })).selection?.targets,
+    )
+    .toEqual([note.region.target]);
+  await page
+    .locator('.page-host')
+    .first()
+    .screenshot({ path: test.info().outputPath('supplied-score-note.png') });
+  await click(x, y);
+  await expect(page.locator('.selection-box')).toHaveCount(0);
+  const whitespace = measureWhitespace(first, region);
+  await click(whitespace.x, whitespace.y);
+  await expect(page.locator('.selection-box')).toHaveCount(1);
+  await expect(page.locator('.selection-box')).toHaveAttribute('x', String(region.bounds.x0));
+  await page
+    .locator('.page-host')
+    .first()
+    .screenshot({ path: test.info().outputPath('supplied-score-measure.png') });
+});
 test('real browser, LilyPond, Agent editing, history, restore and exports', async ({
   page,
   context,
@@ -118,7 +206,7 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
     }),
   );
   const docs = await cli<DocumentPage>('list');
-  const documentId = docs.items[0]!.documentId;
+  const documentId = docs.items.find((doc) => doc.title === '合成钢琴练习')!.documentId;
   const opened = await cli<AgentOpenOutcome>('open', { documentId });
   await page.goto(opened.url);
   await expect(page.getByText('已连接')).toBeVisible();
@@ -136,18 +224,41 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   expect(geometry.pages.length).toBeGreaterThan(1);
   expect(geometry.pages[1]!.regions.some((r) => r.locator.measureStart >= 3)).toBeTruthy();
   const lower = geometry.pages[0]!.regions.find((r) => r.locator.staffIndex === 1)!;
+  const whitespace = measureWhitespace(geometry.pages[0]!, lower);
   expect(lower).toBeTruthy();
   await expect(page.locator('.score-image')).toHaveCount(geometry.pages.length);
   await expect(page).toHaveTitle('合成钢琴练习');
   await expect(page.locator('.topbar-title')).toHaveText('合成钢琴练习');
+  const note = geometry.pages[0]!.elements.find((e) => e.region.elementKind === 'NoteHead')!;
+  expect(note).toBeTruthy();
+  const initialBox = geometry.pages[0]!.viewBox!;
+  const noteX =
+    ((note.bounds.x0 + note.bounds.x1) / 2 - initialBox.x0) / (initialBox.x1 - initialBox.x0);
+  const noteY =
+    ((note.bounds.y0 + note.bounds.y1) / 2 - initialBox.y0) / (initialBox.y1 - initialBox.y0);
+  await clickScore(page.locator('.overlay').first(), noteX, noteY);
+  await expect(page.locator('.element-selection')).toHaveCount(note.region.occurrences.length);
+  await expect
+    .poll(
+      async () => (await cli<AgentDocumentContext>('context', { documentId })).selection?.targets,
+    )
+    .toEqual([note.region.target]);
+  const elementContext = await cli<AgentDocumentContext>('context', { documentId });
+  expect(elementContext.regions[0]!.spans).toEqual(note.region.spans);
+  await page
+    .locator('.page-host')
+    .first()
+    .screenshot({ path: test.info().outputPath('element-selection.png') });
+  await clickScore(page.locator('.overlay').first(), noteX, noteY);
+  await expect(page.locator('.selection-box')).toHaveCount(0);
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const zoom of ['base', 'zoomed'] as const) {
       await ensureZoom(page, zoom);
       const viewBox = geometry.pages[0]!.viewBox!;
       const overlay = page.locator('.overlay').first();
-      const x = ((lower.bounds.x0 + lower.bounds.x1) / 2 - viewBox.x0) / (viewBox.x1 - viewBox.x0);
-      const y = ((lower.bounds.y0 + lower.bounds.y1) / 2 - viewBox.y0) / (viewBox.y1 - viewBox.y0);
+      const x = (whitespace.x - viewBox.x0) / (viewBox.x1 - viewBox.x0);
+      const y = (whitespace.y - viewBox.y0) / (viewBox.y1 - viewBox.y0);
       await clickScore(overlay, x, y);
       await expect(page.locator('.selection-box').first()).toHaveAttribute(
         'y',
@@ -162,18 +273,20 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   const firstViewBox = geometry.pages[0]!.viewBox!;
   await clickScore(
     page.locator('.overlay').first(),
-    ((lower.bounds.x0 + lower.bounds.x1) / 2 - firstViewBox.x0) /
-      (firstViewBox.x1 - firstViewBox.x0),
-    ((lower.bounds.y0 + lower.bounds.y1) / 2 - firstViewBox.y0) /
-      (firstViewBox.y1 - firstViewBox.y0),
+    (whitespace.x - firstViewBox.x0) / (firstViewBox.x1 - firstViewBox.x0),
+    (whitespace.y - firstViewBox.y0) / (firstViewBox.y1 - firstViewBox.y0),
   );
   await expect(page.locator('.selection-box')).toHaveCount(1);
+  await page
+    .locator('.page-host')
+    .first()
+    .screenshot({ path: test.info().outputPath('measure-selection.png') });
   await expect
     .poll(async () => {
       const agent = await cli<AgentDocumentContext>('context', { documentId });
-      return agent.selection?.locators;
+      return agent.selection?.targets;
     })
-    .toEqual([lower.locator]);
+    .toEqual([{ kind: 'measure', locator: lower.locator }]);
   const agent = await cli<AgentDocumentContext>('context', { documentId });
   expect(agent.regions.some((region) => region.spans.length > 0)).toBeTruthy();
   const other = await context.newPage();

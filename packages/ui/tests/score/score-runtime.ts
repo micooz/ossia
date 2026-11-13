@@ -4,6 +4,7 @@ import type {
   DocumentContext,
   DocumentState,
   DocumentSummary,
+  GeometryElement,
   Job,
   OutputArgs,
   RenderGeometry,
@@ -71,7 +72,7 @@ function versionList(documentId: string): Version[] {
     },
   ];
 }
-function geometry(): RenderGeometry {
+function geometry(elements: GeometryElement[] = []): RenderGeometry {
   return {
     renderKey: hash,
     sourceHash: hash,
@@ -80,6 +81,7 @@ function geometry(): RenderGeometry {
       viewBox: { x0: 0, y0: 0, x1: 100, y1: 140 },
       capability: 'measure',
       reason: null,
+      elements,
       regions: [0, 1].map((staffIndex) => ({
         locator: { staffIndex, measureStart: page, measureEnd: page, voice: null },
         systemIndex: 0,
@@ -106,6 +108,7 @@ export async function mockScoreRuntime(
   context: BrowserContext,
   options: {
     languageEvent?: 'en-US';
+    elements?: GeometryElement[];
     delays?: { context?: number; versionRender?: number };
   } = {},
 ) {
@@ -169,7 +172,7 @@ export async function mockScoreRuntime(
       return reply({
         runtime: {
           runtimeVersion: '0.1.0',
-          protocolVersion: 1,
+          protocolVersion: 2,
           schemaVersion: 2,
           instanceId: 'instance',
           home: '/synthetic/library',
@@ -212,7 +215,7 @@ export async function mockScoreRuntime(
       reveals.push(path.split('/')[2] ?? '');
       return reply({ opened: true });
     }
-    if (path === '/renders/' + hash + '/geometry') return reply(geometry());
+    if (path === '/renders/' + hash + '/geometry') return reply(geometry(options.elements));
     if (path.includes('/pages/'))
       return route.fulfill({
         contentType: 'image/svg+xml',
@@ -260,12 +263,21 @@ export async function mockScoreRuntime(
         capability: 'measure',
         reason: null,
         region: {
-          locator: {
-            staffIndex,
-            measureStart: payload.page,
-            measureEnd: payload.page,
-            voice: null,
+          target: {
+            kind: 'measure',
+            locator: {
+              staffIndex,
+              measureStart: payload.page,
+              measureEnd: payload.page,
+              voice: null,
+            },
           },
+          occurrences: [],
+          label: 'Measure',
+          elementKind: null,
+          insertionAnchor: null,
+          staffIndex,
+          voice: null,
           capability: 'measure',
           reason: null,
           spans: [],
@@ -275,7 +287,7 @@ export async function mockScoreRuntime(
     if (parts[2] === 'selection') {
       if (rejectSelection)
         return reply({ error: { code: 'stale-selection', message: 'source changed' } }, 409);
-      selections.set(documentId, payload.locators.length ? payload : null);
+      selections.set(documentId, payload.targets.length ? payload : null);
       emit('selection-changed', documentId, {
         clientId: req.headers()['x-ossia-client-id'] ?? null,
       });

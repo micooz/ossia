@@ -1,6 +1,79 @@
 import { expect, test } from '@playwright/test';
 
+import type { GeometryElement } from '../../src/generated/protocol.ts';
 import { firstId, mockScoreRuntime } from './score-runtime.ts';
+
+function element(id: string, kind: string, x: number, y: number): GeometryElement {
+  return {
+    bounds: { x0: x, x1: x + 2, y0: y, y1: y + 2 },
+    priority: 0,
+    hitBounds: [],
+    region: {
+      target: { kind: 'element', elementId: id },
+      label: kind,
+      elementKind: kind,
+      spans: [
+        {
+          byteStart: 0,
+          byteEnd: 1,
+          start: { byte: 0, line: 1, column: 1 },
+          end: { byte: 1, line: 1, column: 2 },
+        },
+      ],
+      occurrences: [],
+      insertionAnchor: null,
+      staffIndex: null,
+      voice: null,
+      reason: null,
+    },
+  };
+}
+
+test('elements precede measures, chord members toggle separately and source occurrences sync', async ({
+  context,
+  page,
+}) => {
+  const hairpin = element('hairpin', 'Hairpin', 20, 21);
+  hairpin.bounds = { x0: 20, x1: 70, y0: 21, y1: 29 };
+  hairpin.priority = 1;
+  hairpin.hitBounds = [{ x0: 20, x1: 70, y0: 21, y1: 22 }];
+  const runtime = await mockScoreRuntime(context, {
+    elements: [
+      hairpin,
+      element('c', 'NoteHead', 30, 24),
+      element('e', 'NoteHead', 30, 21),
+      element('title', 'header-title', 30, 5),
+    ],
+  });
+  await page.goto(`/scores?documentId=${firstId}`);
+  await expect(page.locator('.score-image')).toHaveCount(2);
+  const other = await context.newPage();
+  await other.goto(`/scores?documentId=${firstId}`);
+  const overlay = page.locator('.overlay').first();
+  const box = (await overlay.boundingBox())!;
+  const click = (x: number, y: number) =>
+    overlay.click({ position: { x: (box.width * x) / 100, y: (box.height * y) / 140 } });
+  await click(31, 25);
+  await expect(page.locator('.element-selection')).toHaveCount(2);
+  await expect(other.locator('.element-selection')).toHaveCount(2);
+  await click(31, 22);
+  await expect(page.locator('.element-selection')).toHaveCount(4);
+  await click(50, 28);
+  await expect(page.locator('.selection-box')).toHaveCount(5);
+  await click(31, 6);
+  await expect(page.locator('.element-selection')).toHaveCount(6);
+  await click(31, 25);
+  await expect(page.locator('.element-selection')).toHaveCount(4);
+  await expect
+    .poll(() => runtime.selections.get(firstId)?.targets)
+    .toEqual([
+      { kind: 'element', elementId: 'e' },
+      { kind: 'measure', locator: { staffIndex: 0, measureStart: 1, measureEnd: 1, voice: null } },
+      { kind: 'element', elementId: 'title' },
+    ]);
+  await click(50, 21.5);
+  await expect(page.locator('.element-selection')).toHaveCount(6);
+});
 
 test('selection paints before saving and keeps rapid toggles while a save is pending', async ({
   context,
@@ -37,8 +110,10 @@ test('selection paints before saving and keeps rapid toggles while a save is pen
     release();
   }
   await expect
-    .poll(() => runtime.selections.get(firstId)?.locators)
-    .toEqual([{ staffIndex: 1, measureStart: 1, measureEnd: 1, voice: null }]);
+    .poll(() => runtime.selections.get(firstId)?.targets)
+    .toEqual([
+      { kind: 'measure', locator: { staffIndex: 1, measureStart: 1, measureEnd: 1, voice: null } },
+    ]);
   await expect(page.locator('.selection-box')).toHaveAttribute('y', '50');
 });
 
@@ -69,7 +144,7 @@ test('an accepted local selection does not refetch its own context', async ({ co
   const overlay = page.locator('.overlay').first();
   const box = (await overlay.boundingBox())!;
   await overlay.click({ position: { x: box.width * 0.4, y: (box.height * 25) / 140 } });
-  await expect.poll(() => runtime.selections.get(firstId)?.locators.length).toBe(1);
+  await expect.poll(() => runtime.selections.get(firstId)?.targets.length).toBe(1);
   await page.waitForTimeout(100);
   expect(requests.filter((path) => path.endsWith(`/documents/${firstId}/context`))).toEqual([]);
 });
@@ -141,7 +216,7 @@ test('an older context refresh cannot overwrite an acknowledged selection', asyn
     const overlay = page.locator('.overlay').first();
     const box = (await overlay.boundingBox())!;
     await overlay.click({ position: { x: box.width * 0.4, y: (box.height * 25) / 140 } });
-    await expect.poll(() => runtime.selections.get(firstId)?.locators.length).toBe(1);
+    await expect.poll(() => runtime.selections.get(firstId)?.targets.length).toBe(1);
   } finally {
     release();
   }

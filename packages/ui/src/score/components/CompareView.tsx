@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { describe } from '../../errors.ts';
-import type { Locator, RenderReference, Version } from '../../generated/protocol.ts';
+import type { SelectionTarget, RenderReference, Version } from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
 import type { Api } from '../api.ts';
 import type { ScoreLayout } from './ScoreToolbar.tsx';
@@ -92,9 +92,9 @@ export function CompareView({
   onLeftZoom: (zoom: number) => void;
   rightZoom: number;
   onRightZoom: (zoom: number) => void;
-  selected: Locator[];
+  selected: SelectionTarget[];
   selectable: boolean;
-  onSelect: (locator: Locator) => void;
+  onSelect: (target: SelectionTarget) => void;
   onPoint: (page: number, x: number, y: number) => void;
 }) {
   const { t } = useI18n();

@@ -273,24 +273,31 @@ pub struct SvgElement {
     pub anchor: Option<SourceAnchor>,
 }
 
+mod objects;
+use objects::ObjectOrigin;
+pub use objects::SvgObject;
+
 #[derive(Clone)]
 struct Frame {
     matrix: Matrix,
     anchor: Option<SourceAnchor>,
     hidden: bool,
+    object: Option<ObjectOrigin>,
 }
 
 pub(crate) fn read_svg(
     svg: &str,
     map: &SourceMap<'_>,
-) -> Result<(BBox, Vec<SvgElement>), AppError> {
+) -> Result<(BBox, Vec<SvgElement>, Vec<SvgObject>), AppError> {
     let mut reader = Reader::from_str(svg);
     let mut stack = vec![Frame {
         matrix: Matrix::identity(),
         anchor: None,
         hidden: false,
+        object: None,
     }];
     let mut elements = Vec::new();
+    let mut objects = Vec::new();
     let mut view_box = None;
     let mut seen_root = false;
     let mut closed_root = false;
@@ -337,6 +344,10 @@ pub(crate) fn read_svg(
                     || attrs.get("display").is_some_and(|v| v == "none");
                 if tag == "a" {
                     frame.anchor = attrs.get("href").and_then(|s| anchor(s, map));
+                }
+                if let Some((origin, object)) = objects::read(&attrs, map, frame.matrix)? {
+                    frame.object = Some(origin);
+                    objects.extend(object);
                 }
                 let num = |key: &str, default: f64| -> Result<f64, AppError> {
                     match attrs.get(key) {
@@ -411,11 +422,23 @@ pub(crate) fn read_svg(
                 };
                 if !frame.hidden {
                     if let Some(bbox) = bbox {
-                        elements.push(SvgElement {
-                            kind: tag.clone(),
-                            bbox,
-                            anchor: frame.anchor.clone(),
-                        });
+                        if let Some(object) = &frame.object {
+                            if tag == "rect" {
+                                objects.push(SvgObject {
+                                    kind: object.kind.clone(),
+                                    bbox,
+                                    span: object.span,
+                                    staff_index: object.staff_index,
+                                    hit_only: object.hit_only,
+                                });
+                            }
+                        } else {
+                            elements.push(SvgElement {
+                                kind: tag.clone(),
+                                bbox,
+                                anchor: frame.anchor.clone(),
+                            });
+                        }
                     }
                 }
                 if !empty {
@@ -444,5 +467,6 @@ pub(crate) fn read_svg(
     Ok((
         view_box.ok_or_else(|| AppError::invalid("empty SVG"))?,
         elements,
+        objects,
     ))
 }

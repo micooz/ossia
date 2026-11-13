@@ -113,13 +113,13 @@ pub(crate) fn unsupported_token(t: &Token) -> bool {
 pub(crate) fn region(
     source: &str,
     name: String,
-    start: usize,
+    range: std::ops::Range<usize>,
     rhs: usize,
     open: usize,
-    end: usize,
     syntax: &Syntax,
     decorations: &HashSet<String>,
 ) -> VoiceRegion {
+    let std::ops::Range { start, end } = range;
     let map = SourceMap::new(source);
     let tokens = &syntax.tokens;
     let byte_end = tokens[end - 1].byte_end;

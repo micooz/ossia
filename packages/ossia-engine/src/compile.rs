@@ -1,6 +1,17 @@
 use super::*;
 use crate::cache::Cache;
 
+/// Cache identity of the current render derivation and point-and-click setting.
+pub fn render_options_hash(point_and_click: bool) -> ContentHash {
+    ContentHash::of(
+        &serde_json::to_vec(&serde_json::json!({
+            "pointAndClick": point_and_click, "derivationVersion": 4,
+            "interactionVersion": ossia_types::INTERACTION_VERSION,
+        }))
+        .expect("render options serialize"),
+    )
+}
+
 #[cfg(test)]
 #[path = "../tests/unit/compile.rs"]
 mod tests;
@@ -22,12 +33,7 @@ impl Engine {
                 "request at least one output format",
             ));
         }
-        let options_hash = ContentHash::of(
-            &serde_json::to_vec(
-                &serde_json::json!({"pointAndClick":options.point_and_click,"derivationVersion":3}),
-            )
-            .unwrap(),
-        );
+        let options_hash = render_options_hash(options.point_and_click);
         let mut result = RenderManifest {
             source_hash: snapshot.source_hash().clone(),
             engine_build_id: self.build_id().into(),

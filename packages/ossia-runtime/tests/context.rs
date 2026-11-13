@@ -10,13 +10,57 @@ fn selection(fixture: &Fixture) -> Selection {
     Selection {
         document_id: fixture.doc.document_id,
         source_hash: fixture.doc.source_hash.clone(),
-        locators: vec![Locator {
-            staff_index: 0,
-            measure_start: 1,
-            measure_end: 1,
-            voice: None,
+        targets: vec![SelectionTarget::Measure {
+            locator: Locator {
+                staff_index: 0,
+                measure_start: 1,
+                measure_end: 1,
+                voice: None,
+            },
         }],
     }
+}
+
+fn measure(staff_index: usize, measure: u32) -> SelectionTarget {
+    SelectionTarget::Measure {
+        locator: Locator {
+            staff_index,
+            measure_start: measure,
+            measure_end: measure,
+            voice: None,
+        },
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn selection_events_report_target_count() {
+    let f = Fixture::new(false).await;
+    let cursor = f.runtime.agent_status().unwrap().seq;
+    let mut selected = selection(&f);
+    selected.targets = vec![measure(0, 1), measure(0, 2)];
+    f.runtime.selection(selected).unwrap();
+    let events = f
+        .runtime
+        .events(Some(f.doc.document_id), &f.runtime.info.instance_id, cursor)
+        .unwrap();
+    let selection_event = events
+        .iter()
+        .find(|event| event.r#type == "selection-changed")
+        .unwrap();
+    assert_eq!(selection_event.payload["targetCount"], 2);
+
+    let cursor = f.runtime.agent_status().unwrap().seq;
+    f.runtime.clear_selection(f.doc.document_id).unwrap();
+    let events = f
+        .runtime
+        .events(Some(f.doc.document_id), &f.runtime.info.instance_id, cursor)
+        .unwrap();
+    let selection_event = events
+        .iter()
+        .find(|event| event.r#type == "selection-changed")
+        .unwrap();
+    assert_eq!(selection_event.payload["targetCount"], 0);
+    f.finish().await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -78,19 +122,39 @@ async fn selections_are_shared_by_document_and_cleared_when_source_changes() {
 async fn annotations_preserve_selection_while_structural_music_changes_clear_it() {
     let f = Fixture::new(true).await;
     f.runtime.selection(selection(&f)).unwrap();
+    let cursor = f.runtime.agent_status().unwrap().seq;
     let annotated = f.save(
         b"\\version \"2.26.0\"\n\\score { \\new Staff { c'1^\\markup { \"I\" } | d'1 | } \\layout {} }\n",
     );
     let context = f.runtime.context(f.doc.document_id).unwrap();
+    let events = f
+        .runtime
+        .events(Some(f.doc.document_id), &f.runtime.info.instance_id, cursor)
+        .unwrap();
+    let selection_event = events
+        .iter()
+        .find(|event| event.r#type == "selection-changed")
+        .unwrap();
+    assert_eq!(selection_event.payload["targetCount"], 1);
     assert_eq!(context.document.source_hash, annotated);
     assert_eq!(context.selection.as_ref().unwrap().source_hash, annotated);
     assert_eq!(
-        context.selection.as_ref().unwrap().locators,
-        selection(&f).locators
+        context.selection.as_ref().unwrap().targets,
+        selection(&f).targets
     );
+    let cursor = f.runtime.agent_status().unwrap().seq;
     let changed =
         f.save(b"\\version \"2.26.0\"\n\\score { \\new Staff { e'1 | d'1 | } \\layout {} }\n");
     let context = f.runtime.context(f.doc.document_id).unwrap();
+    let events = f
+        .runtime
+        .events(Some(f.doc.document_id), &f.runtime.info.instance_id, cursor)
+        .unwrap();
+    let selection_event = events
+        .iter()
+        .find(|event| event.r#type == "selection-changed")
+        .unwrap();
+    assert_eq!(selection_event.payload["targetCount"], 0);
     assert_eq!(context.document.source_hash, changed);
     assert!(context.selection.is_none());
     f.finish().await;

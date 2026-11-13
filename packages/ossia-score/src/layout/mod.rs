@@ -7,7 +7,7 @@ mod svg;
 mod systems;
 
 use svg::read_svg;
-pub use svg::{path_bbox, BBox, SourceAnchor, SvgElement};
+pub use svg::{path_bbox, BBox, SourceAnchor, SvgElement, SvgObject};
 use systems::systems;
 pub use systems::{StaffGeometry, SystemGeometry};
 
@@ -24,6 +24,7 @@ pub struct PageLayout {
     pub staff_space: f64,
     pub systems: Vec<SystemGeometry>,
     pub elements: Vec<SvgElement>,
+    pub objects: Vec<SvgObject>,
     pub capability: LocationCapability,
     pub reason: Option<String>,
     pub error: Option<AppError>,
@@ -74,6 +75,7 @@ pub fn build_layout(index: &ScoreIndex, pages: &[SvgPage<'_>]) -> Result<ScoreLa
             staff_space: 0.,
             systems: Vec::new(),
             elements: Vec::new(),
+            objects: Vec::new(),
             capability: LocationCapability::None,
             reason: None,
             error: None,
@@ -83,10 +85,11 @@ pub fn build_layout(index: &ScoreIndex, pages: &[SvgPage<'_>]) -> Result<ScoreLa
                 page.reason = Some(error.to_string());
                 page.error = Some(error);
             }
-            Ok((view_box, elements)) => {
+            Ok((view_box, elements, objects)) => {
                 page.view_box = Some(view_box);
                 page.elements = elements;
-                match systems(&page.elements, index.staves.len()) {
+                page.objects = objects;
+                match systems(&page.elements, &page.objects, index.staves.len()) {
                     Err(error) => {
                         page.capability = LocationCapability::AnchorOnly;
                         page.reason = Some(error.to_string());
@@ -102,19 +105,43 @@ pub fn build_layout(index: &ScoreIndex, pages: &[SvgPage<'_>]) -> Result<ScoreLa
                                 page.reason = Some("no reliable measure grid".into());
                             }
                             for (column_index, w) in sys.bar_xs.windows(2).enumerate() {
-                                let candidates: Vec<_> = page
-                                    .elements
+                                // Only rhythmic origins establish a measure; a broken slur
+                                // keeps its opening origin even on a later system.
+                                let rhythmic = page.objects.iter().any(|o| {
+                                    !o.hit_only
+                                        && matches!(
+                                            o.kind.as_str(),
+                                            "NoteHead" | "Rest" | "MultiMeasureRest"
+                                        )
+                                });
+                                let anchors: Vec<_> = if rhythmic {
+                                    page.objects
+                                        .iter()
+                                        .filter(|o| {
+                                            !o.hit_only
+                                                && matches!(
+                                                    o.kind.as_str(),
+                                                    "NoteHead" | "Rest" | "MultiMeasureRest"
+                                                )
+                                        })
+                                        .map(|o| (o.bbox, o.span.map(|span| span.byte_start)))
+                                        .collect()
+                                } else {
+                                    page.elements
+                                        .iter()
+                                        .map(|e| (e.bbox, e.anchor.as_ref().and_then(|a| a.byte)))
+                                        .collect()
+                                };
+                                let candidates: Vec<_> = anchors
                                     .iter()
-                                    .filter(|e| {
-                                        let (x, y) = e.bbox.center();
+                                    .filter(|(bbox, _)| {
+                                        let (x, y) = bbox.center();
                                         x >= w[0]
                                             && x < w[1]
                                             && y >= sys.top - space * 2.
                                             && y <= sys.bot + space * 2.
                                     })
-                                    .filter_map(|e| {
-                                        e.anchor.as_ref()?.byte.and_then(|b| index.measure_at(b))
-                                    })
+                                    .filter_map(|(_, byte)| byte.and_then(|b| index.measure_at(b)))
                                     .collect();
                                 let candidate = if candidates.is_empty() {
                                     None

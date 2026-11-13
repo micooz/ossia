@@ -1,11 +1,11 @@
 use crate::{Token, TokenKind};
-use ossia_types::{
-    AppError, ContentHash, ErrorCode, LocatedRegion, LocationCapability, Locator, SourceSpan,
-};
+use ossia_types::{ContentHash, LocationCapability, SourceSpan};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+mod locator;
 mod syntax;
+pub use locator::resolve_locator;
 pub(crate) use syntax::{region, unsupported_token, Assignment, Syntax};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,6 +45,9 @@ pub struct StaffVoices {
     pub staff_index: usize,
     pub label: Option<String>,
     pub voices: Vec<String>,
+    /// An explicit context body's insertion point, when present in the source.
+    #[serde(skip)]
+    pub property_anchor: Option<SourceSpan>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -152,10 +155,9 @@ pub fn build_index(source: &str) -> ScoreIndex {
             voices.push(region(
                 source,
                 a.name.clone(),
-                a.start,
+                a.start..a.end,
                 a.rhs,
                 a.open,
-                a.end,
                 &syntax,
                 &decorations,
             ));
@@ -255,6 +257,13 @@ pub fn build_index(source: &str) -> ScoreIndex {
                                 staff_index: n,
                                 label: label.clone(),
                                 voices: Vec::new(),
+                                property_anchor: matches!(t[open].raw.as_str(), "{" | "<<").then(
+                                    || {
+                                        crate::SourceMap::new(source)
+                                            .span(t[open].byte_end, t[open].byte_end)
+                                            .unwrap()
+                                    },
+                                ),
                             });
                             if let Some(label) = label {
                                 by_label.insert(label, n);
@@ -276,10 +285,9 @@ pub fn build_index(source: &str) -> ScoreIndex {
                         let v = region(
                             source,
                             name.clone(),
-                            body,
+                            body..end,
                             body,
                             open,
-                            end,
                             &syntax,
                             &decorations,
                         );
@@ -447,62 +455,4 @@ fn decoration_assignments(
         .filter(|name| is_decoration(name, assignments, tokens, &mut HashSet::new()))
         .cloned()
         .collect()
-}
-
-/// Resolve only voices belonging to the explicitly requested staff; no cross-staff fallback.
-pub fn resolve_locator(index: &ScoreIndex, locator: &Locator) -> Result<LocatedRegion, AppError> {
-    if locator.measure_start == 0 || locator.measure_end < locator.measure_start {
-        return Err(AppError::new(
-            ErrorCode::InvalidRequest,
-            "invalid measure range",
-        ));
-    }
-    let staff = index
-        .staves
-        .get(locator.staff_index)
-        .ok_or_else(|| AppError::new(ErrorCode::NotFound, "staff not found"))?;
-    let names: Vec<_> = if let Some(name) = &locator.voice {
-        if !staff.voices.contains(name) {
-            return Err(AppError::new(
-                ErrorCode::NotFound,
-                "voice not found on staff",
-            ));
-        }
-        vec![name]
-    } else {
-        staff.voices.iter().collect()
-    };
-    let mut spans = Vec::new();
-    let mut reason = None;
-    for name in names {
-        if let Some(voice) = index.voice(name) {
-            if voice.capability != LocationCapability::Measure {
-                reason = voice.reason.clone();
-            }
-            spans.extend(
-                voice
-                    .indexed_measures()
-                    .filter(|m| {
-                        m.measure_end >= locator.measure_start
-                            && m.measure_start <= locator.measure_end
-                    })
-                    .map(|m| m.span),
-            );
-        }
-    }
-    let capability = if reason.is_some() {
-        spans.clear();
-        LocationCapability::AnchorOnly
-    } else if spans.is_empty() {
-        reason = Some("no-hit".into());
-        LocationCapability::None
-    } else {
-        LocationCapability::Measure
-    };
-    Ok(LocatedRegion {
-        locator: locator.clone(),
-        spans,
-        capability,
-        reason,
-    })
 }

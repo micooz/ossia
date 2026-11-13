@@ -100,59 +100,10 @@ impl Runtime {
     pub fn geometry(&self, key: &ContentHash) -> Result<RenderGeometry> {
         let (_, manifest) = self.library.render(key)?;
         let snapshot = self.library.render_snapshot(key)?;
-        let index = self.score_index(&snapshot);
-        let layout = self.score_layout(&snapshot, &manifest)?;
-        let mut output = Vec::new();
-        for page in &layout.pages {
-            let mut regions = Vec::new();
-            for col in layout.columns.iter().filter(|c| c.page == page.page) {
-                let Some(system) = page.systems.get(col.system_index) else {
-                    continue;
-                };
-                for staff in &system.staves {
-                    let result = ossia_score::locate(
-                        &index,
-                        &layout,
-                        &ossia_score::LocateQuery::Point {
-                            page: page.page,
-                            x: (col.x0 + col.x1) / 2.,
-                            y: (staff.top + staff.bot) / 2.,
-                        },
-                    )?;
-                    if let Some(region) = result
-                        .region
-                        .filter(|r| r.capability == LocationCapability::Measure)
-                    {
-                        regions.push(GeometryRegion {
-                            locator: region.locator,
-                            system_index: col.system_index,
-                            bounds: GeometryBounds {
-                                x0: col.x0.max(staff.x0),
-                                x1: col.x1.min(staff.x1),
-                                y0: staff.top,
-                                y1: staff.bot,
-                            },
-                        });
-                    }
-                }
-            }
-            output.push(GeometryPage {
-                page: page.page,
-                view_box: page.view_box.map(|b| GeometryBounds {
-                    x0: b.x0,
-                    y0: b.y0,
-                    x1: b.x1,
-                    y1: b.y1,
-                }),
-                capability: page.capability,
-                reason: page.reason.clone(),
-                regions,
-            });
-        }
         Ok(RenderGeometry {
             render_key: key.clone(),
-            source_hash: manifest.source_hash,
-            pages: output,
+            source_hash: manifest.source_hash.clone(),
+            pages: self.score_geometry(&snapshot, &manifest)?.as_ref().clone(),
         })
     }
 

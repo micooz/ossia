@@ -13,6 +13,7 @@ struct Lexeme {
     range: Range<usize>,
 }
 
+mod interaction;
 mod scanner;
 use scanner::scan;
 
@@ -107,6 +108,9 @@ pub(crate) fn derive(
 ) -> Result<Derived, AppError> {
     let tokens = scan(source);
     let mut edits = Vec::new();
+    if format == RenderFormat::Svg && anchors {
+        edits.extend(interaction::edits(source));
+    }
     if let Ok(tokens) = &tokens {
         {
             let override_command = if anchors {
@@ -273,6 +277,7 @@ pub(crate) fn normalize_svg(
     let links = regex::Regex::new(r"^textedit://(.+):([0-9]+):([0-9]+):([0-9]+)$").unwrap();
     let derived_map = SourceMap::new(&derived.text);
     let original_map = SourceMap::new(original);
+    let source_index = ossia_score::ElementSourceIndex::new(original);
     loop {
         let event = reader
             .read_event()
@@ -293,6 +298,21 @@ pub(crate) fn normalize_svg(
                         .normalized_value(quick_xml::XmlVersion::Implicit1_0)
                         .map_err(|_| AppError::invalid("malformed SVG attribute"))?
                         .into_owned();
+                    if matches!(key.as_str(), "href" | "xlink:href")
+                        && (value.starts_with("ossia:") || value.starts_with("ossia-hit:"))
+                    {
+                        attrs.extend(
+                            interaction::attributes(
+                                &value,
+                                derived,
+                                original,
+                                &derived_map,
+                                &source_index,
+                            )
+                            .ok_or_else(|| AppError::invalid("invalid interactive SVG origin"))?,
+                        );
+                        continue;
+                    }
                     if matches!(key.as_str(), "href" | "xlink:href")
                         && value.starts_with("textedit://")
                     {

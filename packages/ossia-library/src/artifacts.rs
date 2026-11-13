@@ -36,7 +36,7 @@ impl Library {
     ) -> Result<RenderReference> {
         let version = self.get_version(document, version)?;
         let options = CompileOptions::default();
-        let options_hash = ContentHash::of(&serde_json::to_vec(&options).map_err(storage_error)?);
+        let options_hash = ossia_engine::render_options_hash(options.point_and_click);
         let cached: Option<(i64, String)> = {
             use rusqlite::OptionalExtension;
             let conn = self.db()?;

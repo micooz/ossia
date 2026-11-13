@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 mod cache;
 mod compile;
+pub use compile::render_options_hash;
 mod diagnostics;
 mod pdf;
 mod process;

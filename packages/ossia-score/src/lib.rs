@@ -5,6 +5,10 @@ mod lexer;
 mod midi;
 mod pitch;
 mod position;
+mod selection_source;
+pub use selection_source::*;
+mod selection;
+pub use selection::*;
 
 pub use index::*;
 mod identity;

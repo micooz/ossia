@@ -112,7 +112,7 @@ impl Library {
                 _ => DocumentEditState::Idle,
             }
         };
-        let current_row = conn.query_row("SELECT rowid,body FROM renders WHERE document_id=?1 AND source_hash=?2 ORDER BY rowid DESC LIMIT 1",
+        let current_row = conn.query_row("SELECT rowid,body FROM renders WHERE document_id=?1 AND source_hash=?2 ORDER BY (body=(SELECT last_render FROM documents WHERE document_id=?1)) DESC,rowid DESC LIMIT 1",
             params![id.to_string(),snapshot.source_hash().to_string()],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?))).optional().map_err(storage_error)?;
         if let Some((rowid, _)) = &current_row {
             conn.execute(

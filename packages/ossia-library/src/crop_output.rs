@@ -69,7 +69,7 @@ impl Library {
             OutputCrop::Measures { range, staff } => ossia_score::CropQuery {
                 page: None,
                 system_index: None,
-                measure_range: Some(range.clone()),
+                measure_range: Some(*range),
                 staff: *staff,
                 padding_staff_spaces: request.padding_staff_spaces.unwrap_or(2.0),
             },
@@ -166,7 +166,7 @@ impl Library {
 }
 
 fn crop_svg(svg: &[u8], bounds: ossia_score::BBox) -> Result<Vec<u8>> {
-    let text = std::str::from_utf8(svg).map_err(|error| storage_error(error))?;
+    let text = std::str::from_utf8(svg).map_err(storage_error)?;
     let start = text
         .find("<svg")
         .ok_or_else(|| AppError::invalid("SVG root is missing"))?;

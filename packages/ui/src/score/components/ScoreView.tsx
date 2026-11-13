@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { describe } from '../../errors.ts';
-import type { Locator, RenderGeometry, RenderReference } from '../../generated/protocol.ts';
+import type { SelectionTarget, RenderGeometry, RenderReference } from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
-import { locatorKey } from '../api.ts';
+import { selectionKey } from '../api.ts';
 import type { Api } from '../api.ts';
+import { hitSelection, selectedBounds } from '../selectionGeometry.ts';
 import { ScoreControls } from './ScoreControls.tsx';
 import type { ScoreLayout } from './ScoreToolbar.tsx';
 
@@ -15,9 +16,9 @@ interface Props {
   onLayoutChange: (layout: ScoreLayout) => void;
   zoom: number;
   onZoomChange: (zoom: number) => void;
-  selected?: Locator[];
+  selected?: SelectionTarget[];
   selectable?: boolean;
-  onSelect?: (locator: Locator) => void;
+  onSelect?: (target: SelectionTarget) => void;
   onPoint?: (page: number, x: number, y: number) => void;
 }
 
@@ -168,7 +169,7 @@ export function ScoreView({
     !missingGeometry &&
     layouts.length > 0 &&
     layouts.every((page) => !!page.url && !!page.layout);
-  const keys = new Set(selected.map(locatorKey));
+  const keys = new Set(selected.map(selectionKey));
   const canSelect = selectable && ready && geometry?.sourceHash === render.manifest.sourceHash;
   return (
     <section className="score-view" aria-label={t('scoreLabel')}>
@@ -258,29 +259,21 @@ export function ScoreView({
                         const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(
                           ctm.inverse(),
                         );
-                        const region = pageLayout.regions.find(
-                          ({ bounds }) =>
-                            point.x >= bounds.x0 &&
-                            point.x < bounds.x1 &&
-                            point.y >= bounds.y0 &&
-                            point.y <= bounds.y1,
-                        );
-                        if (region && onSelect) onSelect(region.locator);
+                        const target = hitSelection(pageLayout, point.x, point.y);
+                        if (target && onSelect) onSelect(target);
                         else onPoint?.(page, point.x, point.y);
                       }}
                     >
-                      {(pageLayout?.regions ?? [])
-                        .filter((region) => keys.has(locatorKey(region.locator)))
-                        .map((region, index) => (
-                          <rect
-                            key={index}
-                            className="selection-box"
-                            x={region.bounds.x0}
-                            y={region.bounds.y0}
-                            width={region.bounds.x1 - region.bounds.x0}
-                            height={region.bounds.y1 - region.bounds.y0}
-                          />
-                        ))}
+                      {selectedBounds(pageLayout, keys).map(({ bounds, element }, index) => (
+                        <rect
+                          key={index}
+                          className={`selection-box${element ? ' element-selection' : ''}`}
+                          x={bounds.x0}
+                          y={bounds.y0}
+                          width={bounds.x1 - bounds.x0}
+                          height={bounds.y1 - bounds.y0}
+                        />
+                      ))}
                     </svg>
                   </div>
                 );

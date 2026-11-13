@@ -284,7 +284,7 @@ function ScoreApp({
         current.render?.renderKey !== context.render.renderKey
       )
         return;
-      if (result.capability === 'measure' && result.region) selection.choose(result.region.locator);
+      if (result.region) selection.choose(result.region.target);
       else if (result.reason && result.reason !== 'no-hit') {
         setNotice(t('cannotSelect', { reason: result.reason }));
       }

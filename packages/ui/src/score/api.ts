@@ -9,6 +9,7 @@ import type {
   LocateArgs,
   LocateOutcome,
   Locator,
+  SelectionTarget,
   OutputArgs,
   RenderGeometry,
   RestoreArgs,
@@ -177,6 +178,10 @@ export function makeApi(language: () => UiLanguage, signal?: AbortSignal) {
 export type Api = ReturnType<typeof makeApi>;
 export const locatorKey = (l: Locator) =>
   `${l.staffIndex}:${l.measureStart}:${l.measureEnd}:${l.voice ?? ''}`;
+export const selectionKey = (target: SelectionTarget) =>
+  target.kind === 'measure'
+    ? `measure:${locatorKey(target.locator)}`
+    : `element:${target.elementId}`;
 export function delay(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
