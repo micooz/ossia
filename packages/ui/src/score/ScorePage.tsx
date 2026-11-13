@@ -299,10 +299,15 @@ function ScoreApp({
     if (!pending) return;
     const current = pending.document;
     const version = pending.version;
+    if (!current.headVersionId) {
+      onError(new Error('Restore requires a current document version'));
+      return;
+    }
+    const baseVersionId = current.headVersionId;
     await operate(async () => {
       const job = await api.restore(current.documentId, {
         versionId: version.versionId,
-        baseVersionId: current.headVersionId,
+        baseVersionId,
         expectedSourceHash: current.sourceHash,
         author: 'user',
         summary: t('restoreSummary', { version: version.seq }),
@@ -354,7 +359,8 @@ function ScoreApp({
     <main className="app score-app">
       <header className="bar score-topbar">
         <h1 className="topbar-brand">
-          <Music2 aria-hidden="true" size={20} /> {t('appName')}
+          <Music2 aria-hidden="true" size={20} />
+          <span className="topbar-brand-label">{t('appName')}</span>
         </h1>
         {doc && !notFound ? (
           <ScoreTitleMenu

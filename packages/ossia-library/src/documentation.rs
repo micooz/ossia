@@ -224,9 +224,16 @@ impl Documentation {
             text: None,
             offset,
             next_offset: None,
+            keywords: Vec::new(),
+            match_mode: DocsMatchMode::All,
+            query_suggestions: Vec::new(),
         };
         match request {
-            DocsRequest::Search { query, limit } => {
+            DocsRequest::Search {
+                query,
+                limit,
+                match_mode,
+            } => {
                 let limit = limit.unwrap_or(5);
                 if limit == 0 || limit > 20 {
                     return Err(AppError::invalid("docs search limit must be 1..20"));
@@ -254,11 +261,21 @@ impl Documentation {
                 if words.is_empty() {
                     return Err(AppError::invalid("docs query needs a keyword or command"));
                 }
+                let mut unique = words.clone();
+                unique.sort();
+                unique.dedup();
+                response.keywords = words.iter().map(|word| (*word).to_owned()).collect();
+                response.match_mode = match_mode;
+                let operator = if match_mode == DocsMatchMode::Any {
+                    " OR "
+                } else {
+                    " AND "
+                };
                 let search = words
                     .iter()
                     .map(|w| format!("\"{w}\""))
                     .collect::<Vec<_>>()
-                    .join(" AND ");
+                    .join(operator);
                 let mut statement=conn.prepare("SELECT c.id,c.manual,c.title,snippet(search,3,'','',' … ',28),c.url,c.path FROM search JOIN chapters c ON c.id=search.id WHERE search MATCH ?1 ORDER BY bm25(search,0,10,20,1),c.id LIMIT ?2").map_err(storage_error)?;
                 let rows = statement
                     .query_map(params![search, limit as i64], |r| {
@@ -276,6 +293,10 @@ impl Documentation {
                     let mut hit = row.map_err(storage_error)?;
                     hit.path = path(&self.root, &hit.path)?.to_string_lossy().into_owned();
                     response.hits.push(hit);
+                }
+                if response.hits.is_empty() {
+                    response.query_suggestions =
+                        unique.into_iter().take(3).map(str::to_owned).collect();
                 }
             }
             DocsRequest::Read {

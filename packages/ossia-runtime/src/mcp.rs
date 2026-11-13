@@ -124,7 +124,7 @@ pub fn tools() -> Vec<Tool> {
         ),
         read_tool::<ReadSourceArgs>(
             "ossia_read_source",
-            "Read a bounded UTF-8-safe source page at an exact source hash. Returns ReadSourceOutcome with the next span.",
+            "Read a bounded UTF-8-safe source page at an exact source hash. Set includeLineSpans to return exact editable line spans. Returns ReadSourceOutcome with the next span.",
         ),
         read_tool::<LayoutArgs>(
             "ossia_layout",
@@ -132,12 +132,12 @@ pub fn tools() -> Vec<Tool> {
         ),
         write_tool::<EvidenceArgs>(
             "ossia_evidence",
-            "Read bounded source/performance music evidence from an immutable version or completed job. Optional measureRange, voice, track and channel filters. Creates a durable evidence job only on a cache miss. Returns EvidenceOutcome.",
+            "Read bounded source/performance music evidence from an immutable version or completed job. Optional measureRange, voice, track and channel filters. The returned job contains only status metadata; music is in page. Returns EvidenceOutcome.",
             false,
         ),
         read_tool::<DocsRequest>(
             "ossia_docs",
-            "Search or read the bundled offline LilyPond documentation. Search takes query/limit; read takes chapterId/offset/limit. Returns DocsOutcome.",
+            "Search or read the bundled offline LilyPond documentation. Search takes query, limit and matchMode=all|any; read takes chapterId/offset/limit. Zero-hit searches include querySuggestions. Returns DocsOutcome.",
         ),
         write_tool::<JobArgs>(
             "ossia_job",
@@ -179,12 +179,12 @@ pub fn tools() -> Vec<Tool> {
         ),
         write_tool::<RestoreArgs>(
             "ossia_restore",
-            "Queue restoration of a version as a new version. Requires a clean workspace and no active edit; returns a Job.",
+            "Queue restoration of versionId as a new version. baseVersionId is the current head and expectedSourceHash is the current workspace hash. Requires a clean workspace and no active edit; returns a Job.",
             false,
         ),
         write_tool::<OutputArgs>(
             "ossia_output",
-            "Write SVG, PNG, MIDI, PDF or LilyPond output from a completed job snapshot or immutable version. Never overwrites; returns a Job whose result is OutputOutcome.",
+            "Write SVG, PNG, MIDI, PDF or LilyPond output from a completed job snapshot or immutable version. crop generates one SVG/PNG per affected page and returns OutputBatchOutcome. Never overwrites.",
             false,
         ),
     ]

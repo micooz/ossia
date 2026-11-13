@@ -3,6 +3,7 @@ mod common;
 use common::{until, wait_job, Fixture, SOURCE};
 use ossia_library::ImportRequest;
 use ossia_runtime::*;
+use serde_json::json;
 use std::sync::atomic::Ordering;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -189,6 +190,9 @@ async fn output_and_render_keys_enforce_version_ownership_and_do_not_overwrite()
         png_quality: None,
         png_transparent: None,
         output_path: Some(target.to_string_lossy().into_owned()),
+        output_directory: None,
+        crop: None,
+        padding_staff_spaces: None,
         wait_ms: None,
     };
     let job = f.runtime.output(args.clone()).unwrap();
@@ -210,6 +214,72 @@ async fn output_and_render_keys_enforce_version_ownership_and_do_not_overwrite()
     f.finish().await;
 }
 
+#[test]
+fn restore_and_crop_requests_reject_incomplete_contracts() {
+    assert!(serde_json::from_value::<RestoreArgs>(json!({
+        "versionId": VersionId::new(),
+        "expectedSourceHash": ContentHash::of(b"source"),
+        "summary": "restore"
+    }))
+    .is_err());
+    assert!(serde_json::from_value::<RestoreArgs>(json!({
+        "versionId": VersionId::new(),
+        "baseVersionId": null,
+        "expectedSourceHash": ContentHash::of(b"source"),
+        "summary": "restore"
+    }))
+    .is_err());
+}
+
+#[tokio::test]
+async fn crop_requests_validate_format_destination_and_target_exclusivity() {
+    let f = Fixture::new(false).await;
+    let base = OutputArgs {
+        source: OutputSource::Version {
+            version_id: f.doc.head_version_id.unwrap(),
+        },
+        format: OutputFormat::Svg,
+        page: None,
+        width: None,
+        pdf_password: None,
+        png_quality: None,
+        png_transparent: None,
+        output_path: None,
+        output_directory: None,
+        crop: Some(OutputCrop::Measures {
+            range: MeasureRange { start: 1, end: 1 },
+            staff: None,
+        }),
+        padding_staff_spaces: None,
+        wait_ms: None,
+    };
+    let mut invalid = base.clone();
+    invalid.format = OutputFormat::Midi;
+    assert_eq!(
+        f.runtime.output(invalid).unwrap_err().code,
+        ErrorCode::InvalidRequest
+    );
+    let mut invalid = base.clone();
+    invalid.page = Some(1);
+    assert_eq!(
+        f.runtime.output(invalid).unwrap_err().code,
+        ErrorCode::InvalidRequest
+    );
+    let mut invalid = base;
+    invalid.output_path = Some(
+        f.root
+            .path()
+            .join("crop.svg")
+            .to_string_lossy()
+            .into_owned(),
+    );
+    assert_eq!(
+        f.runtime.output(invalid).unwrap_err().code,
+        ErrorCode::InvalidRequest
+    );
+    f.finish().await;
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn job_outputs_use_the_captured_snapshot_and_validate_pages() {
     let f = Fixture::new(true).await;
@@ -226,6 +296,9 @@ async fn job_outputs_use_the_captured_snapshot_and_validate_pages() {
             png_quality: None,
             png_transparent: None,
             output_path: Some(svg_path.to_string_lossy().into_owned()),
+            output_directory: None,
+            crop: None,
+            padding_staff_spaces: None,
             wait_ms: None,
         })
         .unwrap();
@@ -244,6 +317,9 @@ async fn job_outputs_use_the_captured_snapshot_and_validate_pages() {
             png_quality: None,
             png_transparent: None,
             output_path: Some(ly_path.to_string_lossy().into_owned()),
+            output_directory: None,
+            crop: None,
+            padding_staff_spaces: None,
             wait_ms: None,
         })
         .unwrap();
@@ -262,6 +338,9 @@ async fn job_outputs_use_the_captured_snapshot_and_validate_pages() {
             png_quality: None,
             png_transparent: None,
             output_path: Some(missing_page.to_string_lossy().into_owned()),
+            output_directory: None,
+            crop: None,
+            padding_staff_spaces: None,
             wait_ms: None,
         })
         .unwrap();
@@ -304,7 +383,7 @@ async fn running_import_restore_output_cancellation_finishes_before_publishing()
         .runtime
         .restore(RestoreArgs {
             version_id: f.doc.head_version_id.unwrap(),
-            base_version_id: f.doc.head_version_id,
+            base_version_id: f.doc.head_version_id.unwrap(),
             expected_source_hash: f.doc.source_hash.clone(),
             author: Some("test".into()),
             summary: "cancel restore".into(),
@@ -336,6 +415,9 @@ async fn running_import_restore_output_cancellation_finishes_before_publishing()
             png_quality: None,
             png_transparent: None,
             output_path: Some(path.to_string_lossy().into_owned()),
+            output_directory: None,
+            crop: None,
+            padding_staff_spaces: None,
             wait_ms: None,
         })
         .unwrap();
@@ -373,6 +455,9 @@ async fn reveal_only_resolves_intact_completed_output_results() {
             png_quality: None,
             png_transparent: None,
             output_path: Some(target.to_string_lossy().into_owned()),
+            output_directory: None,
+            crop: None,
+            padding_staff_spaces: None,
             wait_ms: None,
         })
         .unwrap();

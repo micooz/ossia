@@ -167,6 +167,17 @@ impl Runtime {
             .map(|(_, outcome, bytes)| (outcome, bytes))
     }
 
+    /// Resolve and verify one file from a crop batch.
+    pub fn export_location_at(&self, job: JobId, index: usize) -> Result<PathBuf> {
+        self.verified_export_at(job, index).map(|(path, _, _)| path)
+    }
+
+    /// Read and verify one file from a crop batch.
+    pub fn export_bytes_at(&self, job: JobId, index: usize) -> Result<(String, Vec<u8>)> {
+        self.verified_export_at(job, index)
+            .map(|(_, media_type, bytes)| (media_type, bytes))
+    }
+
     fn verified_export(&self, job: JobId) -> Result<(PathBuf, OutputOutcome, Vec<u8>)> {
         let job = self.library.get_job(job)?;
         if job.kind != "output" || job.state != JobState::Done {
@@ -188,12 +199,50 @@ impl Runtime {
         Ok((path, outcome, bytes))
     }
 
+    fn verified_export_at(&self, job: JobId, index: usize) -> Result<(PathBuf, String, Vec<u8>)> {
+        let job = self.library.get_job(job)?;
+        if job.kind != "output" || job.state != JobState::Done {
+            return Err(invalid(
+                "only completed outputs can be downloaded or opened",
+            ));
+        }
+        let result = job.result.ok_or_else(|| storage("output result missing"))?;
+        if result.get("files").is_none() {
+            return Err(invalid("output is not a crop batch"));
+        }
+        let batch: OutputBatchOutcome =
+            serde_json::from_value(result).map_err(|error| invalid(error.to_string()))?;
+        let file = batch
+            .files
+            .get(index)
+            .ok_or_else(|| invalid("output file index is outside the batch"))?;
+        let path = PathBuf::from(&file.path);
+        let meta = std::fs::symlink_metadata(&path).map_err(storage)?;
+        if !path.is_absolute() || !meta.is_file() || meta.file_type().is_symlink() {
+            return Err(storage("output is no longer a regular file"));
+        }
+        let bytes = std::fs::read(&path).map_err(storage)?;
+        if bytes.len() as u64 != file.bytes || ContentHash::of(&bytes) != file.sha256 {
+            return Err(storage("output changed since it was saved"));
+        }
+        Ok((path, file.media_type.clone(), bytes))
+    }
+
     pub fn reveal_export(&self, job: JobId) -> Result<()> {
         let path = self.export_location(job)?;
+        self.reveal_path(&path)
+    }
+
+    pub fn reveal_export_at(&self, job: JobId, index: usize) -> Result<()> {
+        let path = self.export_location_at(job, index)?;
+        self.reveal_path(&path)
+    }
+
+    fn reveal_path(&self, path: &std::path::Path) -> Result<()> {
         #[cfg(target_os = "macos")]
         let status = std::process::Command::new("/usr/bin/open")
             .arg("-R")
-            .arg(&path)
+            .arg(path)
             .status();
         #[cfg(target_os = "windows")]
         let status = std::process::Command::new("explorer.exe")

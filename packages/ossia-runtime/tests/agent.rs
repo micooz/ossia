@@ -144,6 +144,30 @@ async fn analysis_pages_are_bounded_and_legacy_evidence_is_explicit() {
 }
 
 #[tokio::test]
+async fn evidence_envelopes_never_embed_full_music_reports() {
+    let f = Fixture::new(false).await;
+    let source_job = f.doc.last_check.as_ref().unwrap().job_id;
+    let outcome = f
+        .runtime
+        .evidence(EvidenceArgs {
+            source: EvidenceSource::Job { job_id: source_job },
+            section: EvidenceSection::Source,
+            offset: 0,
+            limit: Some(1),
+            measure_range: Some(MeasureRange { start: 1, end: 1 }),
+            voice: None,
+            track: None,
+            channel: None,
+            wait_ms: Some(0),
+        })
+        .unwrap();
+    assert_eq!(outcome.job.as_ref().unwrap().result, Some(json!(null)));
+    assert_eq!(outcome.page.as_ref().unwrap().items.len(), 1);
+    assert!(serde_json::to_vec(&outcome).unwrap().len() < 8 * 1024);
+    f.finish().await;
+}
+
+#[tokio::test]
 async fn list_history_and_job_sections_are_compact_and_paged() {
     let f = Fixture::new(false).await;
     let page = f

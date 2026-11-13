@@ -15,20 +15,57 @@ impl Runtime {
 
     pub fn observe(&self, document: DocumentId) -> Result<DocumentState> {
         let doc = self.library.observe_source(document)?;
+        let prior = {
+            let state = self.state();
+            if state.observed.get(&document) == Some(&doc.source_hash) {
+                return Ok(doc);
+            }
+            state.selections.get(&document).cloned()
+        };
+        let retained = if let Some(prior) = &prior {
+            let snapshot = self.library.source_snapshot(document)?;
+            self.retained_selection(prior, &snapshot)
+        } else {
+            None
+        };
         let mut state = self.state();
-        if state
-            .observed
-            .insert(document, doc.source_hash.clone())
+        state.observed.insert(document, doc.source_hash.clone());
+        let prior_is_current = prior
             .as_ref()
-            != Some(&doc.source_hash)
-        {
-            state.selections.remove(&document);
+            .is_none_or(|old| state.selections.get(&document) == Some(old));
+        if prior_is_current {
+            if let Some(selection) = &retained {
+                state.selections.insert(
+                    document,
+                    SelectionState {
+                        selection: selection.clone(),
+                        identity: prior.as_ref().expect("retained selection").identity.clone(),
+                    },
+                );
+            } else if prior.is_some() {
+                state.selections.remove(&document);
+            }
+        }
+        self.emit_locked(
+            &mut state,
+            "source-changed",
+            Some(document),
+            Some(doc.source_hash.clone()),
+            json!({}),
+        );
+        if prior.is_some() && prior_is_current {
             self.emit_locked(
                 &mut state,
-                "source-changed",
+                "selection-changed",
                 Some(document),
                 Some(doc.source_hash.clone()),
-                json!({}),
+                json!({
+                    "reason": if retained.is_some() {
+                        "source-music-preserved"
+                    } else {
+                        "source-structure-changed"
+                    }
+                }),
             );
         }
         Ok(doc)
@@ -38,7 +75,13 @@ impl Runtime {
         let document = self.observe(document_id)?;
         let (selection, seq) = {
             let state = self.state();
-            (state.selections.get(&document_id).cloned(), state.seq)
+            (
+                state
+                    .selections
+                    .get(&document_id)
+                    .map(|state| state.selection.clone()),
+                state.seq,
+            )
         };
         let selection = if let Some(selection) = selection {
             if selection.source_hash != document.source_hash {
@@ -95,14 +138,23 @@ impl Runtime {
                 ));
             }
         }
+        let identity = ossia_score::music_identity_with_index(&index, snapshot.source());
+        if !identity.reliable {
+            return Err(AppError::unsupported(
+                "selection requires reliable musical identity",
+            ));
+        }
         {
             let mut state = self.state();
             state.selections.insert(
                 selection.document_id,
-                Selection {
-                    document_id: selection.document_id,
-                    source_hash: selection.source_hash.clone(),
-                    locators: selection.locators.clone(),
+                SelectionState {
+                    selection: Selection {
+                        document_id: selection.document_id,
+                        source_hash: selection.source_hash.clone(),
+                        locators: selection.locators.clone(),
+                    },
+                    identity,
                 },
             );
             state
@@ -125,6 +177,34 @@ impl Runtime {
             return Err(stale());
         }
         Ok(context)
+    }
+
+    fn retained_selection(
+        &self,
+        prior: &SelectionState,
+        snapshot: &SourceSnapshot,
+    ) -> Option<Selection> {
+        let index = self.score_index(snapshot);
+        let identity = ossia_score::music_identity_with_index(&index, snapshot.source());
+        if !prior.identity.reliable || !identity.reliable || prior.identity != identity {
+            return None;
+        }
+        let locators = prior
+            .selection
+            .locators
+            .iter()
+            .map(|locator| {
+                ossia_score::resolve_locator(&index, locator)
+                    .ok()
+                    .filter(|region| region.capability == LocationCapability::Measure)
+                    .map(|region| region.locator)
+            })
+            .collect::<Option<Vec<_>>>()?;
+        Some(Selection {
+            document_id: snapshot.document_id(),
+            source_hash: snapshot.source_hash().clone(),
+            locators,
+        })
     }
 
     pub fn clear_selection(&self, document_id: DocumentId) -> Result<DocumentContext> {

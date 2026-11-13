@@ -285,6 +285,9 @@ async fn http_document_routes_support_localhost_without_tokens_or_views() {
             png_quality: None,
             png_transparent: None,
             output_path: Some(output_path.to_string_lossy().into_owned()),
+            output_directory: None,
+            crop: None,
+            padding_staff_spaces: None,
             wait_ms: None,
         })
         .send()
@@ -326,11 +329,84 @@ async fn http_document_routes_support_localhost_without_tokens_or_views() {
             .status(),
         500
     );
+    let batch_directory = root.path().join("batch");
+    std::fs::create_dir(&batch_directory).unwrap();
+    let batch_path = batch_directory.join("page-001.svg");
+    let batch_bytes = b"<svg viewBox=\"0 0 1 1\"/>";
+    std::fs::write(&batch_path, batch_bytes).unwrap();
+    let batch_job = runtime
+        .library
+        .create_job("output", Some(document.document_id), None)
+        .unwrap();
+    runtime
+        .library
+        .transition_job(
+            batch_job.job_id,
+            JobState::Queued,
+            JobState::Running,
+            "execute",
+            None,
+            None,
+        )
+        .unwrap();
+    runtime
+        .library
+        .transition_job(
+            batch_job.job_id,
+            JobState::Running,
+            JobState::Done,
+            "finished",
+            Some(
+                serde_json::to_value(OutputBatchOutcome {
+                    source: OutputSource::Version {
+                        version_id: version.version_id,
+                    },
+                    document_id: document.document_id,
+                    source_hash: hash.clone(),
+                    engine_build_id: "test".into(),
+                    format: OutputFormat::Svg,
+                    directory: batch_directory.to_string_lossy().into_owned(),
+                    files: vec![OutputFile {
+                        page: 1,
+                        bounds: GeometryBounds {
+                            x0: 0.0,
+                            y0: 0.0,
+                            x1: 1.0,
+                            y1: 1.0,
+                        },
+                        path: batch_path.to_string_lossy().into_owned(),
+                        bytes: batch_bytes.len() as u64,
+                        sha256: ContentHash::of(batch_bytes),
+                        media_type: "image/svg+xml".into(),
+                    }],
+                })
+                .unwrap(),
+            ),
+            None,
+        )
+        .unwrap();
+    let indexed = client
+        .get(format!("{api}/jobs/{}/outputs/0", batch_job.job_id))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(indexed.status(), 200);
+    assert_eq!(indexed.bytes().await.unwrap().as_ref(), batch_bytes);
+    std::fs::write(&batch_path, b"changed").unwrap();
+    assert_eq!(
+        client
+            .get(format!("{api}/jobs/{}/outputs/0", batch_job.job_id))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        500
+    );
     let restored = client
         .post(format!("{api}/documents/{}/restore", document.document_id))
         .json(&RestoreArgs {
             version_id: document.head_version_id.unwrap(),
-            base_version_id: Some(version.version_id),
+            base_version_id: version.version_id,
             expected_source_hash: hash,
             author: Some("http".into()),
             summary: "restore".into(),

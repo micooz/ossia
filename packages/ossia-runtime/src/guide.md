@@ -24,16 +24,18 @@ on demand.
 An operation error does not mean MCP is unavailable. If a write loses its
 response, inspect current state before retrying through another transport.
 
-## Before external lookup
+## Evidence selection
 
-For questions about pitch, octave, duration or measure placement, inspect Ossia
-evidence before opening a PDF, image or exported MIDI:
+Use Ossia evidence as the authoritative source for the current score's written
+or performed content. Choose the smallest section that answers the question:
 
-1. Call `ossia_evidence` with `section:"summary"`.
-2. Call `ossia_evidence` with `section:"source"` when source tokens, written
-   spelling or source spans matter.
-3. Call `ossia_evidence` with `section:"performance"` when sounding pitch or
-   timing matters.
+- `source` for written tokens, spelling, source spans or source-measure events.
+- `performance` for sounding pitch, timing or performed-measure events.
+- `summary` when coverage and counts must be established before paging.
+
+If the question concerns a user-named external artifact, rendered appearance, or
+content that evidence reports as unavailable, inspect that artifact and state
+why evidence was insufficient.
 
 Use `measureRange` on source or performance evidence to keep the answer small:
 
@@ -57,7 +59,8 @@ job without editing it. It accepts `{"kind":"version","versionId":"…"}` or
 `source`), `offset`, `limit`, `waitMs` and optional music filters. The first
 request may create a durable evidence job; later requests reuse the report for
 the same source, engine build and analysis version. Evidence never creates a
-version or changes the current source.
+version or changes the current source. Music events appear only in the bounded
+`page`; `job.result` is null.
 
 `measureRange` is an inclusive one-based range. It filters both source and
 performance notes by their own measure number. `voice` filters source events;
@@ -117,6 +120,11 @@ syntax, octave rule, engraving command or layout property. Read promising result
 with action `read` and the returned `chapterId`; `offset` and `nextOffset` page
 long chapters. Search asks for `query`; read asks for `chapterId`. Local search
 accepts a few Chinese terms such as 八度, 时值 and 谱号.
+`matchMode:"all"` requires every parsed keyword and is the default;
+`matchMode:"any"` combines them with OR. Identifiers split at punctuation, so
+prefer the shortest distinctive command or property name. A zero-hit result
+includes `keywords`, `matchMode` and up to three `querySuggestions`; it does not
+fall back to external search.
 
 Search and chapter results include the authoritative LilyPond URL, a local
 chapter ID and the offline source archive path. The archive retains English
@@ -149,7 +157,10 @@ snapshots and commit authorization, and use a check to verify the actual result.
 4. Call `ossia_context` with that `documentId` when you need to refresh the
    document, shared selection, source spans and edit state. Selections belong to
    the document and are shared by its browser tabs. The compact response has no
-   source filesystem path.
+   source filesystem path. After a source-hash change, a selection is retained
+   only when the conservative music identity and every locator remain reliable;
+   annotations and ordinary layout changes preserve it, while music or staff
+   structure changes clear it.
 5. Call `ossia_edit` with action `begin`, the current `baseVersionId`, and the
    exact `expectedSourceHash`. Keep `editId` private.
 6. Use `ossia_read_source` with that source hash. Start with
@@ -157,6 +168,9 @@ snapshots and commit authorization, and use a check to verify the actual result.
    `next` span while `complete` is false. Exact ranges use
    `{"kind":"span","span":...}`. Read through this tool even when you authored the
    host file: its spans are authoritative. Do not compute byte offsets yourself.
+   Set `includeLineSpans:true` when the returned page will be edited. `lineSpans`
+   mirrors each returned line fragment, including a partial first or last line,
+   so the span can be passed directly to `ossia_write_source`.
 7. Use `ossia_write_source` with `change.kind = "edit"` and up to 64 non-overlapping
    edits. Every edit supplies an exact `span`, its `expectedText`, and
    `replacement`; empty expected text inserts and empty replacement deletes.
@@ -251,9 +265,39 @@ reference.
 
 Use `ossia_history` to page through versions, `ossia_restore` to restore, and
 `ossia_output` for files. History and restore address `versionId`; restore appends
-history and requires a clean workspace. Output accepts a completed job snapshot
-or a version snapshot and supports SVG, PNG, PDF, MIDI and LilyPond. Use Ossia
-operations instead of private engine binaries.
+history and requires a clean workspace. Restore requires three distinct values:
+`versionId` is the target version, `baseVersionId` is the current document head,
+and `expectedSourceHash` is the current workspace hash. Output accepts a completed
+job snapshot or a version snapshot and supports SVG, PNG, PDF, MIDI and LilyPond.
+Use Ossia operations instead of private engine binaries.
+
+## Annotations without changing performance
+
+Prefer markup for simple visual text:
+
+```lilypond
+c'4^\markup { "I" }
+```
+
+When a request adds chord symbols without changing playback, remove the
+performer from `ChordNames`; otherwise chord-mode events can become new MIDI
+notes:
+
+```lilypond
+\new ChordNames \with {
+  alignAboveContext = "upper"
+  \remove "Staff_performer"
+} \chordmode { c1 }
+```
+
+Roman numerals can use the same markup or a dedicated markup context. When the
+request requires a visual-only annotation, check against the pre-edit version
+with `reference.comparison:"performance"`. If playback is intentionally part of
+the change, use the relevant musical expectation instead. A passing reference
+proves equal performed pitch, start and duration; it does not prove note
+spelling, staff assignment, annotation text or placement. Inspect the rendered
+region as well. Preserve exact `{numerator,denominator}` quarter-note durations
+in evidence and do not translate them into a named note value without checking.
 
 ## Trash and permanent deletion
 
@@ -354,6 +398,16 @@ page; optional `width` is 1..4096 and output is limited to 16 million pixels.
 `outputPath` must be absolute and must not exist; otherwise output goes to the
 system download directory under `Ossia/`. Generate missing formats with the same
 engine build or re-check first.
+
+`crop` replaces `page` for visual selections and supports SVG/PNG. Use
+`{"kind":"measures","range":{"start":1,"end":4}}` or
+`{"kind":"system","page":1,"systemIndex":0}`; optional `staff` selects one
+zero-based staff and `paddingStaffSpaces` defaults to 2. A range crossing pages
+returns one verified file per page in page order, merging matches on the same
+page. `outputDirectory` is an absolute parent for the new batch and cannot be
+combined with `outputPath`. The result is an `OutputBatchOutcome` with ordered
+`files`. Indexed files can be downloaded or revealed through HTTP routes ending
+in `/outputs/<index>` and `/outputs/<index>/reveal`.
 
 ## Compact Agent responses
 

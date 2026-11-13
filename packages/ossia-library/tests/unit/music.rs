@@ -113,6 +113,7 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
             start: Some(SourceReadStart::Line { line: 2 }),
             max_lines: Some(1),
             max_bytes: None,
+            include_line_spans: true,
         })
         .unwrap();
     assert_eq!(line.content, "第二行\n");
@@ -120,6 +121,13 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
     assert_eq!(line.next.unwrap().start.line, 3);
     assert_eq!(line.span.start.line, 2);
     assert_eq!(line.total_lines, 4);
+    assert_eq!(line.line_spans.len(), 1);
+    assert_eq!(
+        ossia_score::SourceMap::new(source)
+            .slice(line.line_spans[0])
+            .unwrap(),
+        "第二行\n"
+    );
     assert_eq!(
         f.library
             .read_source(&ReadSourceArgs {
@@ -128,6 +136,7 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
                 start: Some(SourceReadStart::Line { line: 99 }),
                 max_lines: None,
                 max_bytes: None,
+                include_line_spans: false,
             })
             .unwrap_err()
             .code,
@@ -146,6 +155,7 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
             start: Some(SourceReadStart::Span { span: exact }),
             max_lines: None,
             max_bytes: None,
+            include_line_spans: false,
         })
         .unwrap();
     assert_eq!(span.content, "第二");
@@ -161,6 +171,7 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
                 start: Some(SourceReadStart::Span { span: invalid_span }),
                 max_lines: None,
                 max_bytes: None,
+                include_line_spans: false,
             })
             .unwrap_err()
             .code,
@@ -175,10 +186,18 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
             start: None,
             max_lines: None,
             max_bytes: Some(6),
+            include_line_spans: true,
         })
         .unwrap();
     assert_eq!(first.content, "\u{feff}fir");
     assert!(!first.complete);
+    assert_eq!(first.line_spans.len(), 1);
+    assert_eq!(
+        ossia_score::SourceMap::new(source)
+            .slice(first.line_spans[0])
+            .unwrap(),
+        first.content
+    );
     assert_eq!(first.next.unwrap().byte_start, first.span.byte_end);
 
     let stale = f
@@ -189,6 +208,7 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
             start: None,
             max_lines: None,
             max_bytes: None,
+            include_line_spans: false,
         })
         .unwrap_err();
     assert_eq!(stale.code, ErrorCode::Conflict);
@@ -202,6 +222,7 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
             start: None,
             max_lines: None,
             max_bytes: Some(1),
+            include_line_spans: false,
         })
         .unwrap();
     assert_eq!(scalar.content, "中");
@@ -217,6 +238,7 @@ fn source_reads_page_by_lines_spans_and_utf8_boundaries() {
             start: None,
             max_lines: None,
             max_bytes: None,
+            include_line_spans: false,
         })
         .unwrap();
     assert!(empty_page.content.is_empty());

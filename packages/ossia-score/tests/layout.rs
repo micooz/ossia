@@ -120,6 +120,43 @@ fn compressed_rest_geometry_resolves_to_complete_source_measure_range() {
 }
 
 #[test]
+fn crop_queries_return_ordered_multi_page_measure_and_system_regions() {
+    let (source, pages) = rendered("polyphonic-pages");
+    let (_, layout) = layout(&source, &pages);
+    let regions = crop_regions(
+        &layout,
+        &CropQuery {
+            page: None,
+            system_index: None,
+            measure_range: Some(MeasureRange { start: 1, end: 3 }),
+            staff: None,
+            padding_staff_spaces: 2.0,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        regions.iter().map(|region| region.page).collect::<Vec<_>>(),
+        vec![1, 2]
+    );
+    assert!(regions.iter().all(|region| {
+        region.bounds.x1 > region.bounds.x0 && region.bounds.y1 > region.bounds.y0
+    }));
+    let system = crop_regions(
+        &layout,
+        &CropQuery {
+            page: Some(1),
+            system_index: Some(0),
+            measure_range: None,
+            staff: Some(1),
+            padding_staff_spaces: 0.0,
+        },
+    )
+    .unwrap();
+    assert_eq!(system.len(), 1);
+    assert_eq!(system[0].page, 1);
+}
+
+#[test]
 fn invalid_pages_whitespace_staff_gaps_and_off_page_clicks_are_no_hit() {
     let (source, pages) = rendered("polyphonic-pages");
     let (index, layout) = layout(&source, &pages);

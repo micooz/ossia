@@ -24,7 +24,7 @@ use jobs::Pending;
 const EVENT_CAPACITY: usize = 512;
 
 struct State {
-    selections: HashMap<DocumentId, Selection>,
+    selections: HashMap<DocumentId, SelectionState>,
     seq: u64,
     events: VecDeque<RuntimeEvent>,
     pending: VecDeque<Pending>,
@@ -33,6 +33,12 @@ struct State {
     suppressed_previews: HashMap<DocumentId, ContentHash>,
     lifecycle_documents: HashSet<DocumentId>,
     mutating_documents: HashMap<DocumentId, usize>,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct SelectionState {
+    selection: Selection,
+    identity: ossia_score::MusicIdentity,
 }
 
 pub struct Runtime {

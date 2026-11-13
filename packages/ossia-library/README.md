@@ -6,14 +6,14 @@ Local document library: immutable source snapshots, public `score.ly` files, edi
 
 `Library::open(home)` takes an explicit path, canonicalizes it and holds `library.lock` until dropped. Only the owning process opens the database for writing; a second opener receives `library-busy`. P04 owns runtime discovery and transports around this library.
 
-Schema 1 uses `library.sqlite`, SQLite application ID `0x4f535349`, WAL, foreign keys and FULL synchronization. Unknown markers, older databases or other schema versions return `runtime-incompatible`; MVP data is reset rather than migrated.
+The current schema uses `library.sqlite`, SQLite application ID `0x4f535349`, WAL, foreign keys and FULL synchronization. Unknown markers, older databases or other schema versions return `runtime-incompatible`; MVP data is reset rather than migrated.
 To reset, stop Ossia and remove the selected `.ossia` library directory before reopening it.
 
 Public source is `documents/<documentId>/score.ly`. `original/input.ly`, `original/input.musicxml` or `original/input.mid` preserves the supplied input. Source bytes, including BOM and CRLF, are stored as gzip CAS objects in `contents/<SHA-256>.gz`; the hash addresses uncompressed bytes. Engine assets stay in the P02 namespace beneath `artifacts/`. Interrupted writes can leave unreferenced content or import directories; idle maintenance removes them.
 
 ## Storage maintenance
 
-Schema 1 records job, render and evidence timestamps so maintenance can apply age
+The schema records job, render and evidence timestamps so maintenance can apply age
 and count retention without deleting current sources or committed versions. The runtime
 cleans regenerable data only: terminal jobs older than 30 days (or beyond 200 per
 document), render records older than 90 days (or beyond 500 per document), stale
@@ -73,6 +73,7 @@ fn edit_example(home: &Path, engine: &Engine) -> Result<Version> {
         start: Some(SourceReadStart::Start),
         max_lines: None,
         max_bytes: None,
+        include_line_spans: false,
     })?;
     let start = page.content.find("c'1").expect("fixture note");
     let span = ossia_score::SourceMap::new(&page.content)

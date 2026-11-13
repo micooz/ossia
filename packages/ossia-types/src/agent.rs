@@ -19,6 +19,8 @@ pub struct ReadSourceArgs {
     pub start: Option<SourceReadStart>,
     pub max_lines: Option<usize>,
     pub max_bytes: Option<usize>,
+    #[serde(default)]
+    pub include_line_spans: bool,
 }
 
 /// A UTF-8-safe source page and the exact remainder for the next call.
@@ -34,6 +36,7 @@ pub struct ReadSourceOutcome {
     pub returned_bytes: usize,
     pub total_bytes: usize,
     pub total_lines: usize,
+    pub line_spans: Vec<SourceSpan>,
 }
 
 /// One exact original-text replacement. Empty text inserts or deletes.

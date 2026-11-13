@@ -361,6 +361,7 @@ fn native_scale_expectations_gate_commit_before_output() {
             start: Some(SourceReadStart::Start),
             max_lines: None,
             max_bytes: None,
+            include_line_spans: false,
         })
         .unwrap();
     assert_eq!(page.content, source);
@@ -385,6 +386,9 @@ fn native_scale_expectations_gate_commit_before_output() {
                 png_quality: None,
                 png_transparent: None,
                 output_path: Some(original_svg_path.to_string_lossy().into_owned()),
+                output_directory: None,
+                crop: None,
+                padding_staff_spaces: None,
                 wait_ms: None,
             },
             &original_svg_path,
@@ -442,6 +446,9 @@ fn native_scale_expectations_gate_commit_before_output() {
                     png_quality: None,
                     png_transparent: None,
                     output_path: Some(path.to_string_lossy().into_owned()),
+                    output_directory: None,
+                    crop: None,
+                    padding_staff_spaces: None,
                     wait_ms: None,
                 },
                 &path,
@@ -460,6 +467,66 @@ fn native_scale_expectations_gate_commit_before_output() {
             assert_eq!(u32::from_be_bytes(bytes[16..20].try_into().unwrap()), 1600);
         }
     }
+    let first_crop = library
+        .crop_output(
+            &engine,
+            &OutputArgs {
+                source: OutputSource::Job {
+                    job_id: checked.job.job_id,
+                },
+                format: OutputFormat::Png,
+                page: None,
+                width: Some(1200),
+                pdf_password: None,
+                png_quality: None,
+                png_transparent: None,
+                output_path: None,
+                output_directory: None,
+                crop: Some(OutputCrop::Measures {
+                    range: MeasureRange { start: 1, end: 2 },
+                    staff: None,
+                }),
+                padding_staff_spaces: Some(2.0),
+                wait_ms: None,
+            },
+            output_dir.path(),
+            "first-crop",
+            &RunContext::default(),
+        )
+        .unwrap();
+    assert_eq!(first_crop.files.len(), 1);
+    assert_eq!(first_crop.files[0].page, 1);
+    let first_png = fs::read(&first_crop.files[0].path).unwrap();
+    assert_eq!(&first_png[..8], b"\x89PNG\r\n\x1a\n");
+    let first_sha = first_crop.files[0].sha256.clone();
+    let second_crop = library
+        .crop_output(
+            &engine,
+            &OutputArgs {
+                source: OutputSource::Job {
+                    job_id: checked.job.job_id,
+                },
+                format: OutputFormat::Png,
+                page: None,
+                width: Some(1200),
+                pdf_password: None,
+                png_quality: None,
+                png_transparent: None,
+                output_path: None,
+                output_directory: None,
+                crop: Some(OutputCrop::Measures {
+                    range: MeasureRange { start: 1, end: 2 },
+                    staff: None,
+                }),
+                padding_staff_spaces: Some(2.0),
+                wait_ms: None,
+            },
+            output_dir.path(),
+            "second-crop",
+            &RunContext::default(),
+        )
+        .unwrap();
+    assert_eq!(second_crop.files[0].sha256, first_sha);
     let old_svg_path = work.path().join("old.svg");
     let old_svg = library
         .output(
@@ -475,6 +542,9 @@ fn native_scale_expectations_gate_commit_before_output() {
                 png_quality: None,
                 png_transparent: None,
                 output_path: Some(old_svg_path.to_string_lossy().into_owned()),
+                output_directory: None,
+                crop: None,
+                padding_staff_spaces: None,
                 wait_ms: None,
             },
             &old_svg_path,
@@ -498,6 +568,9 @@ fn native_scale_expectations_gate_commit_before_output() {
                 png_quality: None,
                 png_transparent: None,
                 output_path: Some(invalid_path.to_string_lossy().into_owned()),
+                output_directory: None,
+                crop: None,
+                padding_staff_spaces: None,
                 wait_ms: None,
             },
             &invalid_path,
@@ -518,6 +591,158 @@ fn native_scale_expectations_gate_commit_before_output() {
             summary: "verified scale",
         })
         .unwrap();
+}
+
+#[test]
+#[ignore = "requires verified native LilyPond 2.26.0"]
+fn native_silent_chord_annotation_matches_reference_and_crops() {
+    let root = PathBuf::from(std::env::var_os("OSSIA_TEST_LILYPOND_ROOT").unwrap());
+    let work = tempfile::tempdir().unwrap();
+    let engine =
+        Engine::verify(&root, &work.path().join("scratch"), &RunContext::default()).unwrap();
+    let library = Library::open(&work.path().join("library")).unwrap();
+    let base = "\\version \"2.26.0\"\n\
+upper = { \\time 4/4 c'2 e'2 | }\n\
+lower = { \\time 4/4 c2 g,2 | }\n\
+\\score { \\new PianoStaff << \\new Staff = \"upper\" \\upper \\new Staff = \"lower\" \\lower >> \\layout { } \\midi { } }\n";
+    let imported = library
+        .import(
+            &engine,
+            ImportRequest {
+                title: "Annotated",
+                input: base.as_bytes(),
+                format: InputFormat::Ly,
+                confirmation: None,
+                author: "test",
+            },
+            &RunContext::default(),
+        )
+        .unwrap();
+    let document = imported.document.unwrap();
+    let original_version = document.head_version_id.unwrap();
+    let report = library
+        .cached_evidence(
+            document.document_id,
+            &document.source_hash,
+            engine.build_id(),
+            EVIDENCE_ANALYSIS_VERSION,
+        )
+        .unwrap()
+        .unwrap();
+    let reference = ReferenceMusic {
+        source: EvidenceSource::Version {
+            version_id: original_version,
+        },
+        source_hash: report.source_hash,
+        engine_build_id: report.engine_build_id,
+        comparison: ComparisonMode::Performance,
+        performance: report.music.performance,
+    };
+    let edit = library
+        .begin_edit(BeginEditRequest {
+            document_id: document.document_id,
+            base_version_id: Some(original_version),
+            expected_source_hash: &document.source_hash,
+            author: "test",
+            adopt_workspace: false,
+        })
+        .unwrap();
+    let audible = base.replace(
+        "\\new Staff = \"upper\" \\upper",
+        "\\new Staff = \"upper\" << \\new ChordNames \\with { alignAboveContext = \"upper\" } \\chordmode { c1 } \\upper >>",
+    );
+    let written = library
+        .write_source(&WriteSourceArgs {
+            edit_id: edit.edit_id,
+            expected_source_hash: document.source_hash.clone(),
+            change: SourceWriteChange::Replace { text: audible },
+            preview: false,
+        })
+        .unwrap();
+    let failed = library
+        .check(
+            &engine,
+            CheckRequest {
+                expect: None,
+                reference: Some(&reference),
+                document_id: document.document_id,
+                edit_id: Some(edit.edit_id),
+                expected_source_hash: &written.source_hash,
+                options: &CompileOptions {
+                    formats: vec![RenderFormat::Svg, RenderFormat::Midi],
+                    point_and_click: true,
+                },
+            },
+            &RunContext::default(),
+        )
+        .unwrap();
+    let failed: CheckResult = serde_json::from_value(failed.job.result.unwrap()).unwrap();
+    assert_eq!(failed.verification.status, VerificationStatus::Failed);
+    let silent_source = base.replace(
+        "\\new Staff = \"upper\" \\upper",
+        "\\new Staff = \"upper\" << \\new ChordNames \\with { alignAboveContext = \"upper\" \\remove \"Staff_performer\" } \\chordmode { c1 } \\upper >>",
+    );
+    let silent = library
+        .write_source(&WriteSourceArgs {
+            edit_id: edit.edit_id,
+            expected_source_hash: written.source_hash,
+            change: SourceWriteChange::Replace {
+                text: silent_source,
+            },
+            preview: false,
+        })
+        .unwrap();
+    let passed = library
+        .check(
+            &engine,
+            CheckRequest {
+                expect: None,
+                reference: Some(&reference),
+                document_id: document.document_id,
+                edit_id: Some(edit.edit_id),
+                expected_source_hash: &silent.source_hash,
+                options: &CompileOptions {
+                    formats: vec![RenderFormat::Svg, RenderFormat::Midi],
+                    point_and_click: true,
+                },
+            },
+            &RunContext::default(),
+        )
+        .unwrap();
+    let passed_result: CheckResult = serde_json::from_value(passed.job.result.unwrap()).unwrap();
+    assert_eq!(
+        passed_result.verification.status,
+        VerificationStatus::Passed
+    );
+    let batch = library
+        .crop_output(
+            &engine,
+            &OutputArgs {
+                source: OutputSource::Job {
+                    job_id: passed.job.job_id,
+                },
+                format: OutputFormat::Png,
+                page: None,
+                width: Some(1200),
+                pdf_password: None,
+                png_quality: None,
+                png_transparent: None,
+                output_path: None,
+                output_directory: None,
+                crop: Some(OutputCrop::Measures {
+                    range: MeasureRange { start: 1, end: 1 },
+                    staff: None,
+                }),
+                padding_staff_spaces: Some(2.0),
+                wait_ms: None,
+            },
+            work.path(),
+            "annotation-crop",
+            &RunContext::default(),
+        )
+        .unwrap();
+    assert_eq!(batch.files.len(), 1);
+    assert!(Path::new(&batch.files[0].path).is_file());
 }
 
 #[test]

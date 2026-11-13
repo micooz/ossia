@@ -12,6 +12,8 @@ pub enum DocsRequest {
     Search {
         query: String,
         limit: Option<usize>,
+        #[serde(default)]
+        match_mode: DocsMatchMode,
     },
     Read {
         chapter_id: String,
@@ -19,6 +21,26 @@ pub enum DocsRequest {
         offset: usize,
         limit: Option<usize>,
     },
+}
+
+/// How multiple search terms combine in the offline documentation index.
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+    ts_rs::TS,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum DocsMatchMode {
+    #[default]
+    All,
+    Any,
 }
 
 /// Search result carrying authoritative source and local readable text paths.
@@ -43,6 +65,9 @@ pub struct DocsOutcome {
     pub text: Option<String>,
     pub offset: usize,
     pub next_offset: Option<usize>,
+    pub keywords: Vec<String>,
+    pub match_mode: DocsMatchMode,
+    pub query_suggestions: Vec<String>,
 }
 
 /// Documentation errors do not disable score operations.

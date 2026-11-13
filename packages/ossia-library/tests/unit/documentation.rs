@@ -24,7 +24,37 @@ fn search() -> DocsRequest {
     DocsRequest::Search {
         query: "八度".into(),
         limit: None,
+        match_mode: DocsMatchMode::All,
     }
+}
+
+#[test]
+fn search_match_mode_and_zero_hit_suggestions_are_explicit() {
+    let root = tempfile::tempdir().unwrap();
+    let resources = root.path().join("resources");
+    let home = root.path().join("home");
+    fs::create_dir(&home).unwrap();
+    pack(&resources);
+    let docs = Documentation::install(&home, &resources).unwrap();
+    let all = docs
+        .query(DocsRequest::Search {
+            query: "octave absent".into(),
+            limit: None,
+            match_mode: DocsMatchMode::All,
+        })
+        .unwrap();
+    assert!(all.hits.is_empty());
+    assert_eq!(all.match_mode, DocsMatchMode::All);
+    assert_eq!(all.query_suggestions, vec!["absent", "octave"]);
+    let any = docs
+        .query(DocsRequest::Search {
+            query: "octave absent".into(),
+            limit: None,
+            match_mode: DocsMatchMode::Any,
+        })
+        .unwrap();
+    assert_eq!(any.hits.len(), 1);
+    assert_eq!(any.keywords, vec!["octave", "absent"]);
 }
 #[test]
 fn install_search_read_and_integrity_are_offline_and_bounded() {

@@ -264,6 +264,23 @@ test('topbar and layout controls keep neutral hover states and connection text s
   await expect(horizontal).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
 });
 
+test('narrow topbar hides the brand label and keeps the score selector on the first row', async ({
+  context,
+  page,
+}) => {
+  await mockScoreRuntime(context);
+  await page.setViewportSize({ width: 640, height: 800 });
+  await page.goto(`/scores?documentId=${firstId}`);
+  await expect(page.locator('.topbar-brand-label')).toBeHidden();
+  const brand = await page.locator('.topbar-brand').boundingBox();
+  const trigger = await page.locator('.score-title-trigger').boundingBox();
+  const right = await page.locator('.topbar-right').boundingBox();
+  expect(trigger!.y).toBeLessThan(brand!.y + brand!.height);
+  expect(trigger!.y).toBeLessThan(right!.y + right!.height);
+  expect(trigger!.x).toBeGreaterThan(brand!.x + brand!.width);
+  expect(trigger!.x + trigger!.width).toBeLessThan(right!.x);
+});
+
 test('floating controls change zoom with buttons and a menu', async ({ context, page }) => {
   await mockScoreRuntime(context);
   await page.goto(`/scores?documentId=${firstId}`);

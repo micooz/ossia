@@ -14,7 +14,7 @@ pub struct RuntimeInfo {
     pub capabilities: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Selection {
     pub document_id: DocumentId,
@@ -142,7 +142,8 @@ pub struct HistoryArgs {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RestoreArgs {
     pub version_id: VersionId,
-    pub base_version_id: Option<VersionId>,
+    /// Current document head.
+    pub base_version_id: VersionId,
     pub expected_source_hash: ContentHash,
     pub author: Option<String>,
     pub summary: String,
@@ -172,6 +173,26 @@ pub enum OutputFormat {
     Midi,
 }
 
+/// A visual region selected from an immutable rendered score.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(
+    tag = "kind",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub enum OutputCrop {
+    Measures {
+        range: MeasureRange,
+        staff: Option<usize>,
+    },
+    System {
+        page: u32,
+        system_index: usize,
+        staff: Option<usize>,
+    },
+}
+
 /// Write one output file from a completed job snapshot or an immutable version.
 /// PDF may use an open password; PNG may use lossy quality and transparency options.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
@@ -185,6 +206,9 @@ pub struct OutputArgs {
     pub png_quality: Option<u8>,
     pub png_transparent: Option<bool>,
     pub output_path: Option<String>,
+    pub output_directory: Option<String>,
+    pub crop: Option<OutputCrop>,
+    pub padding_staff_spaces: Option<f64>,
     pub wait_ms: Option<u64>,
 }
 
@@ -202,6 +226,31 @@ pub struct OutputOutcome {
     pub bytes: u64,
     pub sha256: ContentHash,
     pub media_type: String,
+}
+
+/// One verified file produced by a visual crop batch.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputFile {
+    pub page: u32,
+    pub bounds: GeometryBounds,
+    pub path: String,
+    pub bytes: u64,
+    pub sha256: ContentHash,
+    pub media_type: String,
+}
+
+/// A complete, atomically published visual crop batch.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputBatchOutcome {
+    pub source: OutputSource,
+    pub document_id: DocumentId,
+    pub source_hash: ContentHash,
+    pub engine_build_id: String,
+    pub format: OutputFormat,
+    pub directory: String,
+    pub files: Vec<OutputFile>,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "kebab-case")]

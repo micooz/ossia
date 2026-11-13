@@ -3045,6 +3045,7 @@ dependencies = [
  "ossia-engine",
  "ossia-score",
  "ossia-types",
+ "regex",
  "rusqlite",
  "serde",
  "serde_json",

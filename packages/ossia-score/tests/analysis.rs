@@ -1,4 +1,21 @@
 use ossia_score::*;
+
+#[test]
+fn music_identity_ignores_annotations_but_rejects_music_changes() {
+    let base = "\\score { \\new Staff { c'4 d'4 | e'2 | } \\layout {} }";
+    let annotated = "\\score { \\new Staff { c'4^\\markup { \"I\" } d'4 | e'2 | } \\layout {} }";
+    let changed = "\\score { \\new Staff { c'4 f'4 | e'2 | } \\layout {} }";
+    let base = music_identity(base);
+    assert!(base.reliable);
+    assert_eq!(base, music_identity(annotated));
+    assert_ne!(base, music_identity(changed));
+
+    let piano = "upper = { c'1 | } lower = { c1 | } \\score { \\new PianoStaff << \\new Staff = \"upper\" \\upper \\new Staff = \"lower\" \\lower >> \\layout { } }";
+    let chords = "upper = { c'1 | } lower = { c1 | } \\score { \\new PianoStaff << \\new Staff = \"upper\" << \\new ChordNames \\with { \\remove \"Staff_performer\" } \\chordmode { c1 } \\upper >> \\new Staff = \"lower\" \\lower >> \\layout { \\context { \\Staff \\override StaffSymbol.line-count = #5 } } }";
+    let piano = music_identity(piano);
+    assert!(piano.reliable);
+    assert_eq!(piano, music_identity(chords));
+}
 use ossia_types::{AnalysisStatus, QuarterTime};
 
 fn smf(events: &[u8], format: u16, division: u16) -> Vec<u8> {

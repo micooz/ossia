@@ -17,7 +17,13 @@ impl Runtime {
             .as_ref()
             .map(|report| evidence_page(args.source, report, &args))
             .transpose()?;
-        Ok(EvidenceOutcome { job, page })
+        Ok(EvidenceOutcome {
+            job: job.map(|mut job| {
+                job.result = Some(serde_json::Value::Null);
+                job
+            }),
+            page,
+        })
     }
 
     pub(crate) fn resolve_reference(

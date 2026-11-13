@@ -72,6 +72,21 @@ fn read_snapshot_page(
     let next = (end < requested_end)
         .then(|| map.span(end, requested_end))
         .transpose()?;
+    let line_spans = if args.include_line_spans {
+        let mut spans = Vec::new();
+        let mut cursor = start;
+        while cursor < end {
+            let line_end = source.as_bytes()[cursor..end]
+                .iter()
+                .position(|byte| *byte == b'\n')
+                .map_or(end, |offset| cursor + offset + 1);
+            spans.push(map.span(cursor, line_end)?);
+            cursor = line_end;
+        }
+        spans
+    } else {
+        Vec::new()
+    };
     Ok(ReadSourceOutcome {
         document_id: snapshot.document_id(),
         source_hash: snapshot.source_hash().clone(),
@@ -82,5 +97,6 @@ fn read_snapshot_page(
         returned_bytes: end - start,
         total_bytes,
         total_lines,
+        line_spans,
     })
 }

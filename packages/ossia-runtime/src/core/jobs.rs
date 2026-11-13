@@ -14,7 +14,15 @@ pub(super) enum Work {
     VersionRender(DocumentId, VersionId),
     Import(ImportWork),
     Restore(RestoreArgs),
-    Output(OutputArgs, PathBuf),
+    Output(OutputArgs, OutputDestination),
+}
+
+pub(super) enum OutputDestination {
+    File(PathBuf),
+    Batch {
+        parent: PathBuf,
+        directory_name: String,
+    },
 }
 
 pub(super) struct ImportWork {
@@ -37,13 +45,46 @@ fn input_format_from_path(path: &str) -> Option<InputFormat> {
     }
 }
 
-fn output_destination(args: &OutputArgs, document: DocumentId) -> Result<PathBuf> {
+fn output_destination(args: &OutputArgs, document: DocumentId) -> Result<OutputDestination> {
+    if args.crop.is_some() {
+        if !matches!(args.format, OutputFormat::Svg | OutputFormat::Png) {
+            return Err(invalid("crop output supports only SVG and PNG"));
+        }
+        if args.page.is_some() || args.output_path.is_some() {
+            return Err(invalid("crop output does not accept page or outputPath"));
+        }
+        let parent = args.output_directory.as_ref().map_or_else(
+            || {
+                dirs::download_dir()
+                    .map(|path| path.join("Ossia"))
+                    .ok_or_else(|| storage("system download directory unavailable"))
+            },
+            |path| {
+                let path = PathBuf::from(path);
+                if path.is_absolute() {
+                    Ok(path)
+                } else {
+                    Err(invalid("outputDirectory must be absolute"))
+                }
+            },
+        )?;
+        std::fs::create_dir_all(&parent).map_err(storage)?;
+        return Ok(OutputDestination::Batch {
+            parent,
+            directory_name: format!("{}-{}", document, uuid::Uuid::new_v4()),
+        });
+    }
+    if args.output_directory.is_some() || args.padding_staff_spaces.is_some() {
+        return Err(invalid(
+            "outputDirectory and paddingStaffSpaces require crop",
+        ));
+    }
     if let Some(path) = &args.output_path {
         let path = PathBuf::from(path);
         if !path.is_absolute() {
             return Err(invalid("outputPath must be absolute"));
         }
-        return Ok(path);
+        return Ok(OutputDestination::File(path));
     }
     let folder = dirs::download_dir()
         .ok_or_else(|| storage("system download directory unavailable"))?
@@ -56,12 +97,12 @@ fn output_destination(args: &OutputArgs, document: DocumentId) -> Result<PathBuf
         OutputFormat::Pdf => "pdf",
         OutputFormat::Midi => "mid",
     };
-    Ok(folder.join(format!(
+    Ok(OutputDestination::File(folder.join(format!(
         "{}-{}.{}",
         document,
         uuid::Uuid::new_v4(),
         extension
-    )))
+    ))))
 }
 
 pub(super) struct Pending {
@@ -516,19 +557,31 @@ impl Runtime {
                     self.engine.as_ref(),
                     RestoreRequest {
                         target_version_id: args.version_id,
-                        base_version_id: args.base_version_id,
+                        base_version_id: Some(args.base_version_id),
                         expected_source_hash: &args.expected_source_hash,
                         author: args.author.as_deref().unwrap_or(DEFAULT_AUTHOR),
                         summary: &args.summary,
                     },
                     &task.context,
                 )?),
-                Work::Output(args, destination) => value(self.library.output(
-                    self.engine.as_ref(),
-                    &args,
-                    &destination,
-                    &task.context,
-                )?),
+                Work::Output(args, destination) => match destination {
+                    OutputDestination::File(destination) => value(self.library.output(
+                        self.engine.as_ref(),
+                        &args,
+                        &destination,
+                        &task.context,
+                    )?),
+                    OutputDestination::Batch {
+                        parent,
+                        directory_name,
+                    } => value(self.library.crop_output(
+                        self.engine.as_ref(),
+                        &args,
+                        &parent,
+                        &directory_name,
+                        &task.context,
+                    )?),
+                },
             }
         })();
         let current = self.library.get_job(task.job.job_id)?;

@@ -321,7 +321,7 @@ impl Library {
         })
     }
 
-    fn output_render(
+    pub(crate) fn output_render(
         &self,
         engine: &dyn EngineBackend,
         snapshot: &SourceSnapshot,

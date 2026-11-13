@@ -623,7 +623,7 @@
   },
   {
     "name": "ossia_read_source",
-    "description": "Read a bounded UTF-8-safe source page at an exact source hash. Returns ReadSourceOutcome with the next span.",
+    "description": "Read a bounded UTF-8-safe source page at an exact source hash. Set includeLineSpans to return exact editable line spans. Returns ReadSourceOutcome with the next span.",
     "inputSchema": {
       "$defs": {
         "ContentHash": {
@@ -746,6 +746,10 @@
         "expectedSourceHash": {
           "$ref": "#/$defs/ContentHash"
         },
+        "includeLineSpans": {
+          "default": false,
+          "type": "boolean"
+        },
         "maxBytes": {
           "format": "uint",
           "minimum": 0,
@@ -814,7 +818,7 @@
   },
   {
     "name": "ossia_evidence",
-    "description": "Read bounded source/performance music evidence from an immutable version or completed job. Optional measureRange, voice, track and channel filters. Creates a durable evidence job only on a cache miss. Returns EvidenceOutcome.",
+    "description": "Read bounded source/performance music evidence from an immutable version or completed job. Optional measureRange, voice, track and channel filters. The returned job contains only status metadata; music is in page. Returns EvidenceOutcome.",
     "inputSchema": {
       "$defs": {
         "EvidenceSection": {
@@ -969,8 +973,18 @@
   },
   {
     "name": "ossia_docs",
-    "description": "Search or read the bundled offline LilyPond documentation. Search takes query/limit; read takes chapterId/offset/limit. Returns DocsOutcome.",
+    "description": "Search or read the bundled offline LilyPond documentation. Search takes query, limit and matchMode=all|any; read takes chapterId/offset/limit. Zero-hit searches include querySuggestions. Returns DocsOutcome.",
     "inputSchema": {
+      "$defs": {
+        "DocsMatchMode": {
+          "description": "How multiple search terms combine in the offline documentation index.",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "type": "string"
+        }
+      },
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "description": "Search keywords or read one stable chapter ID with character-based pagination.",
       "oneOf": [
@@ -987,6 +1001,10 @@
                 "integer",
                 "null"
               ]
+            },
+            "matchMode": {
+              "$ref": "#/$defs/DocsMatchMode",
+              "default": "all"
             },
             "query": {
               "type": "string"
@@ -1641,7 +1659,7 @@
   },
   {
     "name": "ossia_restore",
-    "description": "Queue restoration of a version as a new version. Requires a clean workspace and no active edit; returns a Job.",
+    "description": "Queue restoration of versionId as a new version. baseVersionId is the current head and expectedSourceHash is the current workspace hash. Requires a clean workspace and no active edit; returns a Job.",
     "inputSchema": {
       "$defs": {
         "ContentHash": {
@@ -1658,11 +1676,9 @@
           ]
         },
         "baseVersionId": {
+          "description": "Current document head.",
           "format": "uuid",
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string"
         },
         "expectedSourceHash": {
           "$ref": "#/$defs/ContentHash"
@@ -1685,6 +1701,7 @@
       },
       "required": [
         "versionId",
+        "baseVersionId",
         "expectedSourceHash",
         "summary"
       ],
@@ -1700,9 +1717,93 @@
   },
   {
     "name": "ossia_output",
-    "description": "Write SVG, PNG, MIDI, PDF or LilyPond output from a completed job snapshot or immutable version. Never overwrites; returns a Job whose result is OutputOutcome.",
+    "description": "Write SVG, PNG, MIDI, PDF or LilyPond output from a completed job snapshot or immutable version. crop generates one SVG/PNG per affected page and returns OutputBatchOutcome. Never overwrites.",
     "inputSchema": {
       "$defs": {
+        "MeasureRange": {
+          "additionalProperties": false,
+          "description": "Inclusive one-based source or performance measure range.",
+          "properties": {
+            "end": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "start",
+            "end"
+          ],
+          "type": "object"
+        },
+        "OutputCrop": {
+          "description": "A visual region selected from an immutable rendered score.",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "measures",
+                  "type": "string"
+                },
+                "range": {
+                  "$ref": "#/$defs/MeasureRange"
+                },
+                "staff": {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "range"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "system",
+                  "type": "string"
+                },
+                "page": {
+                  "format": "uint32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "staff": {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "systemIndex": {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "kind",
+                "page",
+                "systemIndex"
+              ],
+              "type": "object"
+            }
+          ]
+        },
         "OutputFormat": {
           "description": "Output file format for a job or version snapshot.",
           "enum": [
@@ -1758,12 +1859,35 @@
       "additionalProperties": false,
       "description": "Write one output file from a completed job snapshot or an immutable version.\nPDF may use an open password; PNG may use lossy quality and transparency options.",
       "properties": {
+        "crop": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutputCrop"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "format": {
           "$ref": "#/$defs/OutputFormat"
+        },
+        "outputDirectory": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "outputPath": {
           "type": [
             "string",
+            "null"
+          ]
+        },
+        "paddingStaffSpaces": {
+          "format": "double",
+          "type": [
+            "number",
             "null"
           ]
         },

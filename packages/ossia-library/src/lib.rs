@@ -2,6 +2,7 @@
 mod api;
 mod artifacts;
 pub use artifacts::render_key;
+mod crop_output;
 mod db;
 mod documentation;
 mod drafts;

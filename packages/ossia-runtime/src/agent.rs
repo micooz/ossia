@@ -57,6 +57,9 @@ fn summarize_result(result: &mut Value) {
 /// Keep bounded evidence in Agent task responses; full persisted results remain available.
 pub(crate) fn summarize_job(mut job: Job) -> Job {
     if let Some(result) = &mut job.result {
+        if job.kind == "evidence" {
+            *result = Value::Null;
+        }
         if matches!(job.kind.as_str(), "check" | "import") {
             summarize_result(result);
         }

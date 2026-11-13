@@ -288,6 +288,26 @@ async fn api(
         );
         return Ok(response);
     }
+    if parts.len() == 4 && parts[0] == "jobs" && parts[2] == "outputs" && method == "GET" {
+        let index = parts[3]
+            .parse::<usize>()
+            .map_err(|_| invalid("output file index must be a nonnegative integer"))?;
+        let (media_type, bytes) = state.runtime.export_bytes_at(id(parts[1])?, index)?;
+        let mut response = bytes.into_response();
+        response.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_str(&media_type).map_err(|_| storage("invalid output media type"))?,
+        );
+        response.headers_mut().insert(
+            header::CONTENT_DISPOSITION,
+            HeaderValue::from_static("attachment"),
+        );
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("private, no-store"),
+        );
+        return Ok(response);
+    }
     let runtime = state.runtime.clone();
     let query = request.uri().query().unwrap_or("").to_owned();
     let data = if method == "POST" || method == "PUT" {
@@ -309,6 +329,13 @@ async fn api(
             }
             ("POST", ["jobs", job, "reveal"]) => {
                 runtime.reveal_export(id(job)?)?;
+                json!({"opened":true})
+            }
+            ("POST", ["jobs", job, "outputs", index, "reveal"]) => {
+                let index = index
+                    .parse::<usize>()
+                    .map_err(|_| invalid("output file index must be a nonnegative integer"))?;
+                runtime.reveal_export_at(id(job)?, index)?;
                 json!({"opened":true})
             }
             ("GET", ["status"]) => value(runtime.agent_status()?)?,

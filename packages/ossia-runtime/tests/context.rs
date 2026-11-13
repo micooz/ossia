@@ -75,6 +75,28 @@ async fn selections_are_shared_by_document_and_cleared_when_source_changes() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn annotations_preserve_selection_while_structural_music_changes_clear_it() {
+    let f = Fixture::new(true).await;
+    f.runtime.selection(selection(&f)).unwrap();
+    let annotated = f.save(
+        b"\\version \"2.26.0\"\n\\score { \\new Staff { c'1^\\markup { \"I\" } | d'1 | } \\layout {} }\n",
+    );
+    let context = f.runtime.context(f.doc.document_id).unwrap();
+    assert_eq!(context.document.source_hash, annotated);
+    assert_eq!(context.selection.as_ref().unwrap().source_hash, annotated);
+    assert_eq!(
+        context.selection.as_ref().unwrap().locators,
+        selection(&f).locators
+    );
+    let changed =
+        f.save(b"\\version \"2.26.0\"\n\\score { \\new Staff { e'1 | d'1 | } \\layout {} }\n");
+    let context = f.runtime.context(f.doc.document_id).unwrap();
+    assert_eq!(context.document.source_hash, changed);
+    assert!(context.selection.is_none());
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn events_are_runtime_wide_or_filtered_to_one_document() {
     let f = Fixture::new(false).await;
     let second = f

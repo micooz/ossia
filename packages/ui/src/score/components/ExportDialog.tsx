@@ -195,6 +195,9 @@ export function ExportDialog({
           pngQuality: format === 'png' ? pngQuality : null,
           pngTransparent: format === 'png' ? pngTransparent : null,
           outputPath: null,
+          outputDirectory: null,
+          crop: null,
+          paddingStaffSpaces: null,
           waitMs: null,
         });
         await api.waitJob(job);
