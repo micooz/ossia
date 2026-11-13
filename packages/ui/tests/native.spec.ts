@@ -10,6 +10,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 
 import type {
   AgentOpenOutcome,
+  AgentDocumentContext,
   DocumentContext,
   DocumentPage,
   Job,
@@ -167,6 +168,14 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
       (firstViewBox.y1 - firstViewBox.y0),
   );
   await expect(page.locator('.selection-box')).toHaveCount(1);
+  await expect
+    .poll(async () => {
+      const agent = await cli<AgentDocumentContext>('context', { documentId });
+      return agent.selection?.locators;
+    })
+    .toEqual([lower.locator]);
+  const agent = await cli<AgentDocumentContext>('context', { documentId });
+  expect(agent.regions.some((region) => region.spans.length > 0)).toBeTruthy();
   const other = await context.newPage();
   const second = await cli<AgentOpenOutcome>('open', { documentId });
   await other.goto(second.url);
@@ -209,8 +218,7 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   await page.getByLabel('对比版本', { exact: true }).click();
   await page.getByRole('menuitemradio', { name: /版本 1/ }).click();
   await expect(page.locator('.compare .score-image')).toHaveCount(geometry.pages.length * 2);
-  await page.getByLabel('对比版本', { exact: true }).click();
-  await page.getByRole('menuitem', { name: '退出对比' }).click();
+  await page.getByRole('button', { name: '退出对比', exact: true }).click();
   await expect(page.locator('.compare')).toHaveCount(0);
   await fs.writeFile(sourcePath, changed + '\n\\notAnOssiaCommand\n');
   await expectDocumentHint(page, '上次成功结果：', 30_000);
@@ -232,7 +240,7 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   await expectDocumentHint(page, '当前工作区乐谱与最新版本一致', 30_000);
   await page.getByLabel('版本', { exact: true }).click();
   await page.getByRole('menuitemradio', { name: /版本 1/ }).click();
-  await page.getByRole('button', { name: '恢复至版本 1', exact: true }).click();
+  await page.getByRole('button', { name: '恢复至此版本', exact: true }).click();
   await page.getByRole('button', { name: '确认恢复' }).click();
   await page.getByLabel('版本', { exact: true }).click();
   await expect(page.getByRole('menuitemradio')).toHaveCount(4);

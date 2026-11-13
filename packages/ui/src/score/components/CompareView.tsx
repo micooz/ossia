@@ -77,6 +77,7 @@ export function CompareView({
   onRightZoom,
   selected,
   selectable,
+  onSelect,
   onPoint,
 }: {
   api: Api;
@@ -93,6 +94,7 @@ export function CompareView({
   onRightZoom: (zoom: number) => void;
   selected: Locator[];
   selectable: boolean;
+  onSelect: (locator: Locator) => void;
   onPoint: (page: number, x: number, y: number) => void;
 }) {
   const { t } = useI18n();
@@ -125,6 +127,7 @@ export function CompareView({
               onZoomChange={onLeftZoom}
               selected={selected}
               selectable={selectable}
+              onSelect={onSelect}
               onPoint={onPoint}
             />
           ) : (

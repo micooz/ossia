@@ -12,6 +12,7 @@ use std::{
 };
 use tokio::sync::Notify;
 
+mod analysis;
 mod context;
 mod evidence;
 mod jobs;
@@ -39,6 +40,7 @@ pub struct Runtime {
     pub engine: Arc<dyn EngineBackend>,
     pub info: RuntimeInfo,
     state: Mutex<State>,
+    analysis: Mutex<analysis::AnalysisCache>,
     ui_language: std::sync::RwLock<Option<UiLanguage>>,
     parent_pid: Mutex<Option<u32>>,
     pub changed: Notify,
@@ -103,6 +105,7 @@ impl Runtime {
             },
             library: Arc::new(library),
             engine,
+            analysis: Mutex::new(analysis::AnalysisCache::default()),
             state: Mutex::new(State {
                 selections: HashMap::new(),
                 seq: 0,

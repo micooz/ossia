@@ -4,13 +4,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { ToastRegion, useToasts } from '../components/Toast.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { describe } from '../errors.ts';
-import type {
-  DocumentContext,
-  DocumentState,
-  Locator,
-  UiLanguage,
-  Version,
-} from '../generated/protocol.ts';
+import type { DocumentContext, DocumentState, UiLanguage, Version } from '../generated/protocol.ts';
 import {
   I18nProvider,
   jobKindKey,
@@ -20,7 +14,7 @@ import {
   translate,
   useI18n,
 } from '../i18n.tsx';
-import { ApiError, delay, locatorKey, makeApi } from './api.ts';
+import { ApiError, delay, makeApi } from './api.ts';
 import { CompareView, VersionScore } from './components/CompareView.tsx';
 import { ScoreNotFound } from './components/ScoreNotFound.tsx';
 import { ScoreTitleMenu } from './components/ScoreTitleMenu.tsx';
@@ -29,6 +23,7 @@ import type { ScoreLayout } from './components/ScoreToolbar.tsx';
 import { ScoreView } from './components/ScoreView.tsx';
 import { documentIdFromLocation, pushDocumentIdToLocation } from './endpoint.ts';
 import { initialState, reducer } from './state.ts';
+import { useSelection } from './useSelection.ts';
 
 export function ScorePage({ fallbackLanguage }: { fallbackLanguage: UiLanguage }) {
   const [language, setLanguage] = useState<UiLanguage>(fallbackLanguage);
@@ -64,7 +59,6 @@ function ScoreApp({
   const documentIdRef = useRef(documentIdFromLocation());
   const serial = useRef(0);
   const [working, setWorking] = useState(false);
-  const selecting = useRef(false);
   const [notice, setNotice] = useState('');
   const [notFound, setNotFound] = useState(!documentIdRef.current);
   const [historyVersion, setHistoryVersion] = useState<string | null>(null);
@@ -83,6 +77,14 @@ function ScoreApp({
     [lifetime, toast.show],
   );
   const applyContext = useCallback((context: DocumentContext) => {
+    if (context.document.documentId !== documentIdRef.current) return;
+    const previous = contextRef.current;
+    if (
+      previous?.instanceId === context.instanceId &&
+      previous.document.documentId === context.document.documentId &&
+      previous.seq > context.seq
+    )
+      return;
     contextRef.current = context;
     dispatch({ type: 'context', context });
   }, []);
@@ -115,6 +117,15 @@ function ScoreApp({
     if (status.language) onLanguage(status.language);
     const previous = contextRef.current;
     if (
+      previous &&
+      context &&
+      previous.instanceId === context.instanceId &&
+      previous.document.documentId === context.document.documentId &&
+      previous.seq > context.seq
+    ) {
+      context = previous;
+    }
+    if (
       previous?.document.documentId === context?.document.documentId &&
       previous?.document.sourceHash !== context?.document.sourceHash
     ) {
@@ -128,6 +139,14 @@ function ScoreApp({
     }
     return { context, status };
   }, [api, lifetime, onLanguage, toast.show]);
+  const selection = useSelection(api, state.context, contextRef, applyContext, refresh, onError);
+  const refreshSelection = useCallback(
+    async (documentId: string) => {
+      const context = await api.context(documentId);
+      if (!lifetime.signal.aborted) applyContext(context);
+    },
+    [api, applyContext, lifetime],
+  );
   const selectDocument = useCallback(
     (next: string) => {
       if (next === documentIdRef.current) return;
@@ -191,6 +210,11 @@ function ScoreApp({
               onLanguage(next ?? matchSystemLanguage(navigator.languages));
               return;
             }
+            if (event.documentId && event.documentId !== documentIdRef.current) return;
+            if (event.type === 'selection-changed' && event.documentId) {
+              void refreshSelection(event.documentId).catch(onError);
+              return;
+            }
             requestRefresh();
           });
           if (!lifetime.signal.aborted)
@@ -207,7 +231,7 @@ function ScoreApp({
       if (timer) clearTimeout(timer);
       lifetime.abort();
     };
-  }, [api, lifetime, refresh, onError, onLanguage]);
+  }, [api, lifetime, refresh, refreshSelection, onError, onLanguage]);
   const doc = state.context?.document;
   const documentId = doc?.documentId;
   useEffect(() => {
@@ -237,55 +261,32 @@ function ScoreApp({
       setWorking(false);
     }
   }
-  async function choose(locator?: Locator, point?: { page: number; x: number; y: number }) {
+  async function choosePoint(page: number, x: number, y: number) {
     const context = contextRef.current;
-    const document = context?.document;
-    if (!context || !document || selecting.current || state.connection !== 'connected') return;
-    const hash = document.sourceHash;
-    if (context.render?.manifest.sourceHash !== hash) return;
-    selecting.current = true;
+    if (!context || state.connection !== 'connected') return;
+    const document = context.document;
+    if (context.render?.manifest.sourceHash !== document.sourceHash) return;
     try {
-      let chosen = locator;
-      if (point) {
-        const result = await api.locate(document.documentId, { sourceHash: hash, ...point });
-        if (result.capability !== 'measure' || !result.region) {
-          if (result.reason && result.reason !== 'no-hit')
-            setNotice(t('cannotSelect', { reason: result.reason }));
-          return;
-        }
-        chosen = result.region.locator;
-      }
+      const result = await api.locate(document.documentId, {
+        sourceHash: document.sourceHash,
+        page,
+        x,
+        y,
+      });
       const current = contextRef.current;
       if (
         current?.document.documentId !== document.documentId ||
-        current.document.sourceHash !== hash ||
-        current.render?.renderKey !== context.render?.renderKey
+        current.document.sourceHash !== document.sourceHash ||
+        current.render?.renderKey !== context.render.renderKey
       )
         return;
-      const selected = current.selection?.locators ?? [];
-      const key = chosen && locatorKey(chosen);
-      const locators = !chosen
-        ? []
-        : selected.some((locator) => locatorKey(locator) === key)
-          ? selected.filter((locator) => locatorKey(locator) !== key)
-          : [...selected, chosen];
-      const result = await api.selection(document.documentId, {
-        documentId: document.documentId,
-        sourceHash: hash,
-        locators,
-      });
-      if (
-        contextRef.current?.document.documentId === document.documentId &&
-        contextRef.current.document.sourceHash === hash
-      ) {
-        ++serial.current;
-        applyContext(result);
+      if (result.capability === 'measure' && result.region) selection.choose(result.region.locator);
+      else if (result.reason && result.reason !== 'no-hit') {
+        setNotice(t('cannotSelect', { reason: result.reason }));
       }
     } catch (error) {
       onError(error);
       await refresh().catch(onError);
-    } finally {
-      selecting.current = false;
     }
   }
   function requestRestore(version: Version) {
@@ -319,7 +320,7 @@ function ScoreApp({
     state.status?.jobs.filter(
       (job) => job.documentId === documentId && ['queued', 'running'].includes(job.state),
     ) ?? [];
-  const selected = state.context?.selection?.locators ?? [];
+  const selected = selection.selected;
   const connected = state.connection === 'connected';
   const exportVersionId = historyVersion ?? doc?.headVersionId ?? null;
   const viewingVersion =
@@ -468,7 +469,8 @@ function ScoreApp({
               onRightZoom={setRightZoom}
               selected={selected}
               selectable={connected && !stale && !working && !historyVersion}
-              onPoint={(page, x, y) => void choose(undefined, { page, x, y })}
+              onSelect={selection.choose}
+              onPoint={(page, x, y) => void choosePoint(page, x, y)}
             />
           ) : historyVersion ? (
             <VersionScore
@@ -490,7 +492,8 @@ function ScoreApp({
               onZoomChange={setZoom}
               selected={selected}
               selectable={connected && !stale && !working}
-              onPoint={(page, x, y) => void choose(undefined, { page, x, y })}
+              onSelect={selection.choose}
+              onPoint={(page, x, y) => void choosePoint(page, x, y)}
             />
           ) : (
             <section className="empty">

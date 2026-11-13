@@ -8,6 +8,7 @@ import type {
   OutputArgs,
   RenderGeometry,
   RenderReference,
+  RuntimeEvent,
   Selection,
   Version,
 } from '../../src/generated/protocol.ts';
@@ -117,6 +118,10 @@ export async function mockScoreRuntime(
   const restores: unknown[] = [];
   const outputs: OutputArgs[] = [];
   const reveals: string[] = [];
+  const events: RuntimeEvent[] = [];
+  const emit = (type: string, documentId = firstId) => {
+    events.push({ instanceId: 'instance', seq: ++seq, type, documentId, payload: {} });
+  };
   const contextFor = (documentId: string): DocumentContext | null => {
     const document = states.find((state) => state.documentId === documentId);
     if (!document) return null;
@@ -145,14 +150,19 @@ export async function mockScoreRuntime(
     if (path === '/events') {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       if (loseEvents) return route.abort();
-      const body = options.languageEvent
-        ? `event: runtime\ndata: ${JSON.stringify({
-            instanceId: 'instance',
-            seq,
-            type: 'ui-language-changed',
-            payload: { language: options.languageEvent },
-          })}\n\n`
-        : ': keep-alive\n\n';
+      const body =
+        (options.languageEvent
+          ? `event: runtime\ndata: ${JSON.stringify({
+              instanceId: 'instance',
+              seq,
+              type: 'ui-language-changed',
+              payload: { language: options.languageEvent },
+            })}\n\n`
+          : ': keep-alive\n\n') +
+        events
+          .filter((event) => event.seq > Number(url.searchParams.get('after')))
+          .map((event) => `event: runtime\ndata: ${JSON.stringify(event)}\n\n`)
+          .join('');
       return route.fulfill({ contentType: 'text/event-stream', body });
     }
     if (path === '/status')
@@ -266,7 +276,7 @@ export async function mockScoreRuntime(
       if (rejectSelection)
         return reply({ error: { code: 'stale-selection', message: 'source changed' } }, 409);
       selections.set(documentId, payload.locators.length ? payload : null);
-      seq++;
+      emit('selection-changed', documentId);
       return reply(contextFor(documentId));
     }
     if (parts[2] === 'restore') {
@@ -283,6 +293,8 @@ export async function mockScoreRuntime(
     reveals,
     selections,
     states,
+    emit,
+    contextFor,
     disconnect: (value: boolean) => {
       loseEvents = value;
     },
@@ -293,7 +305,7 @@ export async function mockScoreRuntime(
       states[0]!.sourceHash = newer;
       states[0]!.dirty = true;
       selections.clear();
-      seq++;
+      emit('source-changed');
     },
   };
 }

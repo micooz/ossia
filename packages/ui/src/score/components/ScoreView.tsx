@@ -17,6 +17,7 @@ interface Props {
   onZoomChange: (zoom: number) => void;
   selected?: Locator[];
   selectable?: boolean;
+  onSelect?: (locator: Locator) => void;
   onPoint?: (page: number, x: number, y: number) => void;
 }
 
@@ -34,6 +35,7 @@ export function ScoreView({
   onZoomChange,
   selected = [],
   selectable = false,
+  onSelect,
   onPoint,
 }: Props) {
   const { t } = useI18n();
@@ -256,7 +258,15 @@ export function ScoreView({
                         const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(
                           ctm.inverse(),
                         );
-                        onPoint?.(page, point.x, point.y);
+                        const region = pageLayout.regions.find(
+                          ({ bounds }) =>
+                            point.x >= bounds.x0 &&
+                            point.x < bounds.x1 &&
+                            point.y >= bounds.y0 &&
+                            point.y <= bounds.y1,
+                        );
+                        if (region && onSelect) onSelect(region.locator);
+                        else onPoint?.(page, point.x, point.y);
                       }}
                     >
                       {(pageLayout?.regions ?? [])

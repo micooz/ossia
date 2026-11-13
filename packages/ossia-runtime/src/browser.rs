@@ -9,24 +9,7 @@ impl Runtime {
             .library
             .job_snapshot(job.job_id)?
             .ok_or_else(|| storage("layout source snapshot is missing"))?;
-        let index = ossia_score::build_index(snapshot.source());
-        let sources = result
-            .render
-            .pages
-            .iter()
-            .map(|page| {
-                Ok((
-                    page.page,
-                    String::from_utf8(self.library.read_artifact(&page.artifact)?)
-                        .map_err(storage)?,
-                ))
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let pages = sources
-            .iter()
-            .map(|(page, svg)| ossia_score::SvgPage { page: *page, svg })
-            .collect::<Vec<_>>();
-        let layout = ossia_score::build_layout(&index, &pages)?;
+        let layout = self.score_layout(&snapshot, &result.render)?;
         let pages = layout
             .pages
             .iter()
@@ -117,23 +100,8 @@ impl Runtime {
     pub fn geometry(&self, key: &ContentHash) -> Result<RenderGeometry> {
         let (_, manifest) = self.library.render(key)?;
         let snapshot = self.library.render_snapshot(key)?;
-        let index = ossia_score::build_index(snapshot.source());
-        let sources = manifest
-            .pages
-            .iter()
-            .map(|page| {
-                Ok((
-                    page.page,
-                    String::from_utf8(self.library.read_artifact(&page.artifact)?)
-                        .map_err(storage)?,
-                ))
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let pages = sources
-            .iter()
-            .map(|(page, svg)| ossia_score::SvgPage { page: *page, svg })
-            .collect::<Vec<_>>();
-        let layout = ossia_score::build_layout(&index, &pages)?;
+        let index = self.score_index(&snapshot);
+        let layout = self.score_layout(&snapshot, &manifest)?;
         let mut output = Vec::new();
         for page in &layout.pages {
             let mut regions = Vec::new();

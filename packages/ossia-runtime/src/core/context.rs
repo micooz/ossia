@@ -36,7 +36,10 @@ impl Runtime {
 
     pub fn context(&self, document_id: DocumentId) -> Result<DocumentContext> {
         let document = self.observe(document_id)?;
-        let selection = self.state().selections.get(&document_id).cloned();
+        let (selection, seq) = {
+            let state = self.state();
+            (state.selections.get(&document_id).cloned(), state.seq)
+        };
         let selection = if let Some(selection) = selection {
             if selection.source_hash != document.source_hash {
                 self.state().selections.remove(&document_id);
@@ -50,7 +53,10 @@ impl Runtime {
         let mut regions = Vec::new();
         if let Some(selection) = &selection {
             let source = self.library.source_snapshot(document_id)?;
-            let index = ossia_score::build_index(source.source());
+            if source.source_hash() != &selection.source_hash {
+                return Err(stale());
+            }
+            let index = self.score_index(&source);
             for locator in &selection.locators {
                 regions.push(ossia_score::resolve_locator(&index, locator)?);
             }
@@ -65,7 +71,7 @@ impl Runtime {
         let edit_activity = self.library.edit_activity(document_id)?;
         Ok(DocumentContext {
             instance_id: self.info.instance_id.clone(),
-            seq: self.event_seq(),
+            seq,
             document,
             selection,
             regions,
@@ -80,7 +86,7 @@ impl Runtime {
         if snapshot.source_hash() != &selection.source_hash {
             return Err(stale());
         }
-        let index = ossia_score::build_index(snapshot.source());
+        let index = self.score_index(&snapshot);
         for locator in &selection.locators {
             let region = ossia_score::resolve_locator(&index, locator)?;
             if region.capability != LocationCapability::Measure {
@@ -146,17 +152,8 @@ impl Runtime {
             .last_successful_render
             .filter(|render| render.source_hash == args.source_hash)
             .ok_or_else(|| AppError::unsupported("no current successful render"))?;
-        let mut pages = Vec::new();
-        for page in &manifest.pages {
-            let bytes = self.library.read_artifact(&page.artifact)?;
-            pages.push((page.page, String::from_utf8(bytes).map_err(storage)?));
-        }
-        let pages: Vec<_> = pages
-            .iter()
-            .map(|(page, svg)| ossia_score::SvgPage { page: *page, svg })
-            .collect();
-        let index = ossia_score::build_index(snapshot.source());
-        let layout = ossia_score::build_layout(&index, &pages)?;
+        let index = self.score_index(&snapshot);
+        let layout = self.score_layout(&snapshot, &manifest)?;
         let result = ossia_score::locate(
             &index,
             &layout,
