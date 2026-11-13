@@ -72,7 +72,11 @@ impl Library {
     pub fn document_count(&self) -> Result<usize> {
         let count: i64 = self
             .db()?
-            .query_row("SELECT count(*) FROM documents", [], |r| r.get(0))
+            .query_row(
+                "SELECT count(*) FROM documents WHERE deleted_at IS NULL",
+                [],
+                |r| r.get(0),
+            )
             .map_err(storage_error)?;
         usize::try_from(count).map_err(storage_error)
     }
@@ -100,7 +104,9 @@ impl Library {
     pub fn render(&self, key: &ContentHash) -> Result<(DocumentId, RenderManifest)> {
         let conn = self.db()?;
         let mut statement = conn
-            .prepare("SELECT rowid,document_id,body FROM renders")
+            .prepare(
+                "SELECT r.rowid,r.document_id,r.body FROM renders r JOIN documents d ON d.document_id=r.document_id WHERE d.deleted_at IS NULL",
+            )
             .map_err(storage_error)?;
         let rows = statement
             .query_map([], |r| {

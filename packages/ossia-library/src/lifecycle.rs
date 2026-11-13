@@ -36,7 +36,10 @@ impl Library {
         if previous_schema.is_none() {
             storage::initialize(&store)?;
         }
-        let conn = Connection::open(store.path(storage::DATABASE)?).map_err(storage_error)?;
+        let mut conn = Connection::open(store.path(storage::DATABASE)?).map_err(storage_error)?;
+        if let Some(previous) = previous_schema {
+            storage::migrate(&mut conn, previous)?;
+        }
         let schema: u32 = conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(storage_error)?;

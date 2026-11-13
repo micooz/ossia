@@ -170,7 +170,7 @@ export async function mockScoreRuntime(
         runtime: {
           runtimeVersion: '0.1.0',
           protocolVersion: 1,
-          schemaVersion: 1,
+          schemaVersion: 2,
           instanceId: 'instance',
           home: '/synthetic/library',
           webBaseUrl: 'http://localhost:3211',
@@ -306,6 +306,17 @@ export async function mockScoreRuntime(
       states[0]!.dirty = true;
       selections.clear();
       emit('source-changed');
+    },
+    trash: (documentId = firstId) => {
+      const index = states.findIndex((state) => state.documentId === documentId);
+      if (index >= 0) states.splice(index, 1);
+      emit('document-deleted', documentId);
+    },
+    untrash: (documentId = firstId) => {
+      if (!states.some((state) => state.documentId === documentId)) {
+        states.push(scoreDocument(documentId));
+      }
+      emit('document-restored', documentId);
     },
   };
 }

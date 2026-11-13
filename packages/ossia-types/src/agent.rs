@@ -283,3 +283,57 @@ pub struct JobOutcome {
     pub job: Job,
     pub analysis: Option<AnalysisPage>,
 }
+
+/// Move one active score into the recoverable trash.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DeleteArgs {
+    pub document_id: DocumentId,
+    pub expected_source_hash: ContentHash,
+    #[serde(default)]
+    pub force: bool,
+}
+
+/// Select one trashed or active document.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DocumentIdArgs {
+    pub document_id: DocumentId,
+}
+
+/// Bounded pagination over the recoverable trash.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TrashArgs {
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub offset: usize,
+}
+
+/// Compact metadata for one trashed score.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashedDocumentSummary {
+    pub document_id: DocumentId,
+    pub title: String,
+    pub deleted_at: String,
+    pub source_hash: ContentHash,
+    pub head_version_id: Option<VersionId>,
+}
+
+/// One bounded page of trashed scores.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashPage {
+    pub items: Vec<TrashedDocumentSummary>,
+    pub total: usize,
+    pub offset: usize,
+    pub next_offset: Option<usize>,
+}
+
+/// Result of permanently removing one trashed score.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct PurgedDocument {
+    pub document_id: DocumentId,
+}

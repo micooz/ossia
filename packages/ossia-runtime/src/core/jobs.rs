@@ -86,6 +86,22 @@ impl Runtime {
             error.detail = Some(json!({"jobId": job.job_id}));
             return Err(error);
         }
+        if let Some(document) = job.document_id {
+            if state.lifecycle_documents.contains(&document) {
+                self.library.transition_job(
+                    job.job_id,
+                    JobState::Queued,
+                    JobState::Cancelled,
+                    "document-lifecycle",
+                    None,
+                    None,
+                )?;
+                return Err(AppError::new(
+                    ErrorCode::Conflict,
+                    "document is being removed or restored",
+                ));
+            }
+        }
         if preview {
             let mut retained = VecDeque::new();
             while let Some(old) = state.pending.pop_front() {
@@ -152,6 +168,7 @@ impl Runtime {
             args.document_id
                 .ok_or_else(|| invalid("check requires documentId or editId"))?
         };
+        let _mutation = self.begin_document_mutation(document_id)?;
         self.observe(document_id)?;
         let job = self.library.queue_check(CheckRequest {
             expect: args.expect.as_ref(),
@@ -225,6 +242,7 @@ impl Runtime {
         let wait_ms = validate_wait_ms(args.wait_ms)?;
         let snapshot = self.library.version_snapshot(args.version_id)?;
         let document_id = snapshot.document_id();
+        let _mutation = self.begin_document_mutation(document_id)?;
         let job = self
             .library
             .create_job("restore", Some(document_id), None)?;
@@ -234,6 +252,7 @@ impl Runtime {
 
     pub fn render_version(&self, document: DocumentId, version: VersionId) -> Result<Job> {
         self.available()?;
+        let _mutation = self.begin_document_mutation(document)?;
         self.library.get_version(document, version)?;
         let snapshot = self.library.version_snapshot(version)?;
         let job = self
@@ -255,6 +274,7 @@ impl Runtime {
             OutputSource::Version { version_id } => self.library.version_snapshot(*version_id)?,
         };
         let document_id = snapshot.document_id();
+        let _mutation = self.begin_document_mutation(document_id)?;
         let destination = output_destination(&args, document_id)?;
         let job = self
             .library

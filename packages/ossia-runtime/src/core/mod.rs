@@ -3,7 +3,7 @@ use ossia_engine::RunContext;
 use ossia_library::{BeginEditRequest, CommitRequest, EngineBackend, Library};
 use serde_json::{json, Value};
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -17,6 +17,7 @@ mod context;
 mod evidence;
 mod jobs;
 mod storage;
+mod trash;
 mod watch;
 use jobs::Pending;
 
@@ -30,6 +31,8 @@ struct State {
     running: HashMap<JobId, (Option<DocumentId>, RunContext)>,
     observed: HashMap<DocumentId, ContentHash>,
     suppressed_previews: HashMap<DocumentId, ContentHash>,
+    lifecycle_documents: HashSet<DocumentId>,
+    mutating_documents: HashMap<DocumentId, usize>,
 }
 
 pub struct Runtime {
@@ -92,6 +95,7 @@ impl Runtime {
                     "reference-expectations".into(),
                     "offline-docs".into(),
                     "document-context".into(),
+                    "trash".into(),
                     "jobs".into(),
                     "events".into(),
                     "cli".into(),
@@ -114,6 +118,8 @@ impl Runtime {
                 running: HashMap::new(),
                 observed: HashMap::new(),
                 suppressed_previews: HashMap::new(),
+                lifecycle_documents: HashSet::new(),
+                mutating_documents: HashMap::new(),
             }),
             ui_language: std::sync::RwLock::new(None),
             parent_pid: Mutex::new(None),
@@ -130,6 +136,22 @@ impl Runtime {
 
     pub(crate) fn event_seq(&self) -> u64 {
         self.state().seq
+    }
+
+    fn begin_document_mutation(&self, document: DocumentId) -> Result<DocumentMutation<'_>> {
+        let mut state = self.state();
+        if state.lifecycle_documents.contains(&document) {
+            return Err(AppError::new(
+                ErrorCode::Conflict,
+                "document is being removed or restored",
+            ));
+        }
+        *state.mutating_documents.entry(document).or_default() += 1;
+        drop(state);
+        Ok(DocumentMutation {
+            runtime: self,
+            document,
+        })
     }
 
     fn available(&self) -> Result<()> {
@@ -211,6 +233,7 @@ impl Runtime {
     pub fn write_source(&self, args: WriteSourceArgs) -> Result<WriteSourceOutcome> {
         self.available()?;
         let edit = self.edit_capability(args.edit_id)?;
+        let _mutation = self.begin_document_mutation(edit.document_id)?;
         let result = self.library.write_source(&args)?;
         self.observe(edit.document_id)?;
         if !args.preview {
@@ -241,6 +264,7 @@ impl Runtime {
 
     pub fn edit(&self, args: EditArgs) -> Result<Value> {
         self.available()?;
+        let _mutation = self.begin_document_mutation(args.document_id)?;
         if let Some(id) = args.edit_id {
             self.owned_edit(args.document_id, id)?;
         }
@@ -304,6 +328,7 @@ impl Runtime {
     pub fn commit(&self, args: CommitArgs) -> Result<Version> {
         self.available()?;
         let edit = self.edit_capability(args.edit_id)?;
+        let _mutation = self.begin_document_mutation(edit.document_id)?;
         self.observe(edit.document_id)?;
         let version = self.library.commit(CommitRequest {
             edit_id: args.edit_id,
@@ -318,5 +343,23 @@ impl Runtime {
             value(&version)?,
         );
         Ok(version)
+    }
+}
+
+struct DocumentMutation<'a> {
+    runtime: &'a Runtime,
+    document: DocumentId,
+}
+
+impl Drop for DocumentMutation<'_> {
+    fn drop(&mut self) {
+        let mut state = self.runtime.state();
+        let Some(count) = state.mutating_documents.get_mut(&self.document) else {
+            return;
+        };
+        *count -= 1;
+        if *count == 0 {
+            state.mutating_documents.remove(&self.document);
+        }
     }
 }

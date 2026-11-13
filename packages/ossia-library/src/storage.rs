@@ -187,3 +187,29 @@ pub(crate) fn initialize(store: &Store) -> Result<()> {
         .map_err(|e| storage_error(e.error))?;
     sync_directory(&store.home)
 }
+
+pub(crate) fn migrate(conn: &mut Connection, from: u32) -> Result<()> {
+    if from == 2 {
+        return Ok(());
+    }
+    if from != 1 {
+        return Err(AppError::new(
+            ErrorCode::RuntimeIncompatible,
+            "unsupported library schema",
+        ));
+    }
+    let tx = conn.transaction().map_err(storage_error)?;
+    tx.execute_batch(
+        "ALTER TABLE documents ADD COLUMN deleted_at TEXT;
+         ALTER TABLE documents ADD COLUMN trash_source_hash TEXT REFERENCES contents(hash);
+         CREATE TABLE purge_intents (
+             document_id TEXT PRIMARY KEY NOT NULL,
+             source_path TEXT NOT NULL,
+             created_at TEXT NOT NULL
+         );
+         PRAGMA user_version = 2;",
+    )
+    .map_err(storage_error)?;
+    tx.commit().map_err(storage_error)?;
+    Ok(())
+}

@@ -344,6 +344,7 @@ impl Library {
         let mut referenced = HashSet::new();
         for query in [
             "SELECT initial_hash FROM documents",
+            "SELECT trash_source_hash FROM documents WHERE trash_source_hash IS NOT NULL",
             "SELECT source_hash FROM versions",
             "SELECT source_hash FROM jobs WHERE source_hash IS NOT NULL",
             "SELECT source_hash FROM renders",
@@ -418,7 +419,7 @@ impl Library {
         let ids = {
             let conn = self.db()?;
             let mut statement = conn
-                .prepare("SELECT document_id FROM documents")
+                .prepare("SELECT document_id FROM documents WHERE deleted_at IS NULL")
                 .map_err(storage_error)?;
             let values = statement
                 .query_map([], |row| row.get::<_, String>(0))

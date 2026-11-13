@@ -14,7 +14,9 @@ CREATE TABLE documents (
     head_version_id TEXT REFERENCES versions(version_id),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    last_render TEXT
+    last_render TEXT,
+    deleted_at TEXT,
+    trash_source_hash TEXT REFERENCES contents(hash)
 );
 CREATE TABLE versions (
     version_id TEXT PRIMARY KEY NOT NULL,
@@ -78,5 +80,10 @@ CREATE TABLE evidence_runs (
     created_at INTEGER NOT NULL,
     last_used_at INTEGER NOT NULL,
     PRIMARY KEY(document_id,source_hash,engine_build_id,analysis_version)
+);
+CREATE TABLE purge_intents (
+    document_id TEXT PRIMARY KEY NOT NULL,
+    source_path TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 COMMIT;

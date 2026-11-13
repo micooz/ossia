@@ -164,7 +164,7 @@ export async function mockManagement(
           status.runtime = {
             runtimeVersion: '0.1.0',
             protocolVersion: 1,
-            schemaVersion: 1,
+            schemaVersion: 2,
             instanceId: 'test',
             home: status.home,
             webBaseUrl: 'http://127.0.0.1:3212',

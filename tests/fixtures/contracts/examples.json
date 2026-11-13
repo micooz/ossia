@@ -169,7 +169,7 @@
   "runtimeInfo": {
     "runtimeVersion": "0.0.0",
     "protocolVersion": 1,
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "instanceId": "synthetic-instance",
     "home": "/synthetic/ossia",
     "webBaseUrl": "http://localhost:3211",

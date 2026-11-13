@@ -16,6 +16,7 @@ mod storage_manager;
 #[cfg(test)]
 #[path = "../tests/unit/support.rs"]
 mod test_support;
+mod trash;
 mod workflow;
 
 pub use ossia_engine::{CompileOptions, Engine, RunContext};
@@ -139,7 +140,7 @@ impl Library {
         let ids: Vec<String> = {
             let conn = self.db()?;
             let mut stmt = conn
-                .prepare("SELECT document_id FROM documents ORDER BY created_at,document_id")
+                .prepare("SELECT document_id FROM documents WHERE deleted_at IS NULL ORDER BY created_at,document_id")
                 .map_err(storage_error)?;
             let rows = stmt.query_map([], |r| r.get(0)).map_err(storage_error)?;
             rows.collect::<std::result::Result<_, _>>()
@@ -154,12 +155,16 @@ impl Library {
     pub fn document_page(&self, limit: usize, offset: usize) -> Result<DocumentPage> {
         let conn = self.db()?;
         let total: i64 = conn
-            .query_row("SELECT count(*) FROM documents", [], |r| r.get(0))
+            .query_row(
+                "SELECT count(*) FROM documents WHERE deleted_at IS NULL",
+                [],
+                |r| r.get(0),
+            )
             .map_err(storage_error)?;
         let total = usize::try_from(total).map_err(storage_error)?;
         let mut statement = conn
             .prepare(
-                "SELECT document_id FROM documents ORDER BY created_at,document_id LIMIT ?1 OFFSET ?2",
+                "SELECT document_id FROM documents WHERE deleted_at IS NULL ORDER BY created_at,document_id LIMIT ?1 OFFSET ?2",
             )
             .map_err(storage_error)?;
         let ids = statement

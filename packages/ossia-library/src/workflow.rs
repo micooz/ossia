@@ -103,6 +103,7 @@ impl Library {
         let job = self.get_job(id)?;
         match (job.document_id, job.source_hash) {
             (Some(document), Some(hash)) => {
+                self.get_document(document)?;
                 Ok(Some(SourceSnapshot::new(document, self.store.get(&hash)?)?))
             }
             _ => Ok(None),

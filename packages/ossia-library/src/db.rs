@@ -36,10 +36,23 @@ pub(crate) struct Document {
 }
 
 pub(crate) fn document(conn: &Connection, id: DocumentId) -> Result<Document> {
+    document_where(conn, id, "deleted_at IS NULL")
+}
+
+pub(crate) fn trashed_document(conn: &Connection, id: DocumentId) -> Result<Document> {
+    document_where(conn, id, "deleted_at IS NOT NULL")
+}
+
+fn document_where(conn: &Connection, id: DocumentId, condition: &str) -> Result<Document> {
     let row = conn.query_row(
-        "SELECT title,source_path,initial_hash,head_version_id FROM documents WHERE document_id=?1",
+        &format!("SELECT title,source_path,initial_hash,head_version_id FROM documents WHERE document_id=?1 AND {condition}"),
         [id.to_string()],
-        |r| Ok((r.get::<_,String>(0)?, r.get::<_,String>(1)?, r.get::<_,String>(2)?, r.get::<_,Option<String>>(3)?)),
+        |r| Ok((
+            r.get::<_,String>(0)?,
+            r.get::<_,String>(1)?,
+            r.get::<_,String>(2)?,
+            r.get::<_,Option<String>>(3)?,
+        )),
     ).optional().map_err(storage_error)?.ok_or_else(not_found)?;
     Ok(Document {
         id,
@@ -53,7 +66,7 @@ pub(crate) fn document(conn: &Connection, id: DocumentId) -> Result<Document> {
 pub(crate) fn version(conn: &Connection, id: VersionId) -> Result<Version> {
     let body = conn
         .query_row(
-            "SELECT body FROM versions WHERE version_id=?1",
+            "SELECT v.body FROM versions v JOIN documents d ON d.document_id=v.document_id WHERE v.version_id=?1 AND d.deleted_at IS NULL",
             [id.to_string()],
             |r| r.get(0),
         )
@@ -66,7 +79,7 @@ pub(crate) fn version(conn: &Connection, id: VersionId) -> Result<Version> {
 pub(crate) fn edit(conn: &Connection, id: EditId) -> Result<EditSession> {
     let body = conn
         .query_row(
-            "SELECT body FROM edits WHERE edit_id=?1",
+            "SELECT e.body FROM edits e JOIN documents d ON d.document_id=e.document_id WHERE e.edit_id=?1 AND d.deleted_at IS NULL",
             [id.to_string()],
             |r| r.get(0),
         )
@@ -78,7 +91,7 @@ pub(crate) fn edit(conn: &Connection, id: EditId) -> Result<EditSession> {
 
 pub(crate) fn active_edit(conn: &Connection, id: DocumentId) -> Result<Option<EditSession>> {
     conn.query_row(
-        "SELECT body FROM edits WHERE document_id=?1 AND status IN ('active','interrupted')",
+        "SELECT e.body FROM edits e JOIN documents d ON d.document_id=e.document_id WHERE e.document_id=?1 AND d.deleted_at IS NULL AND e.status IN ('active','interrupted')",
         [id.to_string()],
         |r| r.get(0),
     )

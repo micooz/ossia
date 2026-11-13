@@ -1,6 +1,6 @@
 ---
 name: ossia
-description: Create, browse, edit, render, version, and export scores in a local Ossia library.
+description: Create, browse, edit, render, version, export, delete, and recover scores in a local Ossia library.
 ---
 
 # Ossia
@@ -35,4 +35,6 @@ operations. The entry is published in the data directory when Ossia starts.
 - Output files from job or version snapshots: `ossia_output`.
 - Fixed-snapshot musical evidence: `ossia_job` with `section`.
 - Version history and restoration: `ossia_history`, `ossia_restore`.
+- Recoverable score deletion: `ossia_delete`, `ossia_trash`, `ossia_untrash`,
+  `ossia_purge`.
 - Background job status and cancellation: `ossia_job`.

@@ -330,6 +330,7 @@ impl Library {
     }
 
     pub(crate) fn recover(&self) -> Result<()> {
+        self.recover_purges()?;
         {
             let mut conn = self.db()?;
             let tx = conn.transaction().map_err(storage_error)?;

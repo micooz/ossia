@@ -77,6 +77,19 @@ pub enum Command {
     History {
         json: String,
     },
+    Delete {
+        json: String,
+    },
+    Trash {
+        #[arg(default_value = "{}")]
+        json: String,
+    },
+    Untrash {
+        json: String,
+    },
+    Purge {
+        json: String,
+    },
     Restore {
         json: String,
     },
@@ -235,6 +248,10 @@ pub async fn run(args: Args) -> Result<Option<serde_json::Value>> {
                 Command::Check { json } => ("check", json),
                 Command::Commit { json } => ("commit", json),
                 Command::History { json } => ("history", json),
+                Command::Delete { json } => ("delete", json),
+                Command::Trash { json } => ("trash", json),
+                Command::Untrash { json } => ("untrash", json),
+                Command::Purge { json } => ("purge", json),
                 Command::Restore { json } => ("restore", json),
                 Command::Output { json } => ("output", json),
                 Command::Job { json } => ("job", json),

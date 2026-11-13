@@ -23,6 +23,10 @@ impl Library {
                 "expected a completed import or check job",
             ));
         }
+        self.get_document(
+            job.document_id
+                .ok_or_else(|| AppError::invalid("completed job has no document"))?,
+        )?;
         let result =
             serde_json::from_value(job.result.clone().ok_or_else(not_found)?).map_err(|_| {
                 AppError::unsupported(

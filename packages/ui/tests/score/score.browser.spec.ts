@@ -99,6 +99,19 @@ test('missing and unknown documents use the visual 404 page and the old route is
   expect(legacy.status()).toBe(404);
 });
 
+test('deleted and restored scores follow document lifecycle events', async ({ context, page }) => {
+  const runtime = await mockScoreRuntime(context);
+  await page.goto(`/scores?documentId=${firstId}`);
+  await expect(page.locator('.score-image')).toHaveCount(2);
+
+  runtime.trash();
+  await expect(page.getByRole('heading', { name: '页面不存在' })).toBeVisible();
+
+  runtime.untrash();
+  await expect(page.locator('.topbar-title')).toHaveText('合成钢琴练习');
+  await expect(page.locator('.score-image')).toHaveCount(2);
+});
+
 test('all pages share one selection and draw it directly on the score', async ({
   context,
   page,

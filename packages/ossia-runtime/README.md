@@ -39,7 +39,7 @@ CLI commands accept one JSON object matching the corresponding MCP tool. Success
 
 `docs` searches or reads the offline LilyPond 2.26.0 reference. The pack is
 installed into the data directory on first use. CLI/MCP status and context
-always return compact Agent projections; `list` and `history` are paged.
+always return compact Agent projections; `list`, `history` and `trash` are paged.
 `import` and `check` return bounded job summaries; use `job` with
 `detail:"full"` for complete evidence. `job` returns `{job, analysis}` and
 supports bounded evidence sections. `evidence` reads or derives immutable source
@@ -63,6 +63,13 @@ target/debug/ossia-desktop --home /absolute/test-library context \
 Import, check, restore and output return a durable Job. Poll `job '{"jobId":"…","action":"get"}'`, or pass `waitMs` on the originating tool; cancel with action=cancel. Running cancellation reports phase=cancelling until the worker finishes process cleanup. If a durable operation has completed, its done result wins. The import request job contains its ImportOutcome and library import record. Refused or unconfirmed reports have no document and must be inspected before continuing.
 
 `open` returns a stable `scores?documentId=…` URL and the initial compact context when a document is selected. Without a document it returns the landing page. All context, selection and edit operations use an explicit documentId. Edit credentials stay private to the caller; resume requires the interrupted editId. End preserves files; discard and recovery acknowledgment are separate hash-guarded actions.
+
+`delete` moves a clean, idle score to a recoverable trash; `force` cancels its
+active jobs, waits for them to stop and ends edits while preserving the current
+source. `trash` pages deleted scores, `untrash` restores the original identity
+and history, and `purge` permanently removes one trashed score. Ordinary cache
+cleanup never removes trashed sources or versions. Purged documents and their
+derived data are removed; external original and exported files are untouched.
 
 ## HTTP and events
 
@@ -93,6 +100,6 @@ OSSIA_NATIVE_EVIDENCE="$PWD/target/native-runtime.json" \
 cargo test -p ossia-runtime --test native_runtime -- --ignored
 ```
 
-Rust DTOs own TypeScript declarations and all MCP tool schemas. Generated files have non-mutating drift checks in CI. Protocol and library schema are 1. Missing native resources fail the explicit native suite rather than count as skipped success.
+Rust DTOs own TypeScript declarations and all MCP tool schemas. Generated files have non-mutating drift checks in CI. Protocol schema is 1 and library schema is 2. Missing native resources fail the explicit native suite rather than count as skipped success.
 
 The runtime lock is Library's lifetime OS lock, not the discovery JSON. Unix IPC uses a checked private per-user directory and a 0600 socket; Windows pipes receive a DACL for the current user's SID. The lock winner alone publishes/replaces discovery and stale sockets. P05 browser integration is covered separately by `pnpm test:ui` and `pnpm test:ui:native`; headless task and transport tests do not establish other-platform native behavior or P06 host integrations.

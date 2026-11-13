@@ -255,6 +255,24 @@ history and requires a clean workspace. Output accepts a completed job snapshot
 or a version snapshot and supports SVG, PNG, PDF, MIDI and LilyPond. Use Ossia
 operations instead of private engine binaries.
 
+## Trash and permanent deletion
+
+Deletion uses a separate lifecycle from version restoration. `ossia_delete`
+moves a score to the recoverable trash using `documentId` and
+`expectedSourceHash`. It rejects dirty sources, active or interrupted edits and
+queued or running jobs. Set `force:true` only when the user asked to delete the
+score and accept ending those edits and cancelling those jobs; forcing retains
+the current source, including uncommitted changes. A forced delete waits up to
+10 seconds for running work to stop. Retry after resolving any returned
+conflict.
+
+`ossia_trash` pages through deleted scores. `ossia_untrash` restores the original
+document ID, source and complete history without creating a version or
+reactivating an edit. `ossia_purge` permanently removes one score that is
+already in the trash, including its versions and derived data. It does not
+delete the external file originally imported into Ossia or any file already
+exported elsewhere. Trashed scores remain until explicitly purged.
+
 ## Source locations
 
 Locations use UTF-8 byte spans, one-based pages/measures, zero-based staves and
@@ -344,7 +362,7 @@ lists active jobs only and includes documentation health; `context` includes one
 render identity rather than duplicated manifests. `import` and `check` return a
 bounded job summary: the full import source, repeated render/manifest and all
 evidence are omitted or capped. Use `ossia_job` for full evidence. `list` and
-`history` are paged with `limit`/`offset`.
+`history` and `trash` are paged with `limit`/`offset`.
 
 `ossia_job` returns `{job, analysis}`. Without `section`, it returns a summary by
 default; `detail:"full"` is available for diagnostics. Use `section`

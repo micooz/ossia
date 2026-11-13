@@ -63,6 +63,9 @@ impl Runtime {
                 .collect();
             for id in ready {
                 saves.remove(&id);
+                if self.library.is_trashed(id)? || !self.library.document_exists(id)? {
+                    continue;
+                }
                 self.reconcile_document(id)?;
             }
         }

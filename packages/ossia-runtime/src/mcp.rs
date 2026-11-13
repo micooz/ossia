@@ -14,7 +14,8 @@ All score mutations are explicit. Validation and asynchronous work use the retur
 job IDs and ossia_job; use section paging instead of full job results. Use \
 ossia_evidence to read immutable version or job snapshots, ossia_layout for \
 page/system/staff and source-measure structure, and ossia_output for preview/export \
-files. Use measureRange on source or performance evidence for pitch and timing \
+files. Use ossia_trash lifecycle operations only when deletion or restoration is \
+requested. Use measureRange on source or performance evidence for pitch and timing \
 questions; do not infer pitch from preview pixels. The browser score page is optional.";
 
 fn schema<T: schemars::JsonSchema>() -> serde_json::Map<String, serde_json::Value> {
@@ -157,6 +158,25 @@ pub fn tools() -> Vec<Tool> {
             "ossia_history",
             "Page through distinct version nodes. Returns VersionPage with limit/offset.",
         ),
+        write_tool::<DeleteArgs>(
+            "ossia_delete",
+            "Move a score into the recoverable trash. Rejects active work unless force=true, which cancels tasks and ends edits after they stop while retaining the current source.",
+            true,
+        ),
+        read_tool::<TrashArgs>(
+            "ossia_trash",
+            "Page through recoverable scores with deletedAt, retained source hash and head version.",
+        ),
+        write_tool::<DocumentIdArgs>(
+            "ossia_untrash",
+            "Restore a trashed score with its original document ID, source and version history.",
+            false,
+        ),
+        write_tool::<DocumentIdArgs>(
+            "ossia_purge",
+            "Permanently delete one score from the trash, including its source, versions, jobs and derived evidence. External imported and exported files are unaffected.",
+            true,
+        ),
         write_tool::<RestoreArgs>(
             "ossia_restore",
             "Queue restoration of a version as a new version. Requires a clean workspace and no active edit; returns a Job.",
@@ -248,6 +268,10 @@ mod tests {
                 "ossia_check",
                 "ossia_commit",
                 "ossia_history",
+                "ossia_delete",
+                "ossia_trash",
+                "ossia_untrash",
+                "ossia_purge",
                 "ossia_restore",
                 "ossia_output",
             ]
@@ -257,5 +281,14 @@ mod tests {
         assert!(tools.iter().all(|tool| {
             tool.input_schema.get("type").and_then(Value::as_str) == Some("object")
         }));
+        for name in ["ossia_delete", "ossia_purge"] {
+            let tool = tools.iter().find(|tool| tool.name == name).unwrap();
+            assert_eq!(
+                tool.annotations
+                    .as_ref()
+                    .and_then(|value| value.destructive_hint),
+                Some(true)
+            );
+        }
     }
 }

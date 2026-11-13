@@ -1516,6 +1516,130 @@
     }
   },
   {
+    "name": "ossia_delete",
+    "description": "Move a score into the recoverable trash. Rejects active work unless force=true, which cancels tasks and ends edits after they stop while retaining the current source.",
+    "inputSchema": {
+      "$defs": {
+        "ContentHash": {
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Move one active score into the recoverable trash.",
+      "properties": {
+        "documentId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "expectedSourceHash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "force": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "documentId",
+        "expectedSourceHash"
+      ],
+      "title": "DeleteArgs",
+      "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "ossia_trash",
+    "description": "Page through recoverable scores with deletedAt, retained source hash and head version.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Bounded pagination over the recoverable trash.",
+      "properties": {
+        "limit": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "default": 0,
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "title": "TrashArgs",
+      "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "ossia_untrash",
+    "description": "Restore a trashed score with its original document ID, source and version history.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Select one trashed or active document.",
+      "properties": {
+        "documentId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "documentId"
+      ],
+      "title": "DocumentIdArgs",
+      "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "ossia_purge",
+    "description": "Permanently delete one score from the trash, including its source, versions, jobs and derived evidence. External imported and exported files are unaffected.",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Select one trashed or active document.",
+      "properties": {
+        "documentId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "documentId"
+      ],
+      "title": "DocumentIdArgs",
+      "type": "object"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
     "name": "ossia_restore",
     "description": "Queue restoration of a version as a new version. Requires a clean workspace and no active edit; returns a Job.",
     "inputSchema": {
