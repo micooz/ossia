@@ -15,6 +15,8 @@ use serde_json::{json, Value};
 use std::{convert::Infallible, path::PathBuf, sync::Arc, time::Duration};
 use tower_http::services::ServeFile;
 
+const CLIENT_ID_HEADER: &str = "x-ossia-client-id";
+
 #[derive(Clone)]
 pub struct WebState {
     pub runtime: Arc<Runtime>,
@@ -112,7 +114,10 @@ async fn boundary(State(state): State<WebState>, request: Request, next: Next) -
             StatusCode::NO_CONTENT,
             [
                 (header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT"),
-                (header::ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type"),
+                (
+                    header::ACCESS_CONTROL_ALLOW_HEADERS,
+                    "Content-Type, X-Ossia-Client-Id",
+                ),
             ],
         )
             .into_response()
@@ -247,6 +252,12 @@ async fn api(
     let parts: Vec<_> = path.split('/').collect();
     let method = request.method().clone();
     let pagination = page_args(request.uri().query().unwrap_or(""))?;
+    let client_id = request
+        .headers()
+        .get(CLIENT_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| value.len() <= 128 && value.bytes().all(|byte| byte.is_ascii_graphic()))
+        .map(str::to_owned);
     if parts == ["events"] && method == "GET" {
         return events(state, request.uri().query().unwrap_or("")).map_err(Into::into);
     }
@@ -364,7 +375,7 @@ async fn api(
                         "path document does not match request",
                     ));
                 }
-                value(runtime.selection(args)?)?
+                value(runtime.selection_with_client(args, client_id)?)?
             }
             ("POST", ["documents", doc, "edits"]) => {
                 bind_document(&data, id(doc)?)?;

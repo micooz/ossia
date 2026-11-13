@@ -33,6 +33,7 @@ export class ApiError extends Error {
   detail?: unknown;
 }
 export function makeApi(language: () => UiLanguage, signal?: AbortSignal) {
+  const clientId = crypto.randomUUID();
   async function request(path: string, init: RequestInit = {}) {
     const response = await fetch(`/api/v1${path}`, {
       ...init,
@@ -59,13 +60,8 @@ export function makeApi(language: () => UiLanguage, signal?: AbortSignal) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-  const put = <T>(path: string, body: unknown) =>
-    json<T>(path, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
   return {
+    clientId,
     context: (documentId: string) => json<DocumentContext>(`/documents/${documentId}/context`),
     status: () => json<AgentStatus>('/status'),
     documents: async () => {
@@ -91,7 +87,14 @@ export function makeApi(language: () => UiLanguage, signal?: AbortSignal) {
       }
     },
     selection: (documentId: string, body: Selection) =>
-      put<DocumentContext>(`/documents/${documentId}/selection`, body),
+      json<DocumentContext>(`/documents/${documentId}/selection`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Ossia-Client-Id': clientId,
+        },
+        body: JSON.stringify(body),
+      }),
     locate: (documentId: string, body: LocateArgs) =>
       post<LocateOutcome>(`/documents/${documentId}/locate`, body),
     geometry: (key: string) => json<RenderGeometry>(`/renders/${key}/geometry`),

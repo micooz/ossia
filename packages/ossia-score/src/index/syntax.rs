@@ -118,6 +118,7 @@ pub(crate) fn region(
     open: usize,
     end: usize,
     syntax: &Syntax,
+    decorations: &HashSet<String>,
 ) -> VoiceRegion {
     let map = SourceMap::new(source);
     let tokens = &syntax.tokens;
@@ -143,6 +144,7 @@ pub(crate) fn region(
             && t.command().is_some_and(|cmd| {
                 !crate::pitch::known_command(cmd)
                     && !matches!(cmd, "markup" | "compressMMRests" | "notemode" | "skip")
+                    && !decorations.contains(cmd)
             })
     }) {
         reason.get_or_insert("unresolved music command or variable".into());

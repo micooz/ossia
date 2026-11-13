@@ -138,7 +138,7 @@ if test -f input.musicxml; then
     i=0; while test "$i" -lt 250; do echo progress; i=$((i+1)); done
     echo 'warning: Negative skip' >&2
   elif grep -q loss input.musicxml; then echo 'warning: Invalid bpm' >&2; fi
-  printf '\\version "2.26.0"\n\\score { { c\0471 } \\layout {} }\n' > converted.ly
+  printf '\\version "2.26.0"\n\\score { { c\0471 } \\layout {}\n  %% To create MIDI output, uncomment the following line:\n  %% \\midi { \\tempo 4 = 100 }\n}\n' > converted.ly
   exit 0
 fi
 printf 'call\n' >> "$root/calls"
@@ -199,6 +199,8 @@ fn single_file_validation_keeps_opaque_handwritten_source_but_rejects_user_depen
         "\\include #name",
         r#"\include dynamic "english.ly""#,
         "\\epsfile #X #10 \"a.eps\"",
+        "#(list #{ \\include \"user.ly\" #})",
+        "#(list #{ \\image #X #10 \"a.png\" #})",
     ] {
         assert_eq!(
             f.engine

@@ -139,6 +139,7 @@ pub(crate) fn known_command(cmd: &str) -> bool {
             | "partial"
             | "bar"
             | "barNumberCheck"
+            | "change"
             | "break"
             | "noBreak"
             | "pageBreak"
@@ -164,6 +165,7 @@ pub(crate) fn known_command(cmd: &str) -> bool {
             | "arpeggio"
             | "laissezVibrer"
             | "breathe"
+            | "bold"
             | "mp"
             | "mf"
             | "ppp"
@@ -186,6 +188,8 @@ pub(crate) fn known_command(cmd: &str) -> bool {
             | "compressMMRests"
             | "mergeDifferentlyDottedOn"
             | "mergeDifferentlyHeadedOn"
+            | "mark"
+            | "square"
     )
 }
 

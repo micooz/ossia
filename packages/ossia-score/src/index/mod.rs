@@ -3,7 +3,7 @@ use ossia_types::{
     AppError, ContentHash, ErrorCode, LocatedRegion, LocationCapability, Locator, SourceSpan,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 mod syntax;
 pub(crate) use syntax::{region, unsupported_token, Assignment, Syntax};
@@ -137,6 +137,7 @@ pub fn build_index(source: &str) -> ScoreIndex {
             }
         }
     }
+    let decorations = decoration_assignments(&assignments, t);
     let mut voices = Vec::new();
     for a in &ordered {
         if t[a.open].raw != "{" {
@@ -156,6 +157,7 @@ pub fn build_index(source: &str) -> ScoreIndex {
                 a.open,
                 a.end,
                 &syntax,
+                &decorations,
             ));
         }
     }
@@ -271,7 +273,16 @@ pub fn build_index(source: &str) -> ScoreIndex {
                         })
                     {
                         let name = format!("@inline:{}", t[open].byte_start);
-                        let v = region(source, name.clone(), body, body, open, end, &syntax);
+                        let v = region(
+                            source,
+                            name.clone(),
+                            body,
+                            body,
+                            open,
+                            end,
+                            &syntax,
+                            &decorations,
+                        );
                         if let Some(staff) = staff {
                             staves[staff].voices.push(name);
                         }
@@ -339,10 +350,11 @@ pub fn build_index(source: &str) -> ScoreIndex {
     }
     for v in &mut voices {
         if let Some(a) = assignments.get(&v.name) {
-            if t[a.open + 1..a.end - 1]
-                .iter()
-                .any(|token| token.command().is_some_and(|c| assignments.contains_key(c)))
-            {
+            if t[a.open + 1..a.end - 1].iter().any(|token| {
+                token
+                    .command()
+                    .is_some_and(|c| assignments.contains_key(c) && !decorations.contains(c))
+            }) {
                 v.capability = LocationCapability::AnchorOnly;
                 v.reason = Some("composed music variable requires expansion".into());
                 v.measures.clear();
@@ -386,6 +398,55 @@ pub fn build_index(source: &str) -> ScoreIndex {
         reason,
         source: source.into(),
     }
+}
+
+fn decoration_assignments(
+    assignments: &HashMap<String, Assignment>,
+    tokens: &[Token],
+) -> HashSet<String> {
+    fn is_decoration(
+        name: &str,
+        assignments: &HashMap<String, Assignment>,
+        tokens: &[Token],
+        visiting: &mut HashSet<String>,
+    ) -> bool {
+        if !visiting.insert(name.to_owned()) {
+            return false;
+        }
+        let Some(assignment) = assignments.get(name) else {
+            visiting.remove(name);
+            return false;
+        };
+        let body = &tokens[assignment.rhs..assignment.end];
+        let affects_music = body.iter().any(|token| {
+            matches!(
+                token.kind,
+                TokenKind::Note
+                    | TokenKind::Rest
+                    | TokenKind::Skip
+                    | TokenKind::ChordO
+                    | TokenKind::Bar
+            ) || matches!(
+                token.command(),
+                Some("bar" | "partial" | "relative" | "transpose" | "repeat" | "times" | "tuplet")
+            )
+        });
+        let safe = !affects_music
+            && body.iter().all(|token| {
+                token.command().is_none_or(|command| {
+                    !assignments.contains_key(command)
+                        || is_decoration(command, assignments, tokens, visiting)
+                })
+            });
+        visiting.remove(name);
+        safe
+    }
+
+    assignments
+        .keys()
+        .filter(|name| is_decoration(name, assignments, tokens, &mut HashSet::new()))
+        .cloned()
+        .collect()
 }
 
 /// Resolve only voices belonging to the explicitly requested staff; no cross-staff fallback.

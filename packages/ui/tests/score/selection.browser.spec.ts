@@ -58,6 +58,22 @@ test('rejected optimistic selection rolls back to the shared context', async ({
   expect(runtime.selections.get(firstId)).toBeUndefined();
 });
 
+test('an accepted local selection does not refetch its own context', async ({ context, page }) => {
+  const runtime = await mockScoreRuntime(context);
+  await page.goto(`/scores?documentId=${firstId}`);
+  await expect(page.locator('.score-image')).toHaveCount(2);
+  const requests: string[] = [];
+  page.on('request', (request) => {
+    requests.push(new URL(request.url()).pathname);
+  });
+  const overlay = page.locator('.overlay').first();
+  const box = (await overlay.boundingBox())!;
+  await overlay.click({ position: { x: box.width * 0.4, y: (box.height * 25) / 140 } });
+  await expect.poll(() => runtime.selections.get(firstId)?.locators.length).toBe(1);
+  await page.waitForTimeout(100);
+  expect(requests.filter((path) => path.endsWith(`/documents/${firstId}/context`))).toEqual([]);
+});
+
 test('clicks outside local rectangles retain server hit testing', async ({ context, page }) => {
   const runtime = await mockScoreRuntime(context);
   await page.goto(`/scores?documentId=${firstId}`);

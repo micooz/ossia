@@ -1,6 +1,6 @@
 use crate::{failure, io_error};
 use ossia_score::SourceMap;
-use ossia_types::{AppError, ErrorCode, RenderFormat};
+use ossia_types::{AppError, ErrorCode, InputFormat, RenderFormat};
 use std::{ops::Range, path::Path};
 
 #[cfg(test)]
@@ -13,144 +13,14 @@ struct Lexeme {
     range: Range<usize>,
 }
 
-// This scanner only recognizes structural boundaries; it does not interpret music.
-fn scan(source: &str) -> Result<Vec<Lexeme>, AppError> {
-    let bytes = source.as_bytes();
-    let mut out = Vec::new();
-    let mut i = 0;
-    while i < bytes.len() {
-        let start = i;
-        match bytes[i] {
-            b'%' if bytes.get(i + 1) == Some(&b'{') => {
-                i += 2;
-                let mut depth = 1;
-                while i < bytes.len() && depth > 0 {
-                    if bytes[i..].starts_with(b"%{") {
-                        depth += 1;
-                        i += 2;
-                    } else if bytes[i..].starts_with(b"%}") {
-                        depth -= 1;
-                        i += 2;
-                    } else {
-                        i += 1;
-                    }
-                }
-                if depth != 0 {
-                    return Err(AppError::unsupported("unterminated block comment"));
-                }
-                continue;
-            }
-            b'%' => {
-                while i < bytes.len() && bytes[i] != b'\n' {
-                    i += 1;
-                }
-                continue;
-            }
-            b'"' => {
-                i += 1;
-                while i < bytes.len() && bytes[i] != b'"' {
-                    if bytes[i] == b'\\' {
-                        i += 1;
-                    }
-                    i += 1;
-                }
-                if i >= bytes.len() {
-                    return Err(AppError::unsupported("unterminated source string"));
-                }
-                i += 1;
-            }
-            b'#' | b'$' if bytes.get(i + 1) == Some(&b'(') => {
-                i += 2;
-                let mut depth = 1;
-                while i < bytes.len() && depth > 0 {
-                    match bytes[i] {
-                        b'"' => {
-                            i += 1;
-                            while i < bytes.len() && bytes[i] != b'"' {
-                                if bytes[i] == b'\\' {
-                                    i += 1;
-                                }
-                                i += 1;
-                            }
-                            if i >= bytes.len() {
-                                return Err(AppError::unsupported("unterminated Scheme string"));
-                            }
-                            i += 1;
-                        }
-                        b';' => {
-                            while i < bytes.len() && bytes[i] != b'\n' {
-                                i += 1;
-                            }
-                        }
-                        b'(' => {
-                            depth += 1;
-                            i += 1;
-                        }
-                        b')' => {
-                            depth -= 1;
-                            i += 1;
-                        }
-                        // Opaque reader extensions need an interpreter, not guessed brace matching.
-                        b'#' if matches!(
-                            bytes.get(i + 1),
-                            Some(b'|') | Some(b'{') | Some(b'\\')
-                        ) =>
-                        {
-                            return Err(AppError::unsupported(
-                                "unsupported Scheme reader in structural scan",
-                            ));
-                        }
-                        _ => i += 1,
-                    }
-                }
-                if depth != 0 {
-                    return Err(AppError::unsupported("unterminated Scheme expression"));
-                }
-            }
-            b'#' if bytes.get(i + 1) == Some(&b'{') => {
-                return Err(AppError::unsupported(
-                    "embedded LilyPond in Scheme is opaque",
-                ));
-            }
-            b'\\' => {
-                i += 1;
-                while i < bytes.len() && (bytes[i].is_ascii_alphabetic() || bytes[i] == b'-') {
-                    i += 1;
-                }
-                if i == start + 1 && i < bytes.len() {
-                    i += source[i..].chars().next().unwrap().len_utf8();
-                }
-            }
-            b'{' | b'}' => i += 1,
-            x if x.is_ascii_whitespace() => {
-                i += 1;
-                continue;
-            }
-            b'#' | b'$' if matches!(bytes.get(i + 1), Some(b'\'') | Some(b'`') | Some(b'\\')) => {
-                return Err(AppError::unsupported("opaque Scheme reader prefix"));
-            }
-            _ => {
-                i += source[i..].chars().next().unwrap().len_utf8();
-                while i < bytes.len()
-                    && !bytes[i].is_ascii_whitespace()
-                    && !matches!(bytes[i], b'\\' | b'{' | b'}' | b'%' | b'"' | b'#' | b'$')
-                {
-                    i += source[i..].chars().next().unwrap().len_utf8();
-                }
-            }
-        }
-        out.push(Lexeme {
-            raw: source[start..i].to_string(),
-            range: start..i,
-        });
-    }
-    Ok(out)
-}
+mod scanner;
+use scanner::scan;
 
 /// Static single-file validation is a dependency boundary, not a Scheme sandbox.
 pub(crate) fn validate(source: &str, engine_root: &Path, version: &str) -> Result<(), AppError> {
     let tokens = match scan(source) {
         Ok(tokens) => tokens,
+        Err(error @ scanner::ScanError::RestrictedCommand(_)) => return Err(error.into_app_error()),
         // Syntax failures remain repairable; use the lossless lexer for literal dependencies.
         Err(_) => ossia_score::tokenize(source)
             .into_iter()
@@ -274,7 +144,7 @@ pub(crate) fn derive(
         });
     }
     if format == RenderFormat::Midi {
-        let tokens = tokens?;
+        let tokens = tokens.map_err(scanner::ScanError::into_app_error)?;
         let scores: Vec<_> = tokens
             .iter()
             .enumerate()
@@ -365,10 +235,28 @@ pub(crate) fn validate_render_structure(source: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-pub(crate) fn normalize_conversion(text: &str, scratch: &Path) -> String {
+pub(crate) fn normalize_conversion(
+    text: &str,
+    scratch: &Path,
+    format: InputFormat,
+) -> Result<String, AppError> {
     // Converter input is always relative; remove absolute scratch prefixes if a tool still emits one.
-    text.replace(&scratch.to_string_lossy().to_string(), "<input>")
-        .replace(&scratch.to_string_lossy().replace('\\', "/"), "<input>")
+    let text = text
+        .replace(&scratch.to_string_lossy().to_string(), "<input>")
+        .replace(&scratch.to_string_lossy().replace('\\', "/"), "<input>");
+    if format != InputFormat::MusicXml {
+        return Ok(text);
+    }
+    // musicxml2ly --midi creates a second score; activate its single-score template instead.
+    let midi = regex::Regex::new(
+        r"(?m)^([ \t]*)% To create MIDI output, uncomment the following line:\r?\n[ \t]*% (\\midi \{ \\tempo 4 = [0-9]+(?:\.[0-9]+)? \})[ \t]*\r?$",
+    ).unwrap();
+    if midi.captures_iter(&text).count() != 1 {
+        return Err(AppError::unsupported(
+            "unexpected musicxml2ly MIDI template",
+        ));
+    }
+    Ok(midi.replace(&text, "$1$2").into_owned())
 }
 
 pub(crate) fn normalize_svg(

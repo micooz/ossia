@@ -44,6 +44,11 @@ fn native_conversion_compilation_cache_and_original_mapping() {
             ImportStatus::Clean,
         ),
         (
+            "xml-rehearsal.musicxml",
+            InputFormat::MusicXml,
+            ImportStatus::Clean,
+        ),
+        (
             "xml-loss.musicxml",
             InputFormat::MusicXml,
             ImportStatus::NeedsConfirmation,

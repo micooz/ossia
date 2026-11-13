@@ -124,6 +124,14 @@ impl Runtime {
     }
 
     pub fn selection(&self, selection: Selection) -> Result<DocumentContext> {
+        self.selection_with_client(selection, None)
+    }
+
+    pub(crate) fn selection_with_client(
+        &self,
+        selection: Selection,
+        client_id: Option<String>,
+    ) -> Result<DocumentContext> {
         self.library.get_document(selection.document_id)?;
         let snapshot = self.library.source_snapshot(selection.document_id)?;
         if snapshot.source_hash() != &selection.source_hash {
@@ -165,7 +173,7 @@ impl Runtime {
                 "selection-changed",
                 Some(selection.document_id),
                 Some(selection.source_hash.clone()),
-                json!({}),
+                client_id.map_or_else(|| json!({}), |client_id| json!({ "clientId": client_id })),
             );
         }
         let context = self.context(selection.document_id)?;

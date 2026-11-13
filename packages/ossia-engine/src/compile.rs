@@ -24,7 +24,7 @@ impl Engine {
         }
         let options_hash = ContentHash::of(
             &serde_json::to_vec(
-                &serde_json::json!({"pointAndClick":options.point_and_click,"derivationVersion":2}),
+                &serde_json::json!({"pointAndClick":options.point_and_click,"derivationVersion":3}),
             )
             .unwrap(),
         );

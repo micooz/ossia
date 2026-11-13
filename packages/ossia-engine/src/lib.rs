@@ -291,7 +291,7 @@ impl Engine {
                     blocking.push("converter failed".into());
                 }
                 match fs::read_to_string(scratch.path().join("converted.ly")) {
-                    Ok(text) => source::normalize_conversion(&text, scratch.path()),
+                    Ok(text) => source::normalize_conversion(&text, scratch.path(), format)?,
                     Err(_) if !output.success => String::new(),
                     Err(_) => {
                         blocking.push("converter produced no valid UTF-8 source".into());

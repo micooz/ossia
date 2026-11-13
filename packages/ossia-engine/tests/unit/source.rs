@@ -1,6 +1,52 @@
 use crate::{source, *};
 
 #[test]
+fn musicxml_conversion_activates_only_the_generated_tempo_block() {
+    let converted = "\\score { { c'1 }\n  % To create MIDI output, uncomment the following line:\n  % \\midi { \\tempo 4 = 96.5 }\n}\n";
+    let expected = "\\score { { c'1 }\n  \\midi { \\tempo 4 = 96.5 }\n}\n";
+    assert_eq!(
+        source::normalize_conversion(converted, Path::new("/scratch"), InputFormat::MusicXml)
+            .unwrap(),
+        expected
+    );
+    assert_eq!(
+        source::normalize_conversion(converted, Path::new("/scratch"), InputFormat::Midi).unwrap(),
+        converted
+    );
+    for unexpected in ["\\score { c'1 }".to_owned(), converted.repeat(2)] {
+        assert!(source::normalize_conversion(
+            &unexpected,
+            Path::new("/scratch"),
+            InputFormat::MusicXml
+        )
+        .is_err());
+    }
+}
+
+#[test]
+fn converter_markup_does_not_block_anchors_or_midi() {
+    let text = r#"\pointAndClickOff
+#(define-markup-command (square layout props arg)
+   (markup?)
+   (interpret-markup layout props
+     #{ \markup \box \with-dimension-from #X \rotate #90 #arg #arg #}))
+\score { { c'1 } \layout {} }
+"#;
+    for format in [RenderFormat::Svg, RenderFormat::Pdf, RenderFormat::Midi] {
+        let derived = source::derive(text, format, true).unwrap();
+        assert!(derived
+            .text
+            .starts_with(&" ".repeat("\\pointAndClickOff".len())));
+        let note = derived.text.find("c'1").unwrap();
+        assert_eq!(derived.original_byte(note), text.find("c'1"));
+        assert!(derived.text.contains("#{ \\markup \\box"));
+        if format == RenderFormat::Midi {
+            assert_eq!(derived.text.matches("\\midi {}").count(), 1);
+        }
+    }
+}
+
+#[test]
 fn derived_text_respects_comments_strings_scheme_and_actual_score_boundaries() {
     let text = r#"\pointAndClickOff
 %{ \score { fake } %{ nested %} %}

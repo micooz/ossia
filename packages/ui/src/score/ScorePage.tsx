@@ -212,6 +212,10 @@ function ScoreApp({
             }
             if (event.documentId && event.documentId !== documentIdRef.current) return;
             if (event.type === 'selection-changed' && event.documentId) {
+              const origin = (event.payload as { clientId?: string | null }).clientId;
+              // The originating tab already applied the PUT response.
+              if (origin && origin === api.clientId) return;
+              if ((contextRef.current?.seq ?? -1) >= event.seq) return;
               void refreshSelection(event.documentId).catch(onError);
               return;
             }

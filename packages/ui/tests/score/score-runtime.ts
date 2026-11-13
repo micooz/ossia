@@ -119,8 +119,8 @@ export async function mockScoreRuntime(
   const outputs: OutputArgs[] = [];
   const reveals: string[] = [];
   const events: RuntimeEvent[] = [];
-  const emit = (type: string, documentId = firstId) => {
-    events.push({ instanceId: 'instance', seq: ++seq, type, documentId, payload: {} });
+  const emit = (type: string, documentId = firstId, payload: RuntimeEvent['payload'] = {}) => {
+    events.push({ instanceId: 'instance', seq: ++seq, type, documentId, payload });
   };
   const contextFor = (documentId: string): DocumentContext | null => {
     const document = states.find((state) => state.documentId === documentId);
@@ -276,7 +276,9 @@ export async function mockScoreRuntime(
       if (rejectSelection)
         return reply({ error: { code: 'stale-selection', message: 'source changed' } }, 409);
       selections.set(documentId, payload.locators.length ? payload : null);
-      emit('selection-changed', documentId);
+      emit('selection-changed', documentId, {
+        clientId: req.headers()['x-ossia-client-id'] ?? null,
+      });
       return reply(contextFor(documentId));
     }
     if (parts[2] === 'restore') {

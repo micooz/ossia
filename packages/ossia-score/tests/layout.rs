@@ -440,6 +440,58 @@ fn whole_staff_stems_do_not_create_duplicate_source_measures() {
 }
 
 #[test]
+fn decoration_aliases_and_markup_commands_keep_measure_mapping() {
+    let source = r#"
+D = \tweak Stem.direction #DOWN \etc
+U = \tweak Stem.direction #UP \etc
+Music = {
+  \mark \markup \square A \U c'4 d'4 \change Staff = "1" |
+  \D e'4 f'4 |
+}
+\score { \new Staff \Music }
+"#;
+    let first = source.find("c'4").unwrap();
+    let second = source.find("e'4").unwrap();
+    let mut svg = "<svg viewBox='0 0 100 100'>".to_string();
+    for y in 10..15 {
+        svg += &format!("<line x1='10' x2='50' y1='{y}' y2='{y}'/>");
+    }
+    for x in [10, 30, 50] {
+        svg += &format!("<rect x='{x}' y='10' width='.13' height='4'/>");
+    }
+    for (x, byte) in [(15, first), (40, second)] {
+        svg += &format!(
+            "<a href='textedit:///score.ly:1:{byte}:{}'><path d='M {x} 12 l 1 1'/></a>",
+            byte + 1
+        );
+    }
+    svg += "</svg>";
+    let (index, layout) = layout(source, &[svg]);
+    assert_eq!(
+        layout.pages[0].capability,
+        LocationCapability::Measure,
+        "{layout:?}"
+    );
+    assert_eq!(
+        layout
+            .columns
+            .iter()
+            .map(|column| (column.measure_start, column.measure_end))
+            .collect::<Vec<_>>(),
+        vec![(Some(1), Some(1)), (Some(2), Some(2))]
+    );
+    assert_eq!(
+        point(&index, &layout, 1, 20., 12.).region.unwrap().locator,
+        Locator {
+            staff_index: 0,
+            measure_start: 1,
+            measure_end: 1,
+            voice: None,
+        }
+    );
+}
+
+#[test]
 fn malformed_and_unsupported_svg_are_distinct_structured_errors() {
     let index = build_index("Music={c'1 |} \\score{\\new Staff \\Music}");
     for (svg, code) in [

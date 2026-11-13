@@ -23,3 +23,27 @@ fn text_blocks_do_not_hide_subsequent_music() {
         assert_eq!(build_index(&source).measure_count(), Ok(1));
     }
 }
+
+#[test]
+fn decoration_aliases_do_not_discard_measure_index() {
+    let source = r#"
+D = \tweak Stem.direction #DOWN \etc
+U = \tweak Stem.direction #UP \etc
+Music = \relative c' {
+  \mark \markup A \U c4 d \change Staff = "1" | \D e4 f |
+}
+\score { \new Staff \Music }
+"#;
+    let index = build_index(source);
+    assert_eq!(index.measure_count(), Ok(2), "{index:?}");
+    assert_eq!(
+        index
+            .voice("Music")
+            .unwrap()
+            .measures
+            .iter()
+            .map(|measure| (measure.measure_start, measure.measure_end))
+            .collect::<Vec<_>>(),
+        vec![(1, 1), (2, 2)]
+    );
+}
