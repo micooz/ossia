@@ -94,7 +94,7 @@ export function CompareView({
   onRightZoom: (zoom: number) => void;
   selected: SelectionTarget[];
   selectable: boolean;
-  onSelect: (target: SelectionTarget) => void;
+  onSelect: (target: SelectionTarget, linked?: SelectionTarget[]) => void;
   onPoint: (page: number, x: number, y: number) => void;
 }) {
   const { t } = useI18n();

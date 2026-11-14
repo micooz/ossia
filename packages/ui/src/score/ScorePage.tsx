@@ -21,7 +21,11 @@ import { ScoreTitleMenu } from './components/ScoreTitleMenu.tsx';
 import { ScoreToolbar } from './components/ScoreToolbar.tsx';
 import type { ScoreLayout } from './components/ScoreToolbar.tsx';
 import { ScoreView } from './components/ScoreView.tsx';
-import { documentIdFromLocation, pushDocumentIdToLocation } from './endpoint.ts';
+import {
+  debugHitBoxesFromLocation,
+  documentIdFromLocation,
+  pushDocumentIdToLocation,
+} from './endpoint.ts';
 import { initialState, reducer } from './state.ts';
 import { useSelection } from './useSelection.ts';
 
@@ -57,6 +61,7 @@ function ScoreApp({
   const [state, dispatch] = useReducer(reducer, initialState);
   const contextRef = useRef<DocumentContext | null>(null);
   const documentIdRef = useRef(documentIdFromLocation());
+  const showHitBoxes = useMemo(debugHitBoxesFromLocation, []);
   const serial = useRef(0);
   const [working, setWorking] = useState(false);
   const [notice, setNotice] = useState('');
@@ -504,6 +509,7 @@ function ScoreApp({
               selectable={connected && !stale && !working}
               onSelect={selection.choose}
               onPoint={(page, x, y) => void choosePoint(page, x, y)}
+              showHitBoxes={showHitBoxes}
             />
           ) : (
             <section className="empty">

@@ -71,7 +71,7 @@ impl Runtime {
 
     pub fn context(&self, document_id: DocumentId) -> Result<DocumentContext> {
         let document = self.observe(document_id)?;
-        let (selection, mut regions, seq) = {
+        let (mut selection, mut regions, mut seq) = {
             let mut state = self.state();
             if state
                 .selections
@@ -98,13 +98,57 @@ impl Runtime {
             {
                 let snapshot = self.library.source_snapshot(document_id)?;
                 let geometry = self.score_geometry(&snapshot, manifest)?;
-                for region in &mut regions {
-                    if let Some(current) = geometry
-                        .iter()
-                        .flat_map(|p| &p.elements)
-                        .find(|e| e.region.target == region.target)
-                    {
-                        *region = current.region.clone();
+                let prior_selection = selection.clone();
+                let valid: Vec<_> = regions
+                    .iter()
+                    .filter(|region| {
+                        matches!(region.target, SelectionTarget::Measure { .. })
+                            || geometry
+                                .iter()
+                                .flat_map(|p| &p.elements)
+                                .any(|e| e.region.target == region.target)
+                    })
+                    .map(|r| r.target.clone())
+                    .collect();
+                let targets = ossia_score::expand_selection(&geometry, &valid);
+                regions = targets
+                    .iter()
+                    .filter_map(|target| {
+                        geometry
+                            .iter()
+                            .flat_map(|p| &p.elements)
+                            .find(|e| &e.region.target == target)
+                            .map(|e| e.region.clone())
+                            .or_else(|| regions.iter().find(|r| &r.target == target).cloned())
+                    })
+                    .collect();
+                if let Some(current) = &mut selection {
+                    current.targets = targets;
+                }
+                if selection.as_ref().is_some_and(|s| s.targets.is_empty()) {
+                    selection = None;
+                }
+                let mut state = self.state();
+                if state.selections.get(&document_id).map(|s| &s.selection)
+                    == prior_selection.as_ref()
+                {
+                    if let Some(current) = &selection {
+                        if let Some(stored) = state.selections.get_mut(&document_id) {
+                            stored.selection = current.clone();
+                            stored.regions = regions.clone();
+                        }
+                    } else {
+                        state.selections.remove(&document_id);
+                    }
+                    if selection != prior_selection {
+                        self.emit_locked(
+                            &mut state,
+                            "selection-changed",
+                            Some(document_id),
+                            Some(document.source_hash.clone()),
+                            json!({ "targetCount": regions.len() }),
+                        );
+                        seq = state.seq;
                     }
                 }
             }
@@ -162,7 +206,8 @@ impl Runtime {
             Arc::new(Vec::new())
         };
         let identity = ossia_score::music_identity_with_index(&index, snapshot.source());
-        for target in &selection.targets {
+        let targets = ossia_score::expand_selection(&geometry, &selection.targets);
+        for target in &targets {
             if regions
                 .iter()
                 .any(|r: &SelectionRegion| &r.target == target)

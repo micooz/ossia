@@ -13,6 +13,76 @@
            ((ly:grob? cause) (loop (ly:grob-property cause 'cause) (1+ depth)))
            (else #f))))
 
+% Grob identities refer to engraving objects, including shared stems and beams.
+#(define ossia-grob-ids (make-hash-table))
+#(define ossia-next-id 0)
+#(define ossia-heads '())
+#(define ossia-attachments (make-hash-table))
+#(define ossia-graces (make-hash-table))
+#(define (ossia-id grob)
+   (or (hashq-ref ossia-grob-ids grob)
+       (begin
+         (set! ossia-next-id (1+ ossia-next-id))
+         (hashq-set! ossia-grob-ids grob (number->string ossia-next-id))
+         (number->string ossia-next-id))))
+
+#(define (ossia-grobs value)
+   (cond ((ly:grob? value) (list value))
+         ((ly:grob-array? value) (ly:grob-array->list value))
+         ((pair? value) (append (ossia-grobs (car value)) (ossia-grobs (cdr value))))
+         (else '())))
+
+#(define (ossia-owner-heads grob depth)
+   (if (> depth 5) '()
+       (cond ((eq? (grob::name grob) 'NoteHead) (list grob))
+             ((memq (grob::name grob) '(Script Fingering TextScript))
+              (hashq-ref ossia-attachments grob '()))
+             (else (delete-duplicates
+             (append
+               (hashq-ref ossia-attachments grob '())
+               (if (memq (grob::name grob) '(Flag StemTremolo))
+                   (append-map (lambda (parent) (ossia-owner-heads parent (1+ depth)))
+                               (ossia-grobs (ly:grob-parent grob X)))
+                   '())
+               (if (eq? (grob::name grob) 'Tie)
+                   (filter (lambda (g) (and (ly:grob? g) (eq? (grob::name g) 'NoteHead)))
+                           (list (ly:spanner-bound grob LEFT) (ly:spanner-bound grob RIGHT)))
+                   '())
+               (filter (lambda (head)
+                         (any (lambda (key) (eq? grob (ly:grob-object head key)))
+                              '(accidental-grob dot)))
+                       ossia-heads)
+               (append-map
+                 (lambda (key)
+                   (append-map (lambda (child) (ossia-owner-heads child (1+ depth)))
+                               (ossia-grobs (ly:grob-object grob key))))
+                 '(note-heads heads stem stems side-support-elements)))
+             eq?)))))
+
+#(define (ossia-graphic stil id owners)
+   (ly:make-stencil
+     `(output-attributes ((data-ossia-graphic . ,id)
+                          (data-ossia-owners . ,(string-join (map ossia-id owners) ",")))
+                         ,(ly:stencil-expr stil))
+     (ly:stencil-extent stil X) (ly:stencil-extent stil Y)))
+
+#(define ossia-after-grace-origins (make-hash-table))
+#(define ossia-last-main-heads (make-hash-table))
+#(define (ossia-origin-key origin)
+   (and (ly:input-location? origin)
+        (format #f "~a" (ly:input-file-line-char-column origin))))
+#(define ossia-original-after-grace
+   (ly:music-function-extract (ly:parser-lookup 'afterGrace)))
+afterGrace =
+#(define-music-function (fraction main grace) ((scale?) ly:music? ly:music?)
+   (music-map
+     (lambda (music)
+       (let ((key (ossia-origin-key (ly:music-property music 'origin))))
+         (when key (hash-set! ossia-after-grace-origins key #t)))
+       music)
+     grace)
+   (ossia-original-after-grace fraction main grace))
+
 #(define (ossia-curve-point controls t)
    (let* ((u (- 1 t))
           (weights (list (* u u u) (* 3 u u t) (* 3 u t t) (* t t t))))
@@ -50,26 +120,27 @@
               (drop-right points 1) (cdr points)))
        paths)))
 
-#(define (ossia-box stil url . context)
+#(define (ossia-box stil url id owners . context)
    (if (ly:stencil? stil)
        (let ((x (ly:stencil-extent stil X)) (y (ly:stencil-extent stil Y)))
          (if (and (< (car x) (cdr x)) (< (car y) (cdr y)))
              (let* ((hits (if (pair? context) (ossia-hit-stencils (car context) x y url) '()))
-                    (combined (apply ly:stencil-add (cons (ly:make-stencil `(url-link ,url ,x ,y) x y) (cons stil hits)))))
+                    (combined (apply ly:stencil-add (cons (ly:make-stencil `(url-link ,url ,x ,y) x y) (cons (ossia-graphic stil id owners) hits)))))
                (ly:make-stencil (ly:stencil-expr combined) x y))
              stil))
        stil))
 
 #(define-markup-command (ossiaHeader layout props kind source arg)
    (string? string? markup?)
-   (ossia-box (interpret-markup layout props arg)
-              (format #f "ossia:~a:-1:s~a" kind source)))
+   (let ((id (string-append "header-" (string-join (string-split source #\:) "-"))))
+     (ossia-box (interpret-markup layout props arg)
+                (format #f "ossia:~a:-1:s~a:~a:" kind source id) id '())))
 
 #(define (ossia-header-value kind source value)
    (if (markup? value) (make-ossiaHeader-markup kind source value) value))
 
 #(define (ossia-engraver context)
-   (let ((staves '()))
+   (let ((staves '()) (timestep '()))
      (make-engraver
        (acknowledgers
          ((grob-interface engraver grob source-engraver)
@@ -77,7 +148,10 @@
                  (staff (ly:context-find (ly:translator-context source-engraver) 'Staff)))
             (when (and staff (not (memq staff staves)))
               (set! staves (append staves (list staff))))
-            (when (memq kind '(NoteHead Rest MultiMeasureRest Clef KeySignature
+            (set! timestep (cons (cons grob (ly:translator-context source-engraver)) timestep))
+            (when (eq? kind 'NoteHead) (set! ossia-heads (cons grob ossia-heads)))
+            (when (memq kind '(Stem Beam Flag Dots Accidental AccidentalCautionary StemTremolo
+                              NoteHead Rest MultiMeasureRest Clef KeySignature
                               TimeSignature DynamicText TextScript TextSpanner Script
                               Fingering RehearsalMark MetronomeMark Slur PhrasingSlur
                               Hairpin Tie TextMark SectionLabel BarLine))
@@ -92,8 +166,52 @@
                                      (where (format #f "~a:~a" (cadr where) (caddr where)))
                                      (else "-1:-1")))
                      (url (format #f "ossia:~a:~a:~a" kind staff-index location)))
+                (ossia-id grob)
                 (ly:grob-set-property! grob 'stencil
+                  (lambda (piece)
+                    (let* ((owners (if (eq? kind 'Tie)
+                                       (filter ly:grob? (list (ly:spanner-bound grob LEFT) (ly:spanner-bound grob RIGHT)))
+                                       (ossia-owner-heads piece 0)))
+                           (id (ossia-id piece))
+                           (related (if (eq? kind 'NoteHead) (hashq-ref ossia-attachments grob '()) '()))
+                           (metadata (string-append url ":" id ":" (string-join (map ossia-id owners) ",") ":" (string-join (map ossia-id related) ","))))
+                      (ossia-box (ly:unpure-call original piece) metadata id owners piece)))))))))
+       ((stop-translation-timestep engraver)
+        (let ((voices (delete-duplicates (map cdr timestep) eq?)))
+          (for-each
+            (lambda (voice)
+              (let* ((items (map car (filter (lambda (entry) (eq? voice (cdr entry))) timestep)))
+                     (heads (filter (lambda (g) (eq? (grob::name g) 'NoteHead)) items))
+                     (grace? (not (= 0 (ly:moment-grace-numerator (ly:context-current-moment voice)))))
+                     (pending (hashq-ref ossia-graces voice '()))
+                     (after? (any (lambda (head)
+                                    (let ((key (ossia-origin-key (ossia-origin head))))
+                                      (and key (hash-ref ossia-after-grace-origins key #f)))) heads)))
+                (when (pair? heads)
+                  (if grace?
+                      (if after?
+                          (for-each
+                            (lambda (main)
+                              (hashq-set! ossia-attachments main (append (hashq-ref ossia-attachments main '()) heads)))
+                            (hashq-ref ossia-last-main-heads voice '()))
+                          (hashq-set! ossia-graces voice (append pending heads)))
+                      (begin
+                        (for-each (lambda (head) (hashq-set! ossia-attachments head pending)) heads)
+                        (hashq-set! ossia-graces voice '())
+                        (hashq-set! ossia-last-main-heads voice heads))))
+                (for-each
                   (lambda (grob)
-                    (ossia-box (ly:unpure-call original grob) url grob)))))))))))
+                    (when (memq (grob::name grob) '(Script Fingering TextScript))
+                      (let* ((event (ly:grob-property grob 'cause))
+                             (specific (filter
+                               (lambda (head)
+                                 (let ((cause (ly:grob-property head 'cause)))
+                                   (and (ly:stream-event? cause)
+                                        (memq event (ly:event-property cause 'articulations '())))))
+                               heads)))
+                        (hashq-set! ossia-attachments grob (if (pair? specific) specific heads)))))
+                  items)))
+            voices))
+        (set! timestep '())))))
 
 \layout { \context { \Score \consists #ossia-engraver } }

@@ -163,7 +163,7 @@ export async function mockManagement(
         if (command === 'management_start') {
           status.runtime = {
             runtimeVersion: '0.1.0',
-            protocolVersion: 2,
+            protocolVersion: 3,
             schemaVersion: 2,
             instanceId: 'test',
             home: status.home,

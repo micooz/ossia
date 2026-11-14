@@ -8,6 +8,8 @@ function element(id: string, kind: string, x: number, y: number): GeometryElemen
     bounds: { x0: x, x1: x + 2, y0: y, y1: y + 2 },
     priority: 0,
     hitBounds: [],
+    graphicIds: [id],
+    linkedTargets: [{ kind: 'element', elementId: id }],
     region: {
       target: { kind: 'element', elementId: id },
       label: kind,
@@ -59,7 +61,7 @@ test('elements precede measures, chord members toggle separately and source occu
   await click(31, 22);
   await expect(page.locator('.element-selection')).toHaveCount(4);
   await click(50, 28);
-  await expect(page.locator('.selection-box')).toHaveCount(5);
+  await expect(page.locator('.selection-box')).toHaveCount(1);
   await click(31, 6);
   await expect(page.locator('.element-selection')).toHaveCount(6);
   await click(31, 25);
@@ -73,6 +75,23 @@ test('elements precede measures, chord members toggle separately and source occu
     ]);
   await click(50, 21.5);
   await expect(page.locator('.element-selection')).toHaveCount(6);
+});
+
+test('element hit boxes are opt-in through the debug query', async ({ context, page }) => {
+  const hairpin = element('hairpin', 'Hairpin', 20, 21);
+  hairpin.bounds = { x0: 20, x1: 70, y0: 21, y1: 29 };
+  hairpin.hitBounds = [{ x0: 20, x1: 70, y0: 21, y1: 22 }];
+  const runtime = await mockScoreRuntime(context, { elements: [hairpin] });
+  await page.goto(`/scores?documentId=${firstId}&debug=hitboxes`);
+  await expect(page.locator('.score-image')).toHaveCount(2);
+  const overlay = page.locator('.overlay').first();
+  const box = (await overlay.boundingBox())!;
+  await overlay.click({ position: { x: (box.width * 31) / 100, y: (box.height * 21.5) / 140 } });
+  await expect(overlay.locator('.hit-box')).toHaveCount(1);
+  await expect.poll(() => runtime.selections.get(firstId)?.targets.length).toBe(1);
+  await page.goto(`/scores?documentId=${firstId}`);
+  await expect(page.locator('.element-selection')).toHaveCount(2);
+  await expect(overlay.locator('.hit-box')).toHaveCount(0);
 });
 
 test('selection paints before saving and keeps rapid toggles while a save is pending', async ({

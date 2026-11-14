@@ -423,11 +423,15 @@ code {
   box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
   overflow: hidden;
 }
+.score-drawing,
 .score-image {
   display: block;
   inline-size: 100%;
   block-size: 100%;
   object-fit: contain;
+}
+.score-drawing {
+  pointer-events: none;
 }
 .overlay {
   position: absolute;
@@ -451,6 +455,11 @@ code {
 .selection-box {
   fill: color-mix(in srgb, var(--sel) 20%, transparent);
   stroke: var(--sel);
+  pointer-events: none;
+}
+.hit-box {
+  fill: none;
+  stroke: var(--bad);
   stroke-width: 0.25;
   pointer-events: none;
 }
@@ -974,6 +983,9 @@ dialog::backdrop {
   }
 }
 @media (forced-colors: active) {
+  .score-image {
+    --sel: Highlight;
+  }
   .selection-box {
     stroke: Highlight;
     fill: transparent;

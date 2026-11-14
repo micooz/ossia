@@ -81,7 +81,7 @@ export function useSelection(
     }
   }
 
-  function choose(target: SelectionTarget) {
+  function choose(target: SelectionTarget, linked: SelectionTarget[] = [target]) {
     const current = contextRef.current;
     if (!current?.render || current.render.manifest.sourceHash !== current.document.sourceHash)
       return;
@@ -89,10 +89,16 @@ export function useSelection(
       pending.current && matches(pending.current, current)
         ? pending.current.selection.targets
         : (current.selection?.targets ?? []);
-    const key = selectionKey(target);
-    const targets = selected.some((item) => selectionKey(item) === key)
-      ? selected.filter((item) => selectionKey(item) !== key)
-      : [...selected, target];
+    const group = linked.length ? linked : [target];
+    const groupKeys = new Set(group.map(selectionKey));
+    const targets = selected.some((item) => selectionKey(item) === selectionKey(target))
+      ? selected.filter((item) => !groupKeys.has(selectionKey(item)))
+      : [
+          ...selected,
+          ...group.filter(
+            (item) => !selected.some((prior) => selectionKey(prior) === selectionKey(item)),
+          ),
+        ];
     const next: PendingSelection = {
       instanceId: current.instanceId,
       renderKey: current.render.renderKey,

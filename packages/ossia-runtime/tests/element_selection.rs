@@ -183,3 +183,70 @@ async fn old_renders_refresh_once_without_creating_a_version() {
     );
     f.finish().await;
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn note_selection_expands_ties_authoritatively_and_recomputes_after_source_edits() {
+    let f = fixture().await;
+    let tied = std::str::from_utf8(SOURCE)
+        .unwrap()
+        .replace("c'1 | d'1", "c'1 ~ | c'2 r2");
+    let hash = f.save(tied.as_bytes());
+    assert_eq!(
+        wait_job(&f.runtime, f.check(hash).job_id).await.state,
+        JobState::Done
+    );
+    let context = f.runtime.context(f.doc.document_id).unwrap();
+    let geometry = f
+        .runtime
+        .geometry(&context.render.unwrap().render_key)
+        .unwrap();
+    let first = geometry.pages[0]
+        .elements
+        .iter()
+        .find(|e| e.region.label == "NoteHead: c'1")
+        .unwrap();
+    let selected = choose(&f, vec![first.region.target.clone()]);
+    assert_eq!(selected.selection.as_ref().unwrap().targets.len(), 3);
+    assert_eq!(
+        selected
+            .regions
+            .iter()
+            .filter(|r| r.element_kind.as_deref() == Some("NoteHead"))
+            .count(),
+        2
+    );
+    let tie = selected
+        .regions
+        .iter()
+        .find(|r| r.element_kind.as_deref() == Some("Tie"))
+        .unwrap();
+    assert_eq!(&tied[tie.spans[0].byte_start..tie.spans[0].byte_end], "~");
+    assert_eq!(tie.occurrences.len(), 2);
+    let untied = tied.replace(" ~", "");
+    let hash = f.save(untied.as_bytes());
+    assert_eq!(
+        wait_job(&f.runtime, f.check(hash).job_id).await.state,
+        JobState::Done
+    );
+    let retained = f.runtime.context(f.doc.document_id).unwrap();
+    assert_eq!(retained.regions.len(), 2);
+    assert!(retained
+        .regions
+        .iter()
+        .all(|r| r.element_kind.as_deref() == Some("NoteHead")));
+    let first = retained
+        .regions
+        .iter()
+        .find(|r| r.label == "NoteHead: c'1")
+        .unwrap();
+    choose(&f, vec![first.target.clone()]);
+    let hash = f.save(tied.as_bytes());
+    assert_eq!(
+        wait_job(&f.runtime, f.check(hash).job_id).await.state,
+        JobState::Done
+    );
+    let expanded = f.runtime.context(f.doc.document_id).unwrap();
+    assert_eq!(expanded.regions.len(), 3);
+    assert_eq!(expanded.selection.unwrap().targets.len(), 3);
+    f.finish().await;
+}

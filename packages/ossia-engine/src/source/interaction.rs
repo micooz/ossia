@@ -113,13 +113,20 @@ pub(super) fn attributes(
         (value.strip_prefix("ossia:")?, false)
     };
     let fields: Vec<_> = value.split(':').collect();
-    if fields.len() != 4 {
+    if !matches!(fields.len(), 4 | 6 | 7) {
         return None;
     }
     let mut attrs = vec![
         ("data-ossia-kind".into(), fields[0].into()),
         ("data-ossia-staff".into(), fields[1].into()),
     ];
+    if fields.len() >= 6 {
+        attrs.push(("data-ossia-id".into(), fields[4].into()));
+        attrs.push(("data-ossia-owners".into(), fields[5].into()));
+    }
+    if fields.len() == 7 {
+        attrs.push(("data-ossia-related".into(), fields[6].into()));
+    }
     if hit {
         attrs.push(("data-ossia-hit".into(), "true".into()));
     }

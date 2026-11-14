@@ -3,6 +3,10 @@ export function documentIdFromLocation(): string | null {
   return documentId?.trim() || null;
 }
 
+export function debugHitBoxesFromLocation(): boolean {
+  return new URLSearchParams(location.search).get('debug') === 'hitboxes';
+}
+
 export function pushDocumentIdToLocation(documentId: string) {
   const url = new URL(location.href);
   url.searchParams.set('documentId', documentId);

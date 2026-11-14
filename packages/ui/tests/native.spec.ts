@@ -74,6 +74,22 @@ async function waitJob<T>(initial: Job): Promise<T> {
   expect(job.state, JSON.stringify(job.error)).toBe('done');
   return job.result as T;
 }
+function inkCount(
+  geometry: RenderGeometry,
+  targets: GeometryPage['elements'][number]['linkedTargets'],
+) {
+  const keys = new Set(targets.map((target) => JSON.stringify(target)));
+  return geometry.pages.reduce(
+    (sum, page) =>
+      sum +
+      new Set(
+        page.elements
+          .filter((e) => keys.has(JSON.stringify(e.region.target)))
+          .flatMap((e) => e.graphicIds),
+      ).size,
+    0,
+  );
+}
 async function clickScore(overlay: Locator, x: number, y: number) {
   await overlay.evaluate(
     (element, point) => {
@@ -171,12 +187,14 @@ test('a supplied score selects notes and excludes the first measure prefix', asy
   const x = (note.bounds.x0 + note.bounds.x1) / 2,
     y = (note.bounds.y0 + note.bounds.y1) / 2;
   await click(x, y);
-  await expect(page.locator('.element-selection')).toHaveCount(note.region.occurrences.length);
+  await expect(page.locator('.element-selection')).toHaveCount(
+    inkCount(geometry, note.linkedTargets),
+  );
   await expect
     .poll(
       async () => (await cli<AgentDocumentContext>('context', { documentId })).selection?.targets,
     )
-    .toEqual([note.region.target]);
+    .toEqual(expect.arrayContaining(note.linkedTargets));
   await page
     .locator('.page-host')
     .first()
@@ -186,7 +204,10 @@ test('a supplied score selects notes and excludes the first measure prefix', asy
   const whitespace = measureWhitespace(first, region);
   await click(whitespace.x, whitespace.y);
   await expect(page.locator('.selection-box')).toHaveCount(1);
-  await expect(page.locator('.selection-box')).toHaveAttribute('x', String(region.bounds.x0));
+  await expect(page.locator('.selection-box')).toHaveAttribute(
+    'x',
+    String(region.bounds.x0 + 0.125),
+  );
   await page
     .locator('.page-host')
     .first()
@@ -237,12 +258,14 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
   const noteY =
     ((note.bounds.y0 + note.bounds.y1) / 2 - initialBox.y0) / (initialBox.y1 - initialBox.y0);
   await clickScore(page.locator('.overlay').first(), noteX, noteY);
-  await expect(page.locator('.element-selection')).toHaveCount(note.region.occurrences.length);
+  await expect(page.locator('.element-selection')).toHaveCount(
+    inkCount(geometry, note.linkedTargets),
+  );
   await expect
     .poll(
       async () => (await cli<AgentDocumentContext>('context', { documentId })).selection?.targets,
     )
-    .toEqual([note.region.target]);
+    .toEqual(expect.arrayContaining(note.linkedTargets));
   const elementContext = await cli<AgentDocumentContext>('context', { documentId });
   expect(elementContext.regions[0]!.spans).toEqual(note.region.spans);
   await page
@@ -471,4 +494,88 @@ test('real browser, LilyPond, Agent editing, history, restore and exports', asyn
       2,
     ),
   );
+});
+
+test('native SVG colors chord parts, ornaments and a complete cross-page tie chain', async ({
+  page,
+}) => {
+  await waitJob(
+    await cli<Job>('import', {
+      title: '原生染色回归',
+      path: path.join(fixtures, 'selection-ink.ly'),
+      format: 'ly',
+      confirmation: null,
+      author: 'test',
+    }),
+  );
+  const docs = await cli<DocumentPage>('list');
+  const documentId = docs.items.find((doc) => doc.title === '原生染色回归')!.documentId;
+  const opened = await cli<AgentOpenOutcome>('open', { documentId });
+  await page.goto(opened.url);
+  await expect(page.getByText('已连接')).toBeVisible();
+  const origin = new URL(opened.url).origin;
+  const context: DocumentContext = await (
+    await page.request.get(`${origin}/api/v1/documents/${documentId}/context`)
+  ).json();
+  const geometry: RenderGeometry = await (
+    await page.request.get(`${origin}/api/v1/renders/${context.render!.renderKey}/geometry`)
+  ).json();
+  await expect(page.locator('.score-image')).toHaveCount(2);
+  const notes = geometry.pages
+    .flatMap((p) => p.elements.map((e) => ({ page: p, element: e })))
+    .filter(({ element: e }) => e.region.elementKind === 'NoteHead');
+  const tied = notes.filter(({ element: e }) => e.region.label.startsWith("NoteHead: g'"));
+  expect(tied).toHaveLength(3);
+  const click = async ({ page: p, element: e }: (typeof notes)[number]) => {
+    const b = p.viewBox!;
+    await clickScore(
+      page.locator('.overlay').nth(p.page - 1),
+      ((e.bounds.x0 + e.bounds.x1) / 2 - b.x0) / (b.x1 - b.x0),
+      ((e.bounds.y0 + e.bounds.y1) / 2 - b.y0) / (b.y1 - b.y0),
+    );
+  };
+  for (const layout of ['纵向', '横向']) {
+    await page.locator('.score-scroll').hover();
+    await page.getByRole('button', { name: layout }).click();
+    for (const zoom of ['100%', '200%']) {
+      await page.locator('.score-scroll').hover();
+      await page.getByLabel('谱面缩放').click();
+      await page.getByRole('menuitemradio', { name: zoom, exact: true }).click();
+      await click(tied[0]!);
+      await expect(page.locator('.element-selection')).toHaveCount(
+        inkCount(geometry, tied[0]!.element.linkedTargets),
+      );
+      await expect(page.locator('.selection-box')).toHaveCount(0);
+      const agent = await cli<AgentDocumentContext>('context', { documentId });
+      expect(agent.regions.filter((r) => r.elementKind === 'NoteHead')).toHaveLength(3);
+      expect(agent.regions.filter((r) => r.elementKind === 'Tie')).toHaveLength(2);
+      await click(tied[2]!);
+      await expect(page.locator('.element-selection')).toHaveCount(0);
+    }
+  }
+  await page.locator('.score-scroll').hover();
+  await page.getByRole('button', { name: '纵向' }).click();
+  await page.getByLabel('谱面缩放').click();
+  await page.getByRole('menuitemradio', { name: '100%', exact: true }).click();
+  const chord = notes.find(({ element: e }) => e.region.label === "NoteHead: c'")!;
+  await click(chord);
+  await expect(page.locator('.element-selection')).toHaveCount(
+    inkCount(geometry, chord.element.linkedTargets),
+  );
+  await page
+    .locator('.page-host')
+    .first()
+    .screenshot({ path: test.info().outputPath('native-chord-color.png') });
+  await click(chord);
+  await click(tied[0]!);
+  await page
+    .locator('.page-host')
+    .first()
+    .screenshot({ path: test.info().outputPath('native-tie-color.png') });
+  await click(tied[2]!);
+  const title = geometry.pages[0]!.elements.find((e) => e.region.elementKind === 'header-title')!;
+  await click({ page: geometry.pages[0]!, element: title });
+  const coloredTitle = page.locator('[data-ossia-graphic].element-selection text').first();
+  await expect(coloredTitle).not.toHaveCSS('fill', 'rgb(0, 0, 0)');
+  await expect(page.locator('.selection-box')).toHaveCount(0);
 });

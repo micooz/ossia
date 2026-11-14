@@ -160,6 +160,10 @@ snapshots and commit authorization, and use a check to verify the actual result.
    source filesystem path. `selection.targets` contains `measure` targets with a
    `locator`, or `element` targets with an `elementId`. The matching `regions`
    provide authoritative source spans, element types and printed `occurrences`.
+   Selecting a note includes its complete tie chain and attached ornaments,
+   articulations and fingerings. Their regions are separate source objects;
+   inspect every region before editing. Shared stem or beam coloring does not
+   select neighboring pitches. Slurs and dynamics remain separate targets.
    A reused source object can affect several printed locations. Generated clefs
    and signatures have an empty `spans` list and a zero-width `insertionAnchor`
    inside their owning music body; read the surrounding source before inserting

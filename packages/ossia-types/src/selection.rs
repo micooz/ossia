@@ -46,4 +46,8 @@ pub struct GeometryElement {
     pub priority: u8,
     /// Ink hit regions for curves; empty means the element's full bounds.
     pub hit_bounds: Vec<GeometryBounds>,
+    /// Actual SVG groups colored when this source object is selected.
+    pub graphic_ids: Vec<String>,
+    /// Authoritative note-chain and attachment selection, including this target.
+    pub linked_targets: Vec<SelectionTarget>,
 }

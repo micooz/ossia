@@ -115,7 +115,22 @@ impl EngineBackend for Engine {
                 .enumerate()
             {
                 for y in [20, 50] {
-                    objects.push_str(&format!("<a data-ossia-kind='NoteHead' data-ossia-staff='0' data-ossia-source='{}:{}'><rect x='{}' y='{y}' width='2' height='1'/></a>", token.byte_start, token.byte_end, 20 + i * 10));
+                    objects.push_str(&format!("<a data-ossia-kind='NoteHead' data-ossia-staff='0' data-ossia-id='n{i}-{y}' data-ossia-owners='n{i}-{y}' data-ossia-source='{}:{}'><rect x='{}' y='{y}' width='2' height='1'/></a>", token.byte_start, token.byte_end, 20 + i * 10));
+                }
+            }
+            let tokens = ossia_score::tokenize(snapshot.source());
+            let notes: Vec<_> = tokens
+                .iter()
+                .filter(|t| t.kind == ossia_score::TokenKind::Note)
+                .collect();
+            for tie in tokens.iter().filter(|t| t.raw == "~") {
+                if let Some(left) = notes.iter().rposition(|n| n.byte_end <= tie.byte_start) {
+                    if left + 1 < notes.len() {
+                        let right = left + 1;
+                        for y in [20, 50] {
+                            objects.push_str(&format!("<a data-ossia-kind='Tie' data-ossia-staff='0' data-ossia-id='t{left}-{y}' data-ossia-owners='n{left}-{y},n{right}-{y}' data-ossia-source='{}:{}'><rect x='22' y='{}' width='8' height='1'/></a>", tie.byte_start, tie.byte_end, y + 2));
+                        }
+                    }
                 }
             }
             objects

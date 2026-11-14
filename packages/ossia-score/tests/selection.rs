@@ -38,3 +38,57 @@ fn measure_selection_excludes_prefix_symbols_and_stays_inside_barlines() {
     assert!((second.bounds.x0 - 50.1).abs() < 1e-8, "{second:?}");
     assert!((second.bounds.x1 - 89.8).abs() < 1e-8, "{second:?}");
 }
+
+#[test]
+fn svg_element_bounds_follow_visible_ink_and_the_svg_y_axis() {
+    let source = "Music = { c'1 } \\score { \\new Staff \\Music }";
+    let svg = r#"<svg viewBox="0 0 100 60">
+      <g transform="translate(10, 30)">
+        <a data-ossia-kind="Clef" data-ossia-id="clef" data-ossia-source="0:1">
+          <rect x="0" y="-2" width="2" height="4" fill="none"/>
+        </a>
+      </g>
+      <g data-ossia-graphic="clef">
+        <g transform="translate(10, 30)"><path d="M0 -4 L2 2" fill="black"/></g>
+      </g>
+      <g transform="translate(20, 30)">
+        <a data-ossia-kind="Tie" data-ossia-id="tie" data-ossia-owners="a,b" data-ossia-hit="true">
+          <rect x="0" y="1" width="3" height="1" fill="none"/>
+        </a>
+      </g>
+      <g data-ossia-graphic="tie">
+        <g transform="translate(20, 30)"><path d="M0 -2 L3 -1" fill="none"/></g>
+      </g>
+    </svg>"#;
+    let index = build_index(source);
+    let layout = build_layout(&index, &[SvgPage { page: 1, svg }]).unwrap();
+    let page = &layout.pages[0];
+    let clef = page
+        .objects
+        .iter()
+        .find(|object| object.kind == "Clef")
+        .unwrap();
+    assert_eq!(
+        clef.bbox,
+        BBox {
+            x0: 10.,
+            y0: 26.,
+            x1: 12.,
+            y1: 32.
+        }
+    );
+    let hit = page
+        .objects
+        .iter()
+        .find(|object| object.kind == "Tie")
+        .unwrap();
+    assert_eq!(
+        hit.bbox,
+        BBox {
+            x0: 20.,
+            y0: 28.,
+            x1: 23.,
+            y1: 29.
+        }
+    );
+}

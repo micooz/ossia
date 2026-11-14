@@ -9,6 +9,9 @@ pub struct SvgObject {
     pub span: Option<ossia_types::SourceSpan>,
     pub staff_index: Option<usize>,
     pub hit_only: bool,
+    pub graphic_id: Option<String>,
+    pub owners: Vec<String>,
+    pub related: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -17,6 +20,9 @@ pub(super) struct ObjectOrigin {
     pub(super) span: Option<ossia_types::SourceSpan>,
     pub(super) staff_index: Option<usize>,
     pub(super) hit_only: bool,
+    pub(super) graphic_id: Option<String>,
+    pub(super) owners: Vec<String>,
+    pub(super) related: Vec<String>,
 }
 
 pub(super) fn read(
@@ -47,6 +53,25 @@ pub(super) fn read(
         span,
         staff_index: attrs.get("data-ossia-staff").and_then(|v| v.parse().ok()),
         hit_only: attrs.get("data-ossia-hit").is_some_and(|v| v == "true"),
+        graphic_id: attrs.get("data-ossia-id").cloned(),
+        related: attrs
+            .get("data-ossia-related")
+            .map(|v| {
+                v.split(',')
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default(),
+        owners: attrs
+            .get("data-ossia-owners")
+            .map(|v| {
+                v.split(',')
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default(),
     };
     let object = attrs
         .get("data-ossia-bounds")
@@ -64,6 +89,9 @@ pub(super) fn read(
                 span,
                 staff_index: origin.staff_index,
                 hit_only: origin.hit_only,
+                graphic_id: origin.graphic_id.clone(),
+                owners: origin.owners.clone(),
+                related: origin.related.clone(),
             })
         })
         .transpose()?;

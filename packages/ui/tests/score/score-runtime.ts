@@ -109,6 +109,7 @@ export async function mockScoreRuntime(
   options: {
     languageEvent?: 'en-US';
     elements?: GeometryElement[];
+    svg?: string;
     delays?: { context?: number; versionRender?: number };
   } = {},
 ) {
@@ -172,7 +173,7 @@ export async function mockScoreRuntime(
       return reply({
         runtime: {
           runtimeVersion: '0.1.0',
-          protocolVersion: 2,
+          protocolVersion: 3,
           schemaVersion: 2,
           instanceId: 'instance',
           home: '/synthetic/library',
@@ -219,7 +220,9 @@ export async function mockScoreRuntime(
     if (path.includes('/pages/'))
       return route.fulfill({
         contentType: 'image/svg+xml',
-        body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140"><rect x="10" y="20" width="70" height="10" fill="#ddd"/><rect x="10" y="50" width="70" height="10" fill="#ddd"/></svg>',
+        body:
+          options.svg ??
+          `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140"><rect x="10" y="20" width="70" height="10" fill="#ddd"/><rect x="10" y="50" width="70" height="10" fill="#ddd"/>${(options.elements ?? []).flatMap((e) => e.graphicIds.map((id) => `<g data-ossia-graphic="${id}"><path d="M${e.bounds.x0} ${e.bounds.y0}h2v2h-2z" fill="black"/></g>`)).join('')}</svg>`,
       });
     if (path === '/documents' && req.method() === 'GET') {
       const items: DocumentSummary[] = states.map(

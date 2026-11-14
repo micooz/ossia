@@ -98,7 +98,18 @@ fn object_region(
     page: &PageLayout,
     object: &SvgObject,
 ) -> Option<SelectionRegion> {
-    if object.kind == "BarLine" || object.hit_only {
+    if matches!(
+        object.kind.as_str(),
+        "BarLine"
+            | "Stem"
+            | "Beam"
+            | "Flag"
+            | "Dots"
+            | "Accidental"
+            | "AccidentalCautionary"
+            | "StemTremolo"
+    ) || object.hit_only
+    {
         return None;
     }
     let staff_index = object.staff_index.or_else(|| {
@@ -196,8 +207,9 @@ pub fn selection_geometry(
                     "Slur" | "PhrasingSlur" | "Hairpin" | "TextSpanner" | "Tie"
                 );
                 Some(GeometryElement {
-                    region,
                     bounds: bounds(object.bbox),
+                    graphic_ids: object.graphic_id.iter().cloned().collect(),
+                    linked_targets: vec![region.target.clone()],
                     priority: u8::from(matches!(
                         object.kind.as_str(),
                         "Slur" | "PhrasingSlur" | "Hairpin" | "TextSpanner" | "Tie"
@@ -220,6 +232,7 @@ pub fn selection_geometry(
                     } else {
                         Vec::new()
                     },
+                    region,
                 })
             })
             .collect::<Vec<_>>();
@@ -243,13 +256,11 @@ pub fn selection_geometry(
                 }
                 let mut x0 = column.x0.max(staff.x0);
                 let mut x1 = column.x1.min(staff.x1);
-                // Leave room for the centered outline stroke inside the barline ink.
-                let inset = page.staff_space * 0.2;
                 if let Some((_, right)) = barline_extent(page, staff, staff_index, column.x0) {
-                    x0 = x0.max(right + inset);
+                    x0 = x0.max(right);
                 }
                 if let Some((left, _)) = barline_extent(page, staff, staff_index, column.x1) {
-                    x1 = x1.min(left - inset);
+                    x1 = x1.min(left);
                 }
                 let on_staff = |object: &&SvgObject| {
                     object.staff_index.is_none_or(|i| i == staff_index)
@@ -342,6 +353,7 @@ pub fn selection_geometry(
             }
         }
     }
+    graphics::associate(index, layout, &mut pages);
     Ok(pages)
 }
 
@@ -385,3 +397,6 @@ pub fn hit_selection(
         .map(|r| measure_selection(index, &r.locator))
         .transpose()
 }
+
+mod graphics;
+pub use graphics::expand_selection;

@@ -1,12 +1,19 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 
 import { describe } from '../../errors.ts';
 import type { SelectionTarget, RenderGeometry, RenderReference } from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
 import { selectionKey } from '../api.ts';
 import type { Api } from '../api.ts';
-import { hitSelection, selectedBounds } from '../selectionGeometry.ts';
+import {
+  hitSelection,
+  selectedBounds,
+  selectedElementBounds,
+  selectedGraphics,
+  selectionGroup,
+} from '../selectionGeometry.ts';
 import { ScoreControls } from './ScoreControls.tsx';
+import { ScoreSvg } from './ScoreSvg.tsx';
 import type { ScoreLayout } from './ScoreToolbar.tsx';
 
 interface Props {
@@ -18,14 +25,16 @@ interface Props {
   onZoomChange: (zoom: number) => void;
   selected?: SelectionTarget[];
   selectable?: boolean;
-  onSelect?: (target: SelectionTarget) => void;
+  onSelect?: (target: SelectionTarget, linked?: SelectionTarget[]) => void;
   onPoint?: (page: number, x: number, y: number) => void;
+  showHitBoxes?: boolean;
 }
 
 const PAGE_GAP = 24;
 const CANVAS_PADDING = 32;
 // Page layout is viewport-independent; zoom is the only size control.
 const BASE_PAGE_WIDTH = 900;
+const SELECTION_STROKE_WIDTH = 0.25;
 
 export function ScoreView({
   api,
@@ -38,6 +47,7 @@ export function ScoreView({
   selectable = false,
   onSelect,
   onPoint,
+  showHitBoxes = false,
 }: Props) {
   const { t } = useI18n();
   const [geometry, setGeometry] = useState<RenderGeometry | null>(null);
@@ -60,6 +70,7 @@ export function ScoreView({
     left: number;
     top: number;
   } | null>(null);
+  const svgError = useCallback((reason: unknown) => setError(describe(reason)), []);
   const pages = [...render.manifest.pages].sort((left, right) => left.page - right.page);
   const pageKey = pages.map((page) => page.page).join(',');
   useEffect(() => {
@@ -95,19 +106,19 @@ export function ScoreView({
   }, [api, render.renderKey]);
   useEffect(() => {
     let live = true;
-    const urls: string[] = [];
     setImages({});
     setError(null);
     Promise.all(
-      pages.map(async (page) => [page.page, await api.page(render.renderKey, page.page)] as const),
+      pages.map(
+        async (page) =>
+          [page.page, await (await api.page(render.renderKey, page.page)).text()] as const,
+      ),
     )
       .then((loaded) => {
         if (!live) return;
         const next: Record<number, string> = {};
         for (const [page, blob] of loaded) {
-          const url = URL.createObjectURL(blob);
-          urls.push(url);
-          next[page] = url;
+          next[page] = blob;
         }
         setImages(next);
       })
@@ -116,7 +127,6 @@ export function ScoreView({
       });
     return () => {
       live = false;
-      urls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [api, render.renderKey, pageKey]);
   useEffect(() => {
@@ -242,11 +252,11 @@ export function ScoreView({
                       height: width / ratio,
                     }}
                   >
-                    <img
-                      className="score-image"
-                      src={url}
-                      alt={t('scoreAlt', { page })}
-                      draggable={false}
+                    <ScoreSvg
+                      source={url!}
+                      label={t('scoreAlt', { page })}
+                      graphicIds={selectedGraphics(pageLayout, keys)}
+                      onError={svgError}
                     />
                     <svg
                       className={`overlay ${canSelect ? 'interactive' : ''}`}
@@ -260,20 +270,33 @@ export function ScoreView({
                           ctm.inverse(),
                         );
                         const target = hitSelection(pageLayout, point.x, point.y);
-                        if (target && onSelect) onSelect(target);
+                        if (target && onSelect)
+                          onSelect(target, selectionGroup(geometry!.pages, target, keys));
                         else onPoint?.(page, point.x, point.y);
                       }}
                     >
-                      {selectedBounds(pageLayout, keys).map(({ bounds, element }, index) => (
+                      {selectedBounds(pageLayout, keys).map(({ bounds }, index) => (
                         <rect
                           key={index}
-                          className={`selection-box${element ? ' element-selection' : ''}`}
-                          x={bounds.x0}
+                          className="selection-box"
+                          strokeWidth={SELECTION_STROKE_WIDTH}
+                          x={bounds.x0 + SELECTION_STROKE_WIDTH / 2}
                           y={bounds.y0}
-                          width={bounds.x1 - bounds.x0}
+                          width={Math.max(0, bounds.x1 - bounds.x0 - SELECTION_STROKE_WIDTH)}
                           height={bounds.y1 - bounds.y0}
                         />
                       ))}
+                      {showHitBoxes &&
+                        selectedElementBounds(pageLayout, keys).map(({ bounds }, index) => (
+                          <rect
+                            key={index}
+                            className="hit-box"
+                            x={bounds.x0}
+                            y={bounds.y0}
+                            width={Math.max(0, bounds.x1 - bounds.x0)}
+                            height={Math.max(0, bounds.y1 - bounds.y0)}
+                          />
+                        ))}
                     </svg>
                   </div>
                 );

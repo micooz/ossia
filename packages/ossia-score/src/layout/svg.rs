@@ -283,6 +283,8 @@ struct Frame {
     anchor: Option<SourceAnchor>,
     hidden: bool,
     object: Option<ObjectOrigin>,
+    graphic: Option<String>,
+    link_rect: bool,
 }
 
 pub(crate) fn read_svg(
@@ -295,9 +297,13 @@ pub(crate) fn read_svg(
         anchor: None,
         hidden: false,
         object: None,
+        graphic: None,
+        link_rect: false,
     }];
     let mut elements = Vec::new();
     let mut objects = Vec::new();
+    let mut graphic_boxes = HashMap::<String, BBox>::new();
+    let mut link_boxes = Vec::<(usize, BBox)>::new();
     let mut view_box = None;
     let mut seen_root = false;
     let mut closed_root = false;
@@ -342,11 +348,15 @@ pub(crate) fn read_svg(
                 )?);
                 frame.hidden |= matches!(tag.as_str(), "defs" | "clipPath" | "symbol")
                     || attrs.get("display").is_some_and(|v| v == "none");
+                if let Some(id) = attrs.get("data-ossia-graphic") {
+                    frame.graphic = Some(id.clone());
+                }
                 if tag == "a" {
                     frame.anchor = attrs.get("href").and_then(|s| anchor(s, map));
                 }
                 if let Some((origin, object)) = objects::read(&attrs, map, frame.matrix)? {
                     frame.object = Some(origin);
+                    frame.link_rect = !attrs.contains_key("data-ossia-bounds");
                     objects.extend(object);
                 }
                 let num = |key: &str, default: f64| -> Result<f64, AppError> {
@@ -363,6 +373,7 @@ pub(crate) fn read_svg(
                         None => Ok(default),
                     }
                 };
+                let mut link_local = None;
                 let bbox = match tag.as_str() {
                     "line" => {
                         let p = frame.matrix.point(num("x1", 0.)?, num("y1", 0.)?);
@@ -377,12 +388,16 @@ pub(crate) fn read_svg(
                         if w < 0. || h < 0. {
                             return Err(AppError::invalid("negative SVG dimensions"));
                         }
-                        Some(frame.matrix.bbox(BBox {
+                        let local = BBox {
                             x0: x,
                             y0: y,
                             x1: x + w,
                             y1: y + h,
-                        })?)
+                        };
+                        if frame.link_rect {
+                            link_local = Some(local);
+                        }
+                        Some(frame.matrix.bbox(local)?)
                     }
                     "polygon" | "polyline" => {
                         let points = numbers(
@@ -422,14 +437,39 @@ pub(crate) fn read_svg(
                 };
                 if !frame.hidden {
                     if let Some(bbox) = bbox {
+                        if let Some(id) = &frame.graphic {
+                            graphic_boxes
+                                .entry(id.clone())
+                                .and_modify(|current| {
+                                    current.x0 = current.x0.min(bbox.x0);
+                                    current.y0 = current.y0.min(bbox.y0);
+                                    current.x1 = current.x1.max(bbox.x1);
+                                    current.y1 = current.y1.max(bbox.y1);
+                                })
+                                .or_insert(bbox);
+                        }
                         if let Some(object) = &frame.object {
                             if tag == "rect" {
+                                if let Some(local) = link_local {
+                                    link_boxes.push((
+                                        objects.len(),
+                                        frame.matrix.bbox(BBox {
+                                            x0: local.x0,
+                                            y0: -local.y1,
+                                            x1: local.x1,
+                                            y1: -local.y0,
+                                        })?,
+                                    ));
+                                }
                                 objects.push(SvgObject {
                                     kind: object.kind.clone(),
                                     bbox,
                                     span: object.span,
                                     staff_index: object.staff_index,
                                     hit_only: object.hit_only,
+                                    graphic_id: object.graphic_id.clone(),
+                                    owners: object.owners.clone(),
+                                    related: object.related.clone(),
                                 });
                             }
                         } else {
@@ -463,6 +503,21 @@ pub(crate) fn read_svg(
     }
     if !closed_root || stack.len() != 1 {
         return Err(AppError::invalid("truncated SVG"));
+    }
+    for (index, flipped) in link_boxes {
+        let object = &mut objects[index];
+        let Some(bbox) = object
+            .graphic_id
+            .as_ref()
+            .and_then(|id| graphic_boxes.get(id))
+        else {
+            continue;
+        };
+        object.bbox = if !object.hit_only && bbox.x1 > bbox.x0 && bbox.y1 > bbox.y0 {
+            *bbox
+        } else {
+            flipped
+        };
     }
     Ok((
         view_box.ok_or_else(|| AppError::invalid("empty SVG"))?,
