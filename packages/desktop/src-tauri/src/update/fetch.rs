@@ -27,6 +27,7 @@ pub fn client() -> Result<Client> {
         .map_err(|error| Error::other(error.to_string()))
 }
 
+#[cfg(test)]
 pub fn no_redirect_client() -> Result<Client> {
     Client::builder()
         .user_agent(concat!("ossia/", env!("CARGO_PKG_VERSION")))
@@ -62,6 +63,7 @@ fn request(
     Ok(request.header(AUTHORIZATION, format!("Bearer {token}")))
 }
 
+#[cfg(test)]
 pub fn asset_get(client: &Client, url: &str, token: Option<&str>) -> Result<RequestBuilder> {
     request(client, url, token, "application/octet-stream")
 }

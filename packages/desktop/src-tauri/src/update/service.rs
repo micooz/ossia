@@ -563,30 +563,29 @@ impl UpdateService {
         };
         let mut active = self.download.lock().unwrap();
         let was_cancelled = *cancelled.borrow();
-        let settled = if was_cancelled || outcome.is_none() {
-            if let Some(dir) = dir {
-                let _ = std::fs::remove_dir_all(dir);
-            }
-            UpdateSnapshot {
-                state: UpdateState::Idle,
-                latest: None,
-                error: None,
-                done: None,
-                total: None,
-                ..self.base_snapshot()
-            }
-        } else {
-            match outcome.unwrap() {
-                Ok(path) => {
-                    *self.staged.lock().unwrap() = Some(Staged { path, version });
-                    UpdateSnapshot {
-                        state: UpdateState::Ready,
-                        error: None,
-                        ..self.base_snapshot()
-                    }
+        let settled = match outcome.filter(|_| !was_cancelled) {
+            None => {
+                if let Some(dir) = dir {
+                    let _ = std::fs::remove_dir_all(dir);
                 }
-                Err(error) => self.fail(&error),
+                UpdateSnapshot {
+                    state: UpdateState::Idle,
+                    latest: None,
+                    error: None,
+                    done: None,
+                    total: None,
+                    ..self.base_snapshot()
+                }
             }
+            Some(Ok(path)) => {
+                *self.staged.lock().unwrap() = Some(Staged { path, version });
+                UpdateSnapshot {
+                    state: UpdateState::Ready,
+                    error: None,
+                    ..self.base_snapshot()
+                }
+            }
+            Some(Err(error)) => self.fail(&error),
         };
         *self.snapshot.lock().unwrap() = settled.clone();
         *active = None;

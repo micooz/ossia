@@ -126,7 +126,7 @@ async fn cancelling_stalled_downloads_cleans_up_and_allows_switching_source() {
                 .set_read_timeout(Some(Duration::from_secs(3)))
                 .unwrap();
             let mut request = [0; 4096];
-            stream.read(&mut request).unwrap();
+            assert!(stream.read(&mut request).unwrap() > 0);
             if send_headers {
                 stream
                     .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 1024\r\n\r\npartial")
