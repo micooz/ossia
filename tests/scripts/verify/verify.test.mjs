@@ -66,3 +66,10 @@ test('passes selected case IDs to every suite', async () => {
       [['first', 'second']],
     );
 });
+
+test('can run the playback suites separately from Jianpu', async () => {
+  assert.equal(await runVerification([], { jianpu: false }), 0);
+  assert.equal(runJianpuCases.mock.calls.length, 0);
+  for (const suite of [runPlaybackCases, runAuditionCases, runSelectionCases])
+    assert.equal(suite.mock.calls.length, 1);
+});

@@ -8,8 +8,8 @@ import { fixtureRenderer, fixtures } from './render-fixture.mjs';
 import { runSelectionCases } from './selection-cases.mjs';
 
 /** Run the full verification suite or select playback cases by ID. */
-export async function runVerification(ids = []) {
-  if (!ids.length) {
+export async function runVerification(ids = [], { jianpu = true } = {}) {
+  if (!ids.length && jianpu) {
     console.log('Verifying Jianpu fixtures');
     const start = performance.now();
     const status = await runJianpuCases();
@@ -38,5 +38,10 @@ export async function runVerification(ids = []) {
   return 0;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
-  process.exitCode = await runVerification(process.argv.slice(2));
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = process.argv.slice(2);
+  process.exitCode = await runVerification(
+    args.filter((arg) => arg !== '--skip-jianpu'),
+    { jianpu: !args.includes('--skip-jianpu') },
+  );
+}

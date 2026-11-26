@@ -129,8 +129,30 @@ jobs:
             target/debug
           key: ${{ steps.check-cache.outputs.cache-primary-key }}
 
+  verify-jianpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@1.91.0
+      - uses: pnpm/setup@v3.1.2
+        with:
+          version: 12.4.1
+          runtime: node@24
+          cache: true
+          install: false
+      - run: pnpm install --frozen-lockfile
+      - name: Install locked engine
+        run: pnpm engine:install
+      - name: Verify Jianpu fixtures
+        run: pnpm verify:jianpu
+
   verify:
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
@@ -145,12 +167,12 @@ jobs:
       - name: Install locked engine
         run: pnpm engine:install
       - name: Verify fixtures
-        run: pnpm verify
+        run: pnpm verify --skip-jianpu
         env:
           OSSIA_AUDITION_OUTPUT: ${{ runner.temp }}/audition-fixtures.json
       - uses: actions/upload-artifact@v7.0.2
         with:
-          name: audition-fixtures
+          name: audition-fixtures-${{ matrix.os }}
           path: ${{ runner.temp }}/audition-fixtures.json
           if-no-files-found: error
           retention-days: 1
@@ -177,7 +199,7 @@ jobs:
         run: pnpm --filter @ossia/ui exec playwright install --with-deps chrome
       - uses: actions/download-artifact@v8.0.2
         with:
-          name: audition-fixtures
+          name: audition-fixtures-ubuntu-latest
           path: ${{ runner.temp }}
       - name: Verify audition fixtures
         run: pnpm --filter @ossia/ui exec playwright test --project=browser --reporter=list tests/score/audition-fixture.browser.spec.ts --shard=${{ matrix.shard }}/4

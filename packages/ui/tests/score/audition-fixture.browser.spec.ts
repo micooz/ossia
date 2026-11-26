@@ -140,198 +140,200 @@ for (const fixture of fixtures) {
     });
   }
 
-  test(`${fixture.id}: real noteheads click individually, arrows visit each group, Alt combines attacks`, async ({
-    context,
-    page,
-  }) => {
-    test.setTimeout(900_000);
-    const { timeline, geometry } = await openFixture(context, page, fixture);
-    await page.evaluate(
-      async (modulePath) => {
-        const { scoreAudio } = await import(modulePath);
-        const play = scoreAudio.play.bind(scoreAudio);
-        const calls: number[][] = [];
-        Reflect.set(window, 'auditionCalls', calls);
-        scoreAudio.play = async (
-          pitches: number[],
-          start: number,
-          duration: number,
-          instrument: string,
-        ) => {
-          calls.push([...pitches]);
-          await play(pitches, start, duration, instrument);
-        };
-      },
-      await audioModuleUrl(page),
-    );
-    for (const scorePage of geometry.pages) {
-      await showPage(page, scorePage.page);
-      const playable = scorePage.elements.filter(
-        (element) =>
-          ['NoteHead', 'TabNoteHead', 'Rest', 'MultiMeasureRest'].includes(
-            element.region.elementKind ?? '',
-          ) &&
-          element.region.target.kind === 'element' &&
-          timeline.groups.some(
+  for (const scorePage of fixture.geometry.pages) {
+    test(`${fixture.id}: page ${scorePage.page} noteheads, arrows and Alt audition`, async ({
+      context,
+      page,
+    }) => {
+      test.setTimeout(900_000);
+      const { timeline } = await openFixture(context, page, fixture);
+      await page.evaluate(
+        async (modulePath) => {
+          const { scoreAudio } = await import(modulePath);
+          const play = scoreAudio.play.bind(scoreAudio);
+          const calls: number[][] = [];
+          Reflect.set(window, 'auditionCalls', calls);
+          scoreAudio.play = async (
+            pitches: number[],
+            start: number,
+            duration: number,
+            instrument: string,
+          ) => {
+            calls.push([...pitches]);
+            await play(pitches, start, duration, instrument);
+          };
+        },
+        await audioModuleUrl(page),
+      );
+      {
+        await showPage(page, scorePage.page);
+        const playable = scorePage.elements.filter(
+          (element) =>
+            ['NoteHead', 'TabNoteHead', 'Rest', 'MultiMeasureRest'].includes(
+              element.region.elementKind ?? '',
+            ) &&
+            element.region.target.kind === 'element' &&
+            timeline.groups.some(
+              (group) =>
+                element.region.target.kind === 'element' &&
+                group.elementIds.includes(element.region.target.elementId),
+            ),
+        );
+        const heads = scorePage.elements.filter((element) =>
+          ['NoteHead', 'TabNoteHead'].includes(element.region.elementKind ?? ''),
+        );
+        expect(playable.length).toBeGreaterThan(0);
+        const groupFor = (element: GeometryElement) =>
+          timeline.groups.find(
             (group) =>
               element.region.target.kind === 'element' &&
               group.elementIds.includes(element.region.target.elementId),
-          ),
-      );
-      const heads = scorePage.elements.filter((element) =>
-        ['NoteHead', 'TabNoteHead'].includes(element.region.elementKind ?? ''),
-      );
-      expect(playable.length).toBeGreaterThan(0);
-      const groupFor = (element: GeometryElement) =>
-        timeline.groups.find(
-          (group) =>
-            element.region.target.kind === 'element' &&
-            group.elementIds.includes(element.region.target.elementId),
-        )!;
-      const reset = () => page.evaluate(() => Reflect.get(window, 'auditionCalls').splice(0));
-      const sounds = () =>
-        page.evaluate(() =>
-          (Reflect.get(window, 'auditionCalls') as number[][]).flat().sort((a, b) => a - b),
-        );
-      const click = async (element: GeometryElement, alt = false) => {
-        const points = [element.bounds, ...element.hitBounds].flatMap((bounds) =>
-          [0.25, 0.5, 0.75].flatMap((x) =>
-            [0.25, 0.5, 0.75].map((y) => ({
-              x: bounds.x0 + (bounds.x1 - bounds.x0) * x,
-              y: bounds.y0 + (bounds.y1 - bounds.y0) * y,
-            })),
-          ),
-        );
-        const point =
-          points.find((p) => {
-            return hitElement(scorePage, p.x, p.y) === element;
-          }) ?? points[4]!;
-        const overlay = page.locator(`[data-page="${scorePage.page}"] .overlay`);
-        const box = (await overlay.boundingBox())!;
-        const view = scorePage.viewBox!;
-        const viewport = (await page.locator('.score-scroll').boundingBox())!;
-        const targetY = box.y + ((point.y - view.y0) / (view.y1 - view.y0)) * box.height;
-        if (targetY < viewport.y + 32 || targetY > viewport.y + viewport.height - 32) {
-          await page
-            .locator('.score-scroll')
-            .dispatchEvent('wheel', { deltaY: targetY - viewport.y - viewport.height / 2 });
-          await expect
-            .poll(async () => {
-              const current = (await overlay.boundingBox())!;
-              return current.y + ((point.y - view.y0) / (view.y1 - view.y0)) * current.height;
-            })
-            .toBeCloseTo(viewport.y + viewport.height / 2, 0);
-        }
-        // The browser can round a fractional click outside a stem's hit region.
-        const pixels = await overlay.evaluate(
-          (node, points) => {
-            if (!(node instanceof SVGSVGElement)) throw new Error('Missing score overlay');
-            const transform = node.getScreenCTM()!;
-            const inverse = transform.inverse();
-            return points.flatMap((point) => {
-              const screen = new DOMPoint(point.x, point.y).matrixTransform(transform);
-              return [Math.floor(screen.x), Math.ceil(screen.x)].flatMap((x) =>
-                [Math.floor(screen.y), Math.ceil(screen.y)].map((y) => {
-                  const score = new DOMPoint(x, y).matrixTransform(inverse);
-                  return { x, y, scoreX: score.x, scoreY: score.y };
-                }),
+          )!;
+        const reset = () => page.evaluate(() => Reflect.get(window, 'auditionCalls').splice(0));
+        const sounds = () =>
+          page.evaluate(() =>
+            (Reflect.get(window, 'auditionCalls') as number[][]).flat().sort((a, b) => a - b),
+          );
+        const click = async (element: GeometryElement, alt = false) => {
+          const points = [element.bounds, ...element.hitBounds].flatMap((bounds) =>
+            [0.25, 0.5, 0.75].flatMap((x) =>
+              [0.25, 0.5, 0.75].map((y) => ({
+                x: bounds.x0 + (bounds.x1 - bounds.x0) * x,
+                y: bounds.y0 + (bounds.y1 - bounds.y0) * y,
+              })),
+            ),
+          );
+          const point =
+            points.find((p) => {
+              return hitElement(scorePage, p.x, p.y) === element;
+            }) ?? points[4]!;
+          const overlay = page.locator(`[data-page="${scorePage.page}"] .overlay`);
+          const box = (await overlay.boundingBox())!;
+          const view = scorePage.viewBox!;
+          const viewport = (await page.locator('.score-scroll').boundingBox())!;
+          const targetY = box.y + ((point.y - view.y0) / (view.y1 - view.y0)) * box.height;
+          if (targetY < viewport.y + 32 || targetY > viewport.y + viewport.height - 32) {
+            await page
+              .locator('.score-scroll')
+              .dispatchEvent('wheel', { deltaY: targetY - viewport.y - viewport.height / 2 });
+            await expect
+              .poll(async () => {
+                const current = (await overlay.boundingBox())!;
+                return current.y + ((point.y - view.y0) / (view.y1 - view.y0)) * current.height;
+              })
+              .toBeCloseTo(viewport.y + viewport.height / 2, 0);
+          }
+          // The browser can round a fractional click outside a stem's hit region.
+          const pixels = await overlay.evaluate(
+            (node, points) => {
+              if (!(node instanceof SVGSVGElement)) throw new Error('Missing score overlay');
+              const transform = node.getScreenCTM()!;
+              const inverse = transform.inverse();
+              return points.flatMap((point) => {
+                const screen = new DOMPoint(point.x, point.y).matrixTransform(transform);
+                return [Math.floor(screen.x), Math.ceil(screen.x)].flatMap((x) =>
+                  [Math.floor(screen.y), Math.ceil(screen.y)].map((y) => {
+                    const score = new DOMPoint(x, y).matrixTransform(inverse);
+                    return { x, y, scoreX: score.x, scoreY: score.y };
+                  }),
+                );
+              });
+            },
+            [point, ...points],
+          );
+          const targets = pixels.map((pixel) => ({
+            ...pixel,
+            hit: hitElement(scorePage, pixel.scoreX, pixel.scoreY),
+          }));
+          const target =
+            targets.find(({ hit }) => hit === element) ??
+            targets.find(({ hit }) => {
+              if (!hit || !heads.includes(hit) || !heads.includes(element)) return false;
+              const { x0, x1, y0, y1 } = element.bounds;
+              return (
+                hit.bounds.x0 === x0 &&
+                hit.bounds.x1 === x1 &&
+                hit.bounds.y0 === y0 &&
+                hit.bounds.y1 === y1 &&
+                groupFor(hit).startSeconds === groupFor(element).startSeconds &&
+                groupFor(hit).pitches[0] === groupFor(element).pitches[0]
               );
             });
-          },
-          [point, ...points],
-        );
-        const targets = pixels.map((pixel) => ({
-          ...pixel,
-          hit: hitElement(scorePage, pixel.scoreX, pixel.scoreY),
-        }));
-        const target =
-          targets.find(({ hit }) => hit === element) ??
-          targets.find(({ hit }) => {
-            if (!hit || !heads.includes(hit) || !heads.includes(element)) return false;
-            const { x0, x1, y0, y1 } = element.bounds;
-            return (
-              hit.bounds.x0 === x0 &&
-              hit.bounds.x1 === x1 &&
-              hit.bounds.y0 === y0 &&
-              hit.bounds.y1 === y1 &&
-              groupFor(hit).startSeconds === groupFor(element).startSeconds &&
-              groupFor(hit).pitches[0] === groupFor(element).pitches[0]
-            );
-          });
-        expect(target, `Clickable pixel for ${element.region.label}`).toBeDefined();
-        if (alt) await page.keyboard.down('Alt');
-        try {
-          await page.mouse.click(target!.x, target!.y);
-        } finally {
-          if (alt) await page.keyboard.up('Alt');
-        }
-        return target!.hit!;
-      };
-      const assertGroup = async (
-        group: ScorePlayback['groups'][number],
-        clicked?: GeometryElement,
-      ) => {
-        const element =
-          clicked ??
-          playable.find(
-            (element) =>
-              element.region.target.kind === 'element' &&
-              group.elementIds.includes(element.region.target.elementId),
-          )!;
-        await expect(
-          page
-            .locator(
-              `[data-page="${scorePage.page}"] [data-ossia-graphic="${element.graphicIds[0]}"].playback-active`,
-            )
-            .first(),
-        ).toBeAttached();
-        await expect
-          .poll(sounds, { message: element.region.label })
-          .toEqual([...group.pitches].sort((a, b) => a - b));
-      };
-      for (const head of heads) {
-        await reset();
-        const selected = await click(head);
-        expect(groupFor(selected).pitches).toEqual(groupFor(head).pitches);
-        expect(groupFor(selected).startSeconds).toEqual(groupFor(head).startSeconds);
-        await assertGroup(groupFor(head), selected);
-      }
-      const visited = new Set<string>();
-      for (const head of playable) {
-        const anchor = groupFor(head);
-        const key = `${anchor.staffIndex}:${anchor.voice}`;
-        if (visited.has(key)) continue;
-        visited.add(key);
-        const sequence = timeline.groups.filter((group) => sameVoice(group, anchor));
-        const visible = new Set(playable.map(groupFor));
-        const first = sequence.findIndex((group) => visible.has(group));
-        const startHead = playable.find((element) => groupFor(element) === sequence[first])!;
-        await click(startHead);
-        let last = first;
-        for (let i = first + 1; i < sequence.length && visible.has(sequence[i]!); i++) {
+          expect(target, `Clickable pixel for ${element.region.label}`).toBeDefined();
+          if (alt) await page.keyboard.down('Alt');
+          try {
+            await page.mouse.click(target!.x, target!.y);
+          } finally {
+            if (alt) await page.keyboard.up('Alt');
+          }
+          return target!.hit!;
+        };
+        const assertGroup = async (
+          group: ScorePlayback['groups'][number],
+          clicked?: GeometryElement,
+        ) => {
+          const element =
+            clicked ??
+            playable.find(
+              (element) =>
+                element.region.target.kind === 'element' &&
+                group.elementIds.includes(element.region.target.elementId),
+            )!;
+          await expect(
+            page
+              .locator(
+                `[data-page="${scorePage.page}"] [data-ossia-graphic="${element.graphicIds[0]}"].playback-active`,
+              )
+              .first(),
+          ).toBeAttached();
+          await expect
+            .poll(sounds, { message: element.region.label })
+            .toEqual([...group.pitches].sort((a, b) => a - b));
+        };
+        for (const head of heads) {
           await reset();
-          await page.keyboard.press('ArrowRight');
-          await assertGroup(sequence[i]!);
-          last = i;
+          const selected = await click(head);
+          expect(groupFor(selected).pitches).toEqual(groupFor(head).pitches);
+          expect(groupFor(selected).startSeconds).toEqual(groupFor(head).startSeconds);
+          await assertGroup(groupFor(head), selected);
         }
-        for (let i = last - 1; i >= first; i--) {
+        const visited = new Set<string>();
+        for (const head of playable) {
+          const anchor = groupFor(head);
+          const key = `${anchor.staffIndex}:${anchor.voice}`;
+          if (visited.has(key)) continue;
+          visited.add(key);
+          const sequence = timeline.groups.filter((group) => sameVoice(group, anchor));
+          const visible = new Set(playable.map(groupFor));
+          const first = sequence.findIndex((group) => visible.has(group));
+          const startHead = playable.find((element) => groupFor(element) === sequence[first])!;
+          await click(startHead);
+          let last = first;
+          for (let i = first + 1; i < sequence.length && visible.has(sequence[i]!); i++) {
+            await reset();
+            await page.keyboard.press('ArrowRight');
+            await assertGroup(sequence[i]!);
+            last = i;
+          }
+          for (let i = last - 1; i >= first; i--) {
+            await reset();
+            await page.keyboard.press('ArrowLeft');
+            await assertGroup(sequence[i]!);
+          }
+        }
+        const onsets = new Set<number>();
+        for (const head of heads) {
+          const group = groupFor(head);
+          if (group.startSeconds === null || onsets.has(group.startSeconds)) continue;
+          onsets.add(group.startSeconds);
+          const expected = group.pitches.length ? fixture.auditionAttacks[group.startSeconds] : [];
           await reset();
-          await page.keyboard.press('ArrowLeft');
-          await assertGroup(sequence[i]!);
+          await click(head, true);
+          await expect.poll(sounds, { message: `Alt at ${group.startSeconds}` }).toEqual(expected);
         }
       }
-      const onsets = new Set<number>();
-      for (const head of heads) {
-        const group = groupFor(head);
-        if (group.startSeconds === null || onsets.has(group.startSeconds)) continue;
-        onsets.add(group.startSeconds);
-        const expected = group.pitches.length ? fixture.auditionAttacks[group.startSeconds] : [];
-        await reset();
-        await click(head, true);
-        await expect.poll(sounds, { message: `Alt at ${group.startSeconds}` }).toEqual(expected);
-      }
-    }
-  });
+    });
+  }
 
   test(`${fixture.id}: playhead visits every onset on every page`, async ({ context, page }) => {
     test.setTimeout(180_000);
