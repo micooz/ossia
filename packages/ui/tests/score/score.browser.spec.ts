@@ -71,6 +71,44 @@ test('score page focuses on one document, all pages and its title', async ({ con
   ).toBe('#1c1c20');
 });
 
+test('language settings synchronize across score tabs and survive reload', async ({
+  context,
+  page,
+}) => {
+  const runtime = await mockScoreRuntime(context, { language: 'zh-CN' });
+  const other = await context.newPage();
+  await Promise.all([
+    page.goto(`/scores?documentId=${firstId}`),
+    other.goto(`/scores?documentId=${secondId}`),
+  ]);
+  await expect(other.getByRole('button', { name: '乐谱设置' })).toBeVisible();
+  await page.getByRole('button', { name: '乐谱设置' }).click();
+  const dialog = page.getByRole('dialog', { name: '乐谱设置' });
+  await dialog.getByLabel('界面语言').selectOption('en-US');
+  await expect(
+    page.getByRole('dialog', { name: 'Score settings' }).getByLabel('Interface language'),
+  ).toHaveValue('en-US');
+  await expect(other.getByRole('button', { name: 'Score settings' })).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en-US');
+  await other.reload();
+  await expect(other.getByRole('button', { name: 'Score settings' })).toBeVisible();
+  runtime.rejectLanguage(true);
+  await page
+    .getByRole('dialog', { name: 'Score settings' })
+    .getByLabel('Interface language')
+    .selectOption('zh-CN');
+  await expect(
+    page.getByRole('dialog', { name: 'Score settings' }).getByLabel('Interface language'),
+  ).toHaveValue('en-US');
+  await expect(page.locator('.toast.is-error')).toBeVisible();
+  runtime.rejectLanguage(false);
+  await page
+    .getByRole('dialog', { name: 'Score settings' })
+    .getByLabel('Interface language')
+    .selectOption('zh-CN');
+  await expect(other.getByRole('button', { name: '乐谱设置' })).toBeVisible();
+});
+
 test('score page loads without crypto.randomUUID on a LAN origin', async ({ context, page }) => {
   await mockScoreRuntime(context);
   await page.addInitScript(() => {

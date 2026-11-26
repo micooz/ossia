@@ -7,6 +7,52 @@ use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use serde_json::{json, Value};
 use std::{sync::Arc, time::Duration};
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn language_route_persists_and_broadcasts_only_valid_changes() {
+    let root = tempfile::tempdir().unwrap();
+    let mut initial = preferences::load(root.path()).unwrap();
+    initial.theme = UiTheme::Dark;
+    preferences::save(root.path(), &initial).unwrap();
+    let library = Library::open(root.path()).unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+    let runtime = Runtime::new(library, Arc::new(Engine::default()), base.clone());
+    let app = http::router(runtime.clone(), None, None, Vec::new());
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let client = reqwest::Client::new();
+    let before = runtime.agent_status().unwrap();
+    assert_eq!(
+        client
+            .put(format!("{base}/api/v1/ui-language"))
+            .json(&json!({"language":"zh-CN"}))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+    let saved = preferences::load(root.path()).unwrap();
+    assert_eq!(saved.language, Some(UiLanguage::ZhCn));
+    assert_eq!(saved.theme, UiTheme::Dark);
+    assert_eq!(runtime.ui_language(), saved.language);
+    let events = runtime
+        .events(None, &before.instance_id, before.seq)
+        .unwrap();
+    assert!(events
+        .iter()
+        .any(|event| event.r#type == "ui-language-changed"));
+    assert!(!client
+        .put(format!("{base}/api/v1/ui-language"))
+        .json(&json!({"language":"invalid"}))
+        .send()
+        .await
+        .unwrap()
+        .status()
+        .is_success());
+    assert_eq!(runtime.ui_language(), Some(UiLanguage::ZhCn));
+    server.abort();
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn http_document_routes_support_localhost_without_tokens_or_views() {
     let root = tempfile::tempdir().unwrap();

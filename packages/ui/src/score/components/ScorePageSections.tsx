@@ -136,7 +136,12 @@ export function ScorePageHeader({
         )}
         {doc && !notFound && <ScoreQrCode webBaseUrl={webBaseUrl} documentId={doc.documentId} />}
         {doc && !notFound && (
-          <ScoreSettingsDialog settings={scoreSettings} parts={playbackParts} onError={onError} />
+          <ScoreSettingsDialog
+            api={api}
+            settings={scoreSettings}
+            parts={playbackParts}
+            onError={onError}
+          />
         )}
         <ScoreHelpDialog />
       </div>

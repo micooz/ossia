@@ -195,6 +195,7 @@ pub(crate) async fn update_token_set(
         .filter(|token| !token.is_empty())
         .map(preference_store::normalize_github_token)
         .transpose()?;
+    let _file_guard = preference_store::lock(&config.home)?;
     let preferences_lock = state.preferences_lock.clone();
     let _guard = preferences_lock
         .lock()

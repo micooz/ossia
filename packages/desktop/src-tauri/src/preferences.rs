@@ -6,6 +6,7 @@ use tauri_plugin_autostart::ManagerExt;
 
 /// Load preferences and seed the language from the operating system on first launch.
 pub fn initialize(config: &server::Config) -> Result<UiPreferences> {
+    let _guard = ossia_backend::preferences::lock(&config.home)?;
     let mut preferences = ossia_backend::preferences::load(&config.home)?;
     if preferences.language.is_none() {
         preferences.language = Some(system_language());

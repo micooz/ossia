@@ -315,10 +315,13 @@ pub fn dispatch(runtime: &Runtime, method: &str, params: Value) -> Result<Value>
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase", deny_unknown_fields)]
             struct LanguageChange {
-                language: Option<UiLanguage>,
+                #[serde(rename = "language")]
+                _language: Option<UiLanguage>,
             }
-            let change: LanguageChange = decode(params)?;
-            runtime.set_ui_language(change.language);
+            let _: LanguageChange = decode(params)?;
+            let _guard = preferences::lock(runtime.library.home())?;
+            let current = preferences::load(runtime.library.home())?;
+            runtime.set_ui_language(current.language);
             value(runtime.ui_language())
         }
         "watch-parent" => {

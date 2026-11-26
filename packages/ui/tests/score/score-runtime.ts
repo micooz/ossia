@@ -145,6 +145,8 @@ export async function mockScoreRuntime(
     delays?: { status?: number; context?: number; documents?: number; versionRender?: number };
   } = {},
 ) {
+  let language = options.language ?? null;
+  let rejectLanguage = false;
   let seq = 1;
   let loseEvents = false;
   let rejectSelection = false;
@@ -273,6 +275,13 @@ export async function mockScoreRuntime(
           .join('');
       return route.fulfill({ contentType: 'text/event-stream', body });
     }
+    if (path === '/ui-language' && req.method() === 'PUT') {
+      if (rejectLanguage)
+        return reply({ error: { code: 'storage-error', message: 'save failed' } }, 500);
+      language = payload.language;
+      emit('ui-language-changed', firstId, { language });
+      return reply(language);
+    }
     if (path === '/status') {
       const status = {
         runtime: {
@@ -290,7 +299,7 @@ export async function mockScoreRuntime(
         seq,
         jobs: activeJobs,
         documentation: { available: true, version: '2.26.0', root: '/synthetic/docs', error: null },
-        language: options.language ?? null,
+        language,
       };
       if (options.delays?.status)
         await new Promise((resolve) => setTimeout(resolve, options.delays?.status));
@@ -533,6 +542,9 @@ export async function mockScoreRuntime(
     selections,
     drawings,
     scoreSettings,
+    rejectLanguage: (reject: boolean) => {
+      rejectLanguage = reject;
+    },
     states,
     emit,
     pauseEvents: () => {

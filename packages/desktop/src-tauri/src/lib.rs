@@ -129,6 +129,29 @@ async fn notify_runtime_language(
     Ok(())
 }
 
+fn watch_language(app: tauri::AppHandle, config: server::Config, initial: UiLanguage) {
+    tauri::async_runtime::spawn(async move {
+        let mut applied = initial;
+        loop {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            let Ok(current) = ossia_backend::preferences::load(&config.home) else {
+                continue;
+            };
+            let language = preferences::language(&current);
+            if applied == language {
+                continue;
+            }
+            if tray::apply(&app, language, current.tray_click_action).is_err()
+                || window::set_language(&app, language).is_err()
+            {
+                continue;
+            }
+            applied = language;
+            let _ = app.emit("ui-language-changed", language);
+        }
+    });
+}
+
 fn start_runtime(app: tauri::AppHandle, config: Result<server::Config>, management: Management) {
     tauri::async_runtime::spawn(async move {
         let _guard = management.runtime_lock.lock().await;
@@ -263,7 +286,11 @@ async fn management_preferences_change(
     change: ManagementPreferencesChange,
 ) -> Result<ManagementPreferences> {
     let config = config(&state)?;
-    if cfg!(target_os = "linux") && change.tray_click_action != TrayClickAction::Menu {
+    if cfg!(target_os = "linux")
+        && change
+            .tray_click_action
+            .is_some_and(|action| action != TrayClickAction::Menu)
+    {
         return Err(AppError::new(
             ErrorCode::InvalidInput,
             "changing the tray click action is unsupported on Linux",
@@ -271,13 +298,17 @@ async fn management_preferences_change(
     }
     let runtime_guard = state.runtime_lock.lock().await;
     let preferences_lock = state.preferences_lock.clone();
+    let file_guard = ossia_backend::preferences::lock(&config.home)?;
     let previous = {
         let _guard = preferences_lock
             .lock()
             .map_err(|_| storage("preferences lock is poisoned"))?;
         ossia_backend::preferences::load(&config.home)?
     };
-    if previous.update_source != change.update_source {
+    if change
+        .update_source
+        .is_some_and(|source| previous.update_source != source)
+    {
         if let Some(service) = &state.update {
             if service.is_in_flight() {
                 return Err(AppError::new(
@@ -288,16 +319,22 @@ async fn management_preferences_change(
         }
     }
     let next = UiPreferences {
-        theme: change.theme,
-        language: change.language,
-        tray_click_action: change.tray_click_action,
-        startup_action: change.startup_action,
-        storage_cache_limit: change.storage_cache_limit,
-        storage_auto_cleanup: change.storage_auto_cleanup,
-        lan_access: change.lan_access,
-        auto_download: change.auto_download,
-        update_channel: change.update_channel,
-        update_source: change.update_source,
+        theme: change.theme.unwrap_or(previous.theme),
+        language: change.language.or(previous.language),
+        tray_click_action: change
+            .tray_click_action
+            .unwrap_or(previous.tray_click_action),
+        startup_action: change.startup_action.unwrap_or(previous.startup_action),
+        storage_cache_limit: change
+            .storage_cache_limit
+            .unwrap_or(previous.storage_cache_limit),
+        storage_auto_cleanup: change
+            .storage_auto_cleanup
+            .unwrap_or(previous.storage_auto_cleanup),
+        lan_access: change.lan_access.unwrap_or(previous.lan_access),
+        auto_download: change.auto_download.unwrap_or(previous.auto_download),
+        update_channel: change.update_channel.unwrap_or(previous.update_channel),
+        update_source: change.update_source.unwrap_or(previous.update_source),
         github_token: previous.github_token.clone(),
         omr_service: previous.omr_service,
         omr_url: previous.omr_url.clone(),
@@ -374,6 +411,7 @@ async fn management_preferences_change(
             service.set_source(next.update_source);
         }
     }
+    drop(file_guard);
     drop(runtime_guard);
     if previous.language != next.language {
         if let Err(error) = notify_runtime_language(&config, next.language).await {
@@ -404,6 +442,7 @@ async fn management_omr_settings_set(
             "clearToken and token are mutually exclusive",
         ));
     }
+    let _file_guard = ossia_backend::preferences::lock(&config.home)?;
     let preferences_lock = state.preferences_lock.clone();
     let _guard = preferences_lock
         .lock()
@@ -590,6 +629,9 @@ pub fn run(config: Result<server::Config>, show_main_window: bool) {
                 language,
             )?;
             tray::install(app.handle(), language, preferences.tray_click_action)?;
+            if let Ok(config) = config.clone() {
+                watch_language(app.handle().clone(), config, language);
+            }
             update::runtime::start_update_schedule(app.handle().clone(), management.clone());
 
             let handle = app.handle().clone();

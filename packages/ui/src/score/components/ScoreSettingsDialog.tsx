@@ -1,10 +1,11 @@
 import { Settings } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import type { PlaybackPart, SampleInstrument } from '../../generated/protocol.ts';
+import type { PlaybackPart, SampleInstrument, UiLanguage } from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
 import type { MessageKey } from '../../i18n.tsx';
 import type { useScoreSettings } from '../hooks/useScoreSettings.ts';
+import type { Api } from '../utils/api.ts';
 import { SharedDialog } from './SharedDialog.tsx';
 
 const names: Record<SampleInstrument, MessageKey> = {
@@ -17,17 +18,20 @@ const instruments = Object.keys(names) as SampleInstrument[];
 
 /** Score-wide settings; individual sections can be added without changing the entry point. */
 export function ScoreSettingsDialog({
+  api,
   settings,
   parts,
   onError,
 }: {
+  api: Api;
   settings: ReturnType<typeof useScoreSettings>;
   parts: PlaybackPart[] | null;
   onError: (error: unknown) => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const controlsId = useId();
   const [saving, setSaving] = useState(false);
+  const [savingLanguage, setSavingLanguage] = useState(false);
   const partName = (part: PlaybackPart, index: number) => {
     const instrument = instruments.find((value) => value === part.name.toLowerCase());
     return instrument
@@ -42,6 +46,28 @@ export function ScoreSettingsDialog({
       triggerClassName="topbar-action"
       className="score-settings-dialog"
     >
+      <section className="shared-dialog-group">
+        <h3>{t('appearance')}</h3>
+        <div className="score-settings-language">
+          <label htmlFor={`${controlsId}-language`}>{t('interfaceLanguage')}</label>
+          <select
+            id={`${controlsId}-language`}
+            value={language}
+            disabled={savingLanguage}
+            onChange={(event) => {
+              const next = event.currentTarget.value as UiLanguage;
+              setSavingLanguage(true);
+              void api
+                .setLanguage(next)
+                .catch(onError)
+                .finally(() => setSavingLanguage(false));
+            }}
+          >
+            <option value="en-US">English</option>
+            <option value="zh-CN">简体中文</option>
+          </select>
+        </div>
+      </section>
       <section className="shared-dialog-group">
         <h3>{t('scoreSettingsPlayback')}</h3>
         {parts === null ? (

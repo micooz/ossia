@@ -11,6 +11,7 @@ export const enUS = {
   versionMenu: 'Version',
   currentVersion: 'Version {seq} (current)',
   language: 'Language',
+  interfaceLanguage: 'Interface language',
   theme: 'Color theme',
   system: 'System',
   light: 'Light',

@@ -23,6 +23,19 @@ test('startup behavior is saved alongside other preferences', async ({ page }) =
   );
 });
 
+test('external language changes update management settings', async ({ page }) => {
+  await mockManagement(page);
+  await page.goto('/main.html');
+  await page.getByRole('button', { name: '常规', exact: true }).click();
+  await page.evaluate(() =>
+    (window as Window & { emitLanguage?: (language: string) => void }).emitLanguage?.('en-US'),
+  );
+  await expect(page.getByLabel('Language')).toHaveValue('en-US');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en-US');
+  await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: 'Light' }).click();
+  await expect(page.getByLabel('Language')).toHaveValue('en-US');
+});
+
 test('management descriptions wrap while controls stay on one row', async ({ page }, testInfo) => {
   await mockManagement(page);
   await page.goto('/main.html');

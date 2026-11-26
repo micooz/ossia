@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ArrowUpCircle, Bot, Info, Library, Settings, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 
 import type { ToastKind } from '../components/Toast.tsx';
 import { describe } from '../errors.ts';
@@ -40,7 +41,7 @@ import type { Page } from './types.ts';
 interface MainContentProps {
   native: boolean;
   preferences: ManagementPreferences | null;
-  setPreferences: (preferences: ManagementPreferences) => void;
+  setPreferences: Dispatch<SetStateAction<ManagementPreferences | null>>;
   notify: (message: string, kind?: ToastKind) => void;
 }
 
@@ -187,23 +188,45 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
     try {
       const saved = await invoke<ManagementPreferences>('management_preferences_change', {
         change: {
-          theme: next.theme,
-          language: next.language,
-          trayClickAction: next.trayClickAction,
-          startupAction: next.startupAction,
-          storageCacheLimit: next.storageCacheLimit,
-          storageAutoCleanup: next.storageAutoCleanup,
-          lanAccess: next.lanAccess,
-          autoDownload: next.autoDownload,
-          updateChannel: next.updateChannelPreference,
-          updateSource: next.updateSource,
+          ...(previous.theme !== next.theme && { theme: next.theme }),
+          ...(previous.language !== next.language && next.language && { language: next.language }),
+          ...(previous.trayClickAction !== next.trayClickAction && {
+            trayClickAction: next.trayClickAction,
+          }),
+          ...(previous.startupAction !== next.startupAction && {
+            startupAction: next.startupAction,
+          }),
+          ...(previous.storageCacheLimit !== next.storageCacheLimit && {
+            storageCacheLimit: next.storageCacheLimit,
+          }),
+          ...(previous.storageAutoCleanup !== next.storageAutoCleanup && {
+            storageAutoCleanup: next.storageAutoCleanup,
+          }),
+          ...(previous.lanAccess !== next.lanAccess && { lanAccess: next.lanAccess }),
+          ...(previous.autoDownload !== next.autoDownload && { autoDownload: next.autoDownload }),
+          ...(previous.updateChannelPreference !== next.updateChannelPreference && {
+            updateChannel: next.updateChannelPreference,
+          }),
+          ...(previous.updateSource !== next.updateSource && { updateSource: next.updateSource }),
         } satisfies ManagementPreferencesChange,
       });
-      setPreferences(saved);
+      setPreferences(
+        (current) =>
+          current && {
+            ...saved,
+            language: current.language !== next.language ? current.language : saved.language,
+          },
+      );
       if (previous.lanAccess !== saved.lanAccess) await refreshStatus();
       return true;
     } catch (caught) {
-      setPreferences(previous);
+      setPreferences(
+        (current) =>
+          current && {
+            ...previous,
+            language: current.language !== next.language ? current.language : previous.language,
+          },
+      );
       notify(`${t('saveFailed')}: ${describe(caught)}`, 'error');
       return false;
     } finally {
@@ -242,7 +265,7 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
     setPreferencesBusy(true);
     try {
       const launchAtLogin = await invoke<boolean>('management_autostart_set', { enabled });
-      setPreferences({ ...preferences, launchAtLogin });
+      setPreferences((current) => current && { ...current, launchAtLogin });
     } catch (caught) {
       notify(`${t('startupFailed')}: ${describe(caught)}`, 'error');
     } finally {
@@ -335,7 +358,14 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
     if (!native) return false;
     try {
       const saved = await invoke<ManagementPreferences>('update_token_set', { token });
-      setPreferences(saved);
+      setPreferences(
+        (current) =>
+          current && {
+            ...saved,
+            language:
+              current.language !== preferences?.language ? current.language : saved.language,
+          },
+      );
       return true;
     } catch (caught) {
       notify(
@@ -353,7 +383,14 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
       const saved = await invoke<ManagementPreferences>('management_omr_settings_set', {
         change,
       });
-      setPreferences(saved);
+      setPreferences(
+        (current) =>
+          current && {
+            ...saved,
+            language:
+              current.language !== preferences?.language ? current.language : saved.language,
+          },
+      );
       return true;
     } catch (caught) {
       notify(`${t('omrSettingsSaveFailed')}: ${describe(caught)}`, 'error');
@@ -370,7 +407,14 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
       const saved = await invoke<ManagementPreferences>('management_omr_settings_set', {
         change: { service, url: null, token: null, clearUrl: false, clearToken: true },
       });
-      setPreferences(saved);
+      setPreferences(
+        (current) =>
+          current && {
+            ...saved,
+            language:
+              current.language !== preferences?.language ? current.language : saved.language,
+          },
+      );
       return true;
     } catch (caught) {
       notify(`${t('omrSettingsSaveFailed')}: ${describe(caught)}`, 'error');

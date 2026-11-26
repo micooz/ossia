@@ -1,10 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
-import { useEffect, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { ToastRegion, useToasts } from '../components/Toast.tsx';
 import { describe } from '../errors.ts';
-import type { ManagementPreferences, ManagementPreferencesChange } from '../generated/protocol.ts';
+import type { ManagementPreferences, UiLanguage } from '../generated/protocol.ts';
 import { I18nProvider, matchSystemLanguage } from '../i18n.tsx';
 import { MainContent } from './MainContent.tsx';
 import { platformName } from './types.ts';
@@ -20,6 +21,7 @@ function Main() {
   const detectedLanguage = matchSystemLanguage(navigator.languages);
   const toast = useToasts();
   const [preferences, setPreferences] = useState<ManagementPreferences | null>(null);
+  const latestLanguage = useRef<UiLanguage | null>(null);
 
   useEffect(() => {
     document.body.dataset.platform = !native ? 'browser' : platformName();
@@ -32,22 +34,15 @@ function Main() {
       .then(async (loaded) => {
         if (!loaded.language) {
           const initialized = await invoke<ManagementPreferences>('management_preferences_change', {
-            change: {
-              theme: loaded.theme,
-              language: detectedLanguage,
-              trayClickAction: loaded.trayClickAction,
-              startupAction: loaded.startupAction,
-              storageCacheLimit: loaded.storageCacheLimit,
-              storageAutoCleanup: loaded.storageAutoCleanup,
-              lanAccess: loaded.lanAccess,
-              autoDownload: loaded.autoDownload,
-              updateChannel: loaded.updateChannelPreference,
-              updateSource: loaded.updateSource,
-            } satisfies ManagementPreferencesChange,
+            change: { language: detectedLanguage },
           });
-          if (live) setPreferences(initialized);
+          if (live)
+            setPreferences({
+              ...initialized,
+              language: latestLanguage.current ?? initialized.language,
+            });
         } else if (live) {
-          setPreferences(loaded);
+          setPreferences({ ...loaded, language: latestLanguage.current ?? loaded.language });
         }
       })
       .catch((error) => {
@@ -57,6 +52,25 @@ function Main() {
       live = false;
     };
   }, [detectedLanguage, native]);
+
+  useEffect(() => {
+    if (!native) return;
+    let live = true;
+    let dispose: (() => void) | undefined;
+    void listen<UiLanguage>('ui-language-changed', (event) => {
+      if (live) {
+        latestLanguage.current = event.payload;
+        setPreferences((current) => current && { ...current, language: event.payload });
+      }
+    }).then((unlisten) => {
+      if (live) dispose = unlisten;
+      else unlisten();
+    });
+    return () => {
+      live = false;
+      dispose?.();
+    };
+  }, [native]);
 
   const theme = preferences?.theme ?? 'system';
   useEffect(() => {

@@ -313,6 +313,8 @@ export async function mockManagement(
       releaseNotesState?: UpdateSnapshot;
     };
     let callbackId = 0;
+    const callbacks = new Map<number, (event: unknown) => void>();
+    const eventHandlers = new Map<string, number>();
     let releaseAgentChange: (() => void) | null = null;
     const commands: string[] = [];
     const agentChanges: AgentsChange[] = [];
@@ -332,11 +334,17 @@ export async function mockManagement(
       outcomes.set(score.documentId, previewStates[score.documentId] ?? readyPreview);
     }
     const internals = {
-      transformCallback: () => ++callbackId,
+      transformCallback: (callback: (event: unknown) => void) => {
+        const id = ++callbackId;
+        callbacks.set(id, callback);
+        return id;
+      },
       invoke: async (
         command: string,
         args?: {
           token?: string | null;
+          event?: string;
+          handler?: number;
           change?: AgentsChange | ManagementPreferencesChange | OmrSettingsChange;
           args?: {
             limit?: number;
@@ -363,11 +371,13 @@ export async function mockManagement(
           openedLinks.push((args as { url?: string } | undefined)?.url ?? '');
           return null;
         }
-        if (command === 'management_preferences_change' && args?.change && 'theme' in args.change) {
+        if (command === 'management_preferences_change' && args?.change) {
+          const change = args.change as ManagementPreferencesChange;
           Object.assign(preferences, args.change);
-          preferences.updateSource = args.change.updateSource;
-          preferences.updateChannel = args.change.updateChannel === 'beta' ? 'beta' : 'stable';
-          preferences.updateChannelPreference = args.change.updateChannel;
+          if (change.updateChannel !== undefined) {
+            preferences.updateChannel = change.updateChannel === 'beta' ? 'beta' : 'stable';
+            preferences.updateChannelPreference = change.updateChannel;
+          }
           if (status.runtime) {
             status.runtime.webBaseUrl = preferences.lanAccess
               ? 'http://192.168.1.20:3212'
@@ -524,7 +534,10 @@ export async function mockManagement(
           openedScores.push(documentId);
           return null;
         }
-        if (command === 'plugin:event|listen') return 1;
+        if (command === 'plugin:event|listen') {
+          if (args?.event && args.handler) eventHandlers.set(args.event, args.handler);
+          return 1;
+        }
         if (command === 'plugin:event|unlisten') return null;
         throw new Error(`unexpected Tauri command: ${command}`);
       },
@@ -536,6 +549,7 @@ export async function mockManagement(
       scorePreviewCalls?: string[];
       openedScores?: string[];
       openedLinks?: string[];
+      emitLanguage?: (language: string) => void;
       setScores?: (scores: ManagementScoreSummary[]) => void;
       setScorePreview?: (documentId: string, outcome: ManagementScorePreview) => void;
       finishAgentDetection?: () => void;
@@ -543,6 +557,12 @@ export async function mockManagement(
       __TAURI_EVENT_PLUGIN_INTERNALS__?: {
         unregisterListener: () => void;
       };
+    };
+    ownWindow.emitLanguage = (language) => {
+      preferences.language = language as ManagementPreferences['language'];
+      const handler = eventHandlers.get('ui-language-changed');
+      if (handler)
+        callbacks.get(handler)?.({ event: 'ui-language-changed', id: 1, payload: language });
     };
     ownWindow.managementCommands = commands;
     ownWindow.managementAgentChanges = agentChanges;

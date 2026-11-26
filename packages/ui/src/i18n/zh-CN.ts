@@ -13,6 +13,7 @@ export const zhCN: Record<MessageKey, string> = {
   versionMenu: '版本',
   currentVersion: '版本 {seq}（当前）',
   language: '语言',
+  interfaceLanguage: '界面语言',
   theme: '颜色主题',
   system: '跟随系统',
   light: '浅色',

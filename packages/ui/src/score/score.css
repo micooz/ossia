@@ -1524,6 +1524,16 @@ code {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.score-settings-language {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding-block: 0.75rem;
+}
+.score-settings-language select {
+  width: 100%;
+}
 .score-settings-parts {
   grid-column: 1 / -1;
   width: 100%;

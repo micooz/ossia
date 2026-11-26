@@ -167,16 +167,36 @@ pub struct ManagementPreferences {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ManagementPreferencesChange {
-    pub theme: UiTheme,
+    #[serde(default)]
+    #[ts(optional)]
+    pub theme: Option<UiTheme>,
+    #[serde(default)]
+    #[ts(optional)]
     pub language: Option<UiLanguage>,
-    pub tray_click_action: TrayClickAction,
-    pub startup_action: StartupAction,
-    pub storage_cache_limit: StorageCacheLimit,
-    pub storage_auto_cleanup: bool,
-    pub lan_access: bool,
-    pub auto_download: bool,
-    pub update_channel: UpdateChannelPreference,
-    pub update_source: UpdateSource,
+    #[serde(default)]
+    #[ts(optional)]
+    pub tray_click_action: Option<TrayClickAction>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub startup_action: Option<StartupAction>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub storage_cache_limit: Option<StorageCacheLimit>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub storage_auto_cleanup: Option<bool>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub lan_access: Option<bool>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub auto_download: Option<bool>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub update_channel: Option<UpdateChannelPreference>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub update_source: Option<UpdateSource>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]

@@ -130,3 +130,29 @@ fn github_token_is_normalized_and_masked() {
         Some("••••••••5678")
     );
 }
+
+#[test]
+fn concurrent_updates_preserve_both_fields() {
+    let root = tempfile::tempdir().unwrap();
+    let home = root.path().to_owned();
+    let first = home.clone();
+    let second = home.clone();
+    let language = std::thread::spawn(move || {
+        let _guard = lock(&first).unwrap();
+        let mut current = load(&first).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(40));
+        current.language = Some(UiLanguage::ZhCn);
+        save(&first, &current).unwrap();
+    });
+    let theme = std::thread::spawn(move || {
+        let _guard = lock(&second).unwrap();
+        let mut current = load(&second).unwrap();
+        current.theme = UiTheme::Dark;
+        save(&second, &current).unwrap();
+    });
+    language.join().unwrap();
+    theme.join().unwrap();
+    let saved = load(&home).unwrap();
+    assert_eq!(saved.language, Some(UiLanguage::ZhCn));
+    assert_eq!(saved.theme, UiTheme::Dark);
+}

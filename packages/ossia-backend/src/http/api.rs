@@ -170,6 +170,21 @@ pub(super) async fn api(
                 json!({"opened":true})
             }
             ("GET", ["status"]) => value(runtime.agent_status()?)?,
+            ("PUT", ["ui-language"]) => {
+                #[derive(serde::Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct LanguageChange {
+                    language: UiLanguage,
+                }
+                let change: LanguageChange = decode(data)?;
+                let _guard = preferences::lock(runtime.library.home())?;
+                let mut current = preferences::load(runtime.library.home())?;
+                current.language = Some(change.language);
+                preferences::save(runtime.library.home(), &current)?;
+                runtime.set_ui_language(current.language);
+                value(change.language)?
+            }
+
             ("GET", ["library", "scores"]) => {
                 value(runtime.management_scores(pagination.clone())?)?
             }

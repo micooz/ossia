@@ -117,6 +117,20 @@ pub fn load(home: &Path) -> Result<UiPreferences> {
     })
 }
 
+/// Serialize preference read-modify-write transactions across desktop and backend processes.
+pub fn lock(home: &Path) -> Result<std::fs::File> {
+    use fs2::FileExt;
+    std::fs::create_dir_all(home).map_err(storage)?;
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(home.join("preferences.lock"))
+        .map_err(storage)?;
+    file.lock_exclusive().map_err(storage)?;
+    Ok(file)
+}
+
 /// Atomically replace the data-directory-scoped UI preferences.
 pub fn save(home: &Path, preferences: &UiPreferences) -> Result<()> {
     std::fs::create_dir_all(home).map_err(storage)?;

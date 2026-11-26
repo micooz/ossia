@@ -82,6 +82,12 @@ export function makeApi(language: () => UiLanguage, signal?: AbortSignal) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(drawing),
       }),
+    setLanguage: (language: UiLanguage) =>
+      json<UiLanguage>('/ui-language', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language }),
+      }),
     status: () => json<AgentStatus>('/status'),
     documents: async () => {
       const items: DocumentSummary[] = [];
