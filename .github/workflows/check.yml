@@ -116,10 +116,59 @@ jobs:
       - run: pnpm test:scripts
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      - if: runner.os != 'Windows'
+        run: cargo test --workspace --lib --bins --tests -- --test-threads=1 --skip watcher_debounces_atomic_saves_and_recovers_deleted_file
+      - name: Native watcher isolation
+        if: runner.os != 'Windows'
+        run: cargo test -p ossia-backend --test watch watcher_debounces_atomic_saves_and_recovers_deleted_file -- --test-threads=1
+      - name: Save Rust check cache
+        if: runner.os != 'Windows' && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check-cache.outputs.cache-matched-key == ''
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/debug
+          key: ${{ steps.check-cache.outputs.cache-primary-key }}
+
+  windows-rust-tests:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: dtolnay/rust-toolchain@1.91.0
+      - uses: pnpm/setup@v3.1.2
+        with:
+          version: 12.4.1
+          runtime: node@24
+          cache: true
+          install: false
+      - name: Restore Rust check cache
+        id: check-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/debug
+          key: check-v1-${{ runner.os }}-x86_64-pc-windows-msvc-rust-1.91.0-${{ hashFiles('**/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            check-v1-${{ runner.os }}-x86_64-pc-windows-msvc-rust-1.91.0-${{ hashFiles('**/Cargo.lock') }}-
+      - name: Restore release dependency cache
+        if: steps.check-cache.outputs.cache-matched-key == ''
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-x86_64-pc-windows-msvc-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:ui
       - run: cargo test --workspace --lib --bins --tests -- --test-threads=1 --skip watcher_debounces_atomic_saves_and_recovers_deleted_file
       - name: Native watcher isolation
         run: cargo test -p ossia-backend --test watch watcher_debounces_atomic_saves_and_recovers_deleted_file -- --test-threads=1
-      - name: Save Rust check cache
+      - name: Save check cache
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check-cache.outputs.cache-matched-key == ''
         uses: actions/cache/save@v6.1.0
         with:
