@@ -28,8 +28,8 @@
     "zh": "接入你常用的 AI Agent"
   },
   "features.conversationDescription": {
-    "en": "Connect your AI agent in a click. Create, arrange, transpose, and proofread scores in plain language—for piano, guitar, ukulele, violin, and ensembles.",
-    "zh": "一键接入 AI Agent，直接用对话创建、改编、移调与校对乐谱——涵盖钢琴、吉他、尤克里里、小提琴及室内乐重奏。"
+    "en": "Connect your AI agent in a click. Create, arrange, transpose, and proofread scores in plain language—for piano, guitar, ukulele, violin, and ensembles. Create or arrange scores in numbered notation, too.",
+    "zh": "一键接入 AI Agent，直接用对话创建、改编、移调与校对乐谱——涵盖钢琴、吉他、尤克里里、小提琴及室内乐重奏，也支持制作和改编简谱。"
   },
   "features.refineTitle": {
     "en": "Play, annotate, and version",
@@ -44,8 +44,8 @@
     "zh": "从手头的素材出发"
   },
   "features.importDescription": {
-    "en": "Import MusicXML, MIDI, PDF, or score images, and export publication-ready PDF, PNG, SVG, MIDI, or WAV. Optional OMR support helps recognize scans and PDFs faster.",
-    "zh": "导入 MusicXML、MIDI、PDF 或纸谱照片，导出高清 PDF、PNG、SVG 乐谱及 MIDI、WAV 音频。面对图片与 PDF，还可启用可选的 OMR 服务辅助识别。"
+    "en": "Import MusicXML, MIDI, PDF, or score images, and export scores as PDF, PNG, SVG, or MusicXML, and audio as MIDI or WAV. Optional OMR support helps recognize scans and PDFs faster.",
+    "zh": "导入 MusicXML、MIDI、PDF 或纸谱照片，导出 PDF、PNG、SVG、MusicXML 乐谱及 MIDI、WAV 音频。面对图片与 PDF，还可启用可选的 OMR 服务辅助识别。"
   },
   "features.libraryLinkLabel": {
     "en": "View full image: Ossia score library",
@@ -524,28 +524,28 @@
     "zh": "AI 可能出错，请仔细甄别，鼓励多轮打磨成果。"
   },
   "cases.find-score.title": {
-    "en": "Create a score",
-    "zh": "创建乐谱"
+    "en": "Create a Bach score",
+    "zh": "创建巴赫乐谱"
   },
   "cases.find-score.prompt": {
     "en": "Create a score for Bach’s Sheep May Safely Graze, BWV 208.",
     "zh": "创建乐谱：《羊儿可以安静地吃草》，BWV 208。"
   },
   "cases.find-score.imageLabel": {
-    "en": "View full image: Create a score",
-    "zh": "查看大图：创建乐谱"
+    "en": "View full image: Create a Bach score",
+    "zh": "查看大图：创建巴赫乐谱"
   },
   "cases.arrange.title": {
-    "en": "Arrange a score",
-    "zh": "改编乐谱"
+    "en": "Arrange for piano four hands",
+    "zh": "改编钢琴四手连弹"
   },
   "cases.arrange.prompt": {
     "en": "Arrange Sheep May Safely Graze for piano four hands and save it as a new score.",
     "zh": "把《羊儿可以安静地吃草》改编成钢琴四手连弹，写入新乐谱。"
   },
   "cases.arrange.imageLabel": {
-    "en": "View full image: Arrange a score",
-    "zh": "查看大图：改编乐谱"
+    "en": "View full image: Arrange for piano four hands",
+    "zh": "查看大图：改编钢琴四手连弹"
   },
   "cases.compose.title": {
     "en": "Compose a melody and accompaniment",
@@ -598,5 +598,57 @@
   "navigation.cases": {
     "en": "Use cases",
     "zh": "案例演示"
+  },
+  "cases.group.create": {
+    "en": "Create scores",
+    "zh": "创建乐谱"
+  },
+  "cases.group.arrange": {
+    "en": "Arrange scores",
+    "zh": "改编乐谱"
+  },
+  "cases.group.compose": {
+    "en": "Compose music",
+    "zh": "创作乐谱"
+  },
+  "cases.group.learn": {
+    "en": "Study scores",
+    "zh": "学习乐谱"
+  },
+  "cases.jianpu.title": {
+    "en": "Convert to numbered notation",
+    "zh": "改编为简谱"
+  },
+  "cases.jianpu.imageLabel": {
+    "en": "View full image: Convert to numbered notation",
+    "zh": "查看大图：改编为简谱"
+  },
+  "cases.jianpu.prompt": {
+    "en": "Convert Bach’s Prelude in C major, BWV 846, to numbered notation as a new score.",
+    "zh": "把巴赫《C 大调前奏曲》BWV 846 转成简谱，保存为新乐谱。"
+  },
+  "cases.original-piano.imageLabel": {
+    "en": "View full image: Create an original piano piece",
+    "zh": "查看大图：创作原创钢琴曲"
+  },
+  "cases.original-piano.alt": {
+    "en": "Creating and refining an original piano piece with an agent",
+    "zh": "与 Agent 共同创作并打磨原创钢琴曲"
+  },
+  "cases.original-piano.prompt": {
+    "en": "Create a 16-bar original piano piece, then refine its melody and dynamics through conversation.",
+    "zh": "创作一首 16 小节的原创钢琴曲，再通过对话打磨旋律与力度。"
+  },
+  "cases.harmony-analysis.imageLabel": {
+    "en": "View full image: Analyze and mark harmony",
+    "zh": "查看大图：分析并标记和声"
+  },
+  "cases.harmony-analysis.alt": {
+    "en": "Analyze and mark harmony in Bach’s Prelude in C major",
+    "zh": "分析并标记巴赫 C 大调前奏曲的和声"
+  },
+  "cases.harmony-analysis.prompt": {
+    "en": "Analyze and mark the harmony in Bach’s Prelude in C major, BWV 846.",
+    "zh": "分析并标记巴赫《C 大调前奏曲》BWV 846 的和声。"
   }
 }

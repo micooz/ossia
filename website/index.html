@@ -90,7 +90,7 @@
                 <p>
                   <span data-i18n="features.conversationDescription">
                     Connect your AI agent in a click. Create, arrange, transpose, and proofread
-                    scores in plain language—for piano, guitar, ukulele, violin, and ensembles.
+                    scores in plain language—for piano, guitar, ukulele, violin, and ensembles. Create or arrange scores in numbered notation, too.
                   </span>
                 </p>
               </article>
@@ -112,7 +112,7 @@
                 <p>
                   <span data-i18n="features.importDescription">
                     Import MusicXML, MIDI, PDF, or score images, and export publication-ready PDF,
-                    PNG, SVG, MIDI, or WAV. Optional OMR support helps recognize scans and PDFs
+                    PNG, SVG, MusicXML, MIDI, or WAV. Optional OMR support helps recognize scans and PDFs
                     faster.
                   </span>
                 </p>
@@ -170,135 +170,214 @@
         <div class="section-heading">
           <h2 id="cases-title" data-i18n="cases.title">See what you can create</h2>
         </div>
-        <div class="cases-grid">
-          <article class="case">
-            <h3 data-i18n="cases.find-score.title">Create a score</h3>
-            <figure class="product-shot">
-              <a
-                href="./assets/case-find-score.webp"
-                data-lightbox=""
-                aria-label="View full image: Create a score"
-                data-i18n-aria-label="cases.find-score.imageLabel"
-                ><img
-                  src="./assets/case-find-score.webp"
-                  alt="Create a score"
-                  data-i18n-alt="cases.find-score.title"
-                  loading="lazy"
-                  width="1440"
-                  height="890"
-              /></a>
-            </figure>
-            <p data-i18n="cases.find-score.prompt">
-              Create a score for Bach’s Sheep May Safely Graze, BWV 208.
-            </p>
-          </article>
-          <article class="case">
-            <h3 data-i18n="cases.arrange.title">Arrange a score</h3>
-            <figure class="product-shot">
-              <a
-                href="./assets/case-arrange.webp"
-                data-lightbox=""
-                aria-label="View full image: Arrange a score"
-                data-i18n-aria-label="cases.arrange.imageLabel"
-                ><img
-                  src="./assets/case-arrange.webp"
-                  alt="Arrange a score"
-                  data-i18n-alt="cases.arrange.title"
-                  loading="lazy"
-                  width="1440"
-                  height="890"
-              /></a>
-            </figure>
-            <p data-i18n="cases.arrange.prompt">
-              Arrange Sheep May Safely Graze for piano four hands and save it as a new score.
-            </p>
-          </article>
-          <article class="case">
-            <h3 data-i18n="cases.compose.title">Compose a melody and accompaniment</h3>
-            <figure class="product-shot">
-              <a
-                href="./assets/case-compose.webp"
-                data-lightbox=""
-                aria-label="View full image: Compose a melody and accompaniment"
-                data-i18n-aria-label="cases.compose.imageLabel"
-                ><img
-                  src="./assets/case-compose.webp"
-                  alt="Compose a melody and accompaniment"
-                  data-i18n-alt="cases.compose.title"
-                  loading="lazy"
-                  width="1440"
-                  height="890"
-              /></a>
-            </figure>
-            <p data-i18n="cases.compose.prompt">
-              Write a beautiful melody, add harmony, and create an accompaniment part.
-            </p>
-          </article>
-          <article class="case">
-            <h3 data-i18n="cases.import-image.title">Import an image of a score</h3>
-            <figure class="product-shot">
-              <a
-                href="./assets/case-import-image.webp"
-                data-lightbox=""
-                aria-label="View full image: Import an image of a score"
-                data-i18n-aria-label="cases.import-image.imageLabel"
-                ><img
-                  src="./assets/case-import-image.webp"
-                  alt="Import an image of a score"
-                  data-i18n-alt="cases.import-image.title"
-                  loading="lazy"
-                  width="1440"
-                  height="890"
-              /></a>
-            </figure>
-            <p data-i18n="cases.import-image.prompt">
-              Import this score image, check it carefully against the original, and correct any
-              errors.
-            </p>
-          </article>
-          <article class="case">
-            <h3 data-i18n="cases.transpose.title">Analyze and transpose</h3>
-            <figure class="product-shot">
-              <a
-                href="./assets/case-transpose.webp"
-                data-lightbox=""
-                aria-label="View full image: Analyze and transpose"
-                data-i18n-aria-label="cases.transpose.imageLabel"
-                ><img
-                  src="./assets/case-transpose.webp"
-                  alt="Analyze and transpose"
-                  data-i18n-alt="cases.transpose.title"
-                  loading="lazy"
-                  width="1440"
-                  height="890"
-              /></a>
-            </figure>
-            <p data-i18n="cases.transpose.prompt">
-              What key is Hollow Knight in? Transpose it to A minor.
-            </p>
-          </article>
-          <article class="case">
-            <h3 data-i18n="cases.guitar-tab.title">Arrange for guitar tablature</h3>
-            <figure class="product-shot">
-              <a
-                href="./assets/case-guitar-tab.webp"
-                data-lightbox=""
-                aria-label="View full image: Arrange for guitar tablature"
-                data-i18n-aria-label="cases.guitar-tab.imageLabel"
-                ><img
-                  src="./assets/case-guitar-tab.webp"
-                  alt="Arrange for guitar tablature"
-                  data-i18n-alt="cases.guitar-tab.title"
-                  loading="lazy"
-                  width="1440"
-                  height="890"
-              /></a>
-            </figure>
-            <p data-i18n="cases.guitar-tab.prompt">
-              Arrange Hollow Knight as a new guitar tablature score and add chord diagrams.
-            </p>
-          </article>
-        </div>
+        <section class="case-group" aria-labelledby="cases-create">
+          <h3 id="cases-create" data-i18n="cases.group.create">Create scores</h3>
+          <div class="cases-grid">
+            <article class="case">
+
+              <figure class="product-shot">
+                <a
+                  href="./assets/case-find-score.webp"
+                  data-lightbox=""
+                  aria-label="View full image: Create a Bach score"
+                  data-i18n-aria-label="cases.find-score.imageLabel"
+                  ><img
+                    src="./assets/case-find-score.webp"
+                    alt="Create a Bach score"
+                    data-i18n-alt="cases.find-score.title"
+                    loading="lazy"
+                    width="1440"
+                    height="890"
+                /></a>
+              </figure>
+              <p data-i18n="cases.find-score.prompt">
+                Create a score for Bach’s Sheep May Safely Graze, BWV 208.
+              </p>
+            </article>
+            <article class="case">
+
+              <figure class="product-shot">
+                <a
+                  href="./assets/case-import-image.webp"
+                  data-lightbox=""
+                  aria-label="View full image: Import an image of a score"
+                  data-i18n-aria-label="cases.import-image.imageLabel"
+                  ><img
+                    src="./assets/case-import-image.webp"
+                    alt="Import an image of a score"
+                    data-i18n-alt="cases.import-image.title"
+                    loading="lazy"
+                    width="1440"
+                    height="890"
+                /></a>
+              </figure>
+              <p data-i18n="cases.import-image.prompt">
+                Import this score image, check it carefully against the original, and correct any
+                errors.
+              </p>
+            </article>
+          </div>
+        </section>
+        <section class="case-group" aria-labelledby="cases-arrange">
+          <h3 id="cases-arrange" data-i18n="cases.group.arrange">Arrange scores</h3>
+          <div class="cases-grid">
+            <article class="case">
+
+              <figure class="product-shot">
+                <a
+                  href="./assets/case-arrange.webp"
+                  data-lightbox=""
+                  aria-label="View full image: Arrange for piano four hands"
+                  data-i18n-aria-label="cases.arrange.imageLabel"
+                  ><img
+                    src="./assets/case-arrange.webp"
+                    alt="Arrange for piano four hands"
+                    data-i18n-alt="cases.arrange.title"
+                    loading="lazy"
+                    width="1440"
+                    height="890"
+                /></a>
+              </figure>
+              <p data-i18n="cases.arrange.prompt">
+                Arrange Sheep May Safely Graze for piano four hands and save it as a new score.
+              </p>
+            </article>
+            <article class="case">
+
+              <figure class="product-shot">
+                <a
+                  href="./assets/case-guitar-tab.webp"
+                  data-lightbox=""
+                  aria-label="View full image: Arrange for guitar tablature"
+                  data-i18n-aria-label="cases.guitar-tab.imageLabel"
+                  ><img
+                    src="./assets/case-guitar-tab.webp"
+                    alt="Arrange for guitar tablature"
+                    data-i18n-alt="cases.guitar-tab.title"
+                    loading="lazy"
+                    width="1440"
+                    height="890"
+                /></a>
+              </figure>
+              <p data-i18n="cases.guitar-tab.prompt">
+                Arrange Hollow Knight as a new guitar tablature score and add chord diagrams.
+              </p>
+            </article>
+            <article class="case">
+
+              <figure class="product-shot">
+                <a
+                  href="./assets/case-jianpu.webp"
+                  data-lightbox=""
+                  aria-label="View full image: Convert to numbered notation"
+                  data-i18n-aria-label="cases.jianpu.imageLabel"
+                  ><img
+                    src="./assets/case-jianpu.webp"
+                    alt="Convert to numbered notation"
+                    data-i18n-alt="cases.jianpu.title"
+                    loading="lazy"
+                    width="1624"
+                    height="1004"
+                /></a>
+              </figure>
+              <p data-i18n="cases.jianpu.prompt">
+                Convert Bach’s Prelude in C major, BWV 846, to numbered notation as a new score.
+              </p>
+            </article>
+          </div>
+        </section>
+        <section class="case-group" aria-labelledby="cases-compose">
+          <h3 id="cases-compose" data-i18n="cases.group.compose">Compose music</h3>
+          <div class="cases-grid">
+            <article class="case">
+
+              <figure class="product-shot">
+                <a
+                  href="./assets/case-compose.webp"
+                  data-lightbox=""
+                  aria-label="View full image: Compose a melody and accompaniment"
+                  data-i18n-aria-label="cases.compose.imageLabel"
+                  ><img
+                    src="./assets/case-compose.webp"
+                    alt="Compose a melody and accompaniment"
+                    data-i18n-alt="cases.compose.title"
+                    loading="lazy"
+                    width="1440"
+                    height="890"
+                /></a>
+              </figure>
+              <p data-i18n="cases.compose.prompt">
+                Write a beautiful melody, add harmony, and create an accompaniment part.
+              </p>
+            </article>
+            <article class="case">
+              <figure class="product-shot">
+                <a
+                  href="./assets/case-original-piano.webp"
+                  data-lightbox=""
+                  aria-label="View full image: Create an original piano piece"
+                  data-i18n-aria-label="cases.original-piano.imageLabel"
+                  ><img
+                    src="./assets/case-original-piano.webp"
+                    alt="Create an original piano piece"
+                    data-i18n-alt="cases.original-piano.alt"
+                    loading="lazy"
+                    width="1624"
+                    height="1004"
+                /></a>
+              </figure>
+              <p data-i18n="cases.original-piano.prompt">
+                Create a 16-bar original piano piece, then refine its melody and dynamics through conversation.
+              </p>
+            </article>
+          </div>
+        </section>
+        <section class="case-group" aria-labelledby="cases-learn">
+          <h3 id="cases-learn" data-i18n="cases.group.learn">Study scores</h3>
+          <div class="cases-grid">
+            <article class="case">
+
+              <figure class="product-shot">
+                <a
+                  href="./assets/case-transpose.webp"
+                  data-lightbox=""
+                  aria-label="View full image: Analyze and transpose"
+                  data-i18n-aria-label="cases.transpose.imageLabel"
+                  ><img
+                    src="./assets/case-transpose.webp"
+                    alt="Analyze and transpose"
+                    data-i18n-alt="cases.transpose.title"
+                    loading="lazy"
+                    width="1440"
+                    height="890"
+                /></a>
+              </figure>
+              <p data-i18n="cases.transpose.prompt">
+                What key is Hollow Knight in? Transpose it to A minor.
+              </p>
+            </article>
+            <article class="case">
+              <figure class="product-shot">
+                <a
+                  href="./assets/case-harmony-analysis.webp"
+                  data-lightbox=""
+                  aria-label="View full image: Analyze and mark harmony"
+                  data-i18n-aria-label="cases.harmony-analysis.imageLabel"
+                  ><img
+                    src="./assets/case-harmony-analysis.webp"
+                    alt="Analyze and mark harmony in Bach’s Prelude in C major"
+                    data-i18n-alt="cases.harmony-analysis.alt"
+                    loading="lazy"
+                    width="1624"
+                    height="1004"
+                /></a>
+              </figure>
+              <p data-i18n="cases.harmony-analysis.prompt">
+                Analyze and mark the harmony in Bach’s Prelude in C major, BWV 846.
+              </p>
+            </article>
+          </div>
+        </section>
         <p class="cases-note" data-i18n="cases.note">
           AI can make mistakes. Review the result carefully and refine it through follow-up
           requests.
