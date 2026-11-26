@@ -42,10 +42,16 @@ export function runAuditionCases(ids, renderFixture) {
       };
     });
     const input = path.join(directory, 'fixtures.json');
-    writeFileSync(input, JSON.stringify(bundles));
+    const outputStart = performance.now();
+    const output = JSON.stringify(bundles);
+    writeFileSync(input, output);
     if (!failed && process.env.OSSIA_AUDITION_OUTPUT) {
-      writeFileSync(process.env.OSSIA_AUDITION_OUTPUT, JSON.stringify(bundles));
-    } else if (!failed)
+      writeFileSync(process.env.OSSIA_AUDITION_OUTPUT, output);
+    }
+    console.log(
+      `Audition fixture serialization: ${((performance.now() - outputStart) / 1000).toFixed(2)}s`,
+    );
+    if (!failed && !process.env.OSSIA_AUDITION_OUTPUT)
       execFileSync(
         process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
         [

@@ -20,7 +20,16 @@ interface Fixture {
   auditionAttacks: Record<number, number[]>;
 }
 const input = process.env.OSSIA_AUDITION_FIXTURES;
-const fixtures: Fixture[] = input ? JSON.parse(readFileSync(input, 'utf8')) : [];
+const loadedFixtures: Fixture[] = input ? JSON.parse(readFileSync(input, 'utf8')) : [];
+// Spread the long complete scores across Playwright's contiguous test shards.
+const midpoint = Math.ceil(loadedFixtures.length / 2);
+const fixtures = loadedFixtures.flatMap((_, index) =>
+  index < midpoint
+    ? [loadedFixtures[index], loadedFixtures[index + midpoint]].filter(
+        (fixture): fixture is Fixture => fixture !== undefined,
+      )
+    : [],
+);
 if (!input) test.skip('engraved audition fixtures require pnpm verify:audition', () => {});
 
 async function openFixture(context: BrowserContext, page: Page, fixture: Fixture) {

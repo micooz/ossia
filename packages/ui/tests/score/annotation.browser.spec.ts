@@ -127,7 +127,7 @@ test('dragging blank space frames all touched elements into one annotation', asy
   expect(runtime.selections.get(firstId)?.targets).toEqual([]);
 });
 
-test('modifier-drag accumulates separate marquee regions into one draft group', async ({
+test('@platform-keyboard modifier-drag accumulates separate marquee regions into one draft group', async ({
   context,
   page,
 }) => {
@@ -414,7 +414,7 @@ test('escape exits annotation mode and discards the current editor', async ({ co
   await expect(page.getByRole('main')).toBeFocused();
 });
 
-test('holding the annotation modifier defers one editor for multiple targets', async ({
+test('@platform-keyboard holding the annotation modifier defers one editor for multiple targets', async ({
   context,
   page,
 }) => {
@@ -455,7 +455,7 @@ test('clicking the same single annotation target keeps the editor and draft text
   await expect(page.locator('.annotation-box')).toHaveCount(1);
 });
 
-test('modifier-clicking a selected target removes it from the annotation group', async ({
+test('@platform-keyboard modifier-clicking a selected target removes it from the annotation group', async ({
   context,
   page,
 }) => {
@@ -601,7 +601,7 @@ test('different annotation groups paint their source graphics with distinct colo
   expect(firstFill).not.toBe(secondFill);
 });
 
-test('measure pins stay inside their measure and draft groups share one color', async ({
+test('@platform-keyboard measure pins stay inside their measure and draft groups share one color', async ({
   context,
   page,
 }) => {

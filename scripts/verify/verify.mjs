@@ -11,7 +11,9 @@ import { runSelectionCases } from './selection-cases.mjs';
 export async function runVerification(ids = []) {
   if (!ids.length) {
     console.log('Verifying Jianpu fixtures');
+    const start = performance.now();
     const status = await runJianpuCases();
+    console.log(`Jianpu verification: ${((performance.now() - start) / 1000).toFixed(2)}s`);
     if (status) return status;
   }
   const render = fixtureRenderer('all');
@@ -28,7 +30,9 @@ export async function runVerification(ids = []) {
     { name: 'selection', run: runSelectionCases },
   ]) {
     console.log(`Verifying ${name} fixtures`);
+    const start = performance.now();
     const status = await run(ids, renderOnce);
+    console.log(`${name} verification: ${((performance.now() - start) / 1000).toFixed(2)}s`);
     if (status) return status;
   }
   return 0;

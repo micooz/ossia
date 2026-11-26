@@ -161,7 +161,8 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
-    runs-on: macos-latest
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
@@ -173,7 +174,12 @@ jobs:
           cache: true
           install: false
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @ossia/ui exec playwright install chrome
+      - name: Install browser test runtime
+        if: runner.os != 'Linux'
+        run: pnpm --filter @ossia/ui exec playwright install chrome
+      - name: Install browser test runtime and dependencies
+        if: runner.os == 'Linux'
+        run: pnpm --filter @ossia/ui exec playwright install --with-deps chrome
       - uses: actions/download-artifact@v4
         with:
           name: audition-fixtures
@@ -186,7 +192,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: audition-failures-${{ matrix.shard }}
+          name: audition-failures-${{ matrix.os }}-${{ matrix.shard }}
           path: packages/ui/test-results/browser/
           if-no-files-found: ignore
           retention-days: 7
@@ -195,7 +201,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-2022]
+        os: [macos-latest, windows-2022, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -208,9 +214,20 @@ jobs:
           install: false
       - run: pnpm install --frozen-lockfile
       - name: Install browser test runtime
+        if: runner.os != 'Linux'
         run: pnpm --filter @ossia/ui exec playwright install chrome
+      - name: Install browser test runtime and dependencies
+        if: runner.os == 'Linux'
+        run: pnpm --filter @ossia/ui exec playwright install --with-deps chrome
       - name: Browser regression
+        if: runner.os == 'Linux'
         run: pnpm test:ui
+      - name: Browser regression platform comparison
+        if: runner.os != 'Linux'
+        run: pnpm --filter @ossia/ui exec playwright test --project=browser --grep-invert @platform-keyboard
+      - name: Platform keyboard regression
+        if: runner.os != 'Linux'
+        run: pnpm --filter @ossia/ui exec playwright test --project=browser --grep @platform-keyboard
       - name: Upload browser failure traces
         if: failure()
         uses: actions/upload-artifact@v4
