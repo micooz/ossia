@@ -68,7 +68,7 @@ export function SettingsPage({
   const disabled = !native || !preferences || busy;
   const trayEditable = preferences?.trayClickActionEditable ?? platform !== 'linux';
   const autostartEditable = preferences?.launchAtLoginEditable ?? false;
-  const [omrService, setOmrService] = useState<OmrService>(preferences?.omrService ?? 'ossia');
+  const [omrService, setOmrService] = useState<OmrService>(preferences?.omrService ?? 'custom');
   const [omrUrl, setOmrUrl] = useState(preferences?.omrUrl ?? '');
   const [omrToken, setOmrToken] = useState('');
   const [omrBusy, setOmrBusy] = useState(false);
@@ -79,11 +79,11 @@ export function SettingsPage({
       : Boolean(preferences?.omrCustomTokenMasked);
   const maskedKey =
     omrService === 'ossia' ? preferences?.omrTokenMasked : preferences?.omrCustomTokenMasked;
-  const serviceDirty = omrService !== (preferences?.omrService ?? 'ossia');
+  const serviceDirty = omrService !== (preferences?.omrService ?? 'custom');
   const saveVisible = serviceDirty || !keyConfigured;
 
   useEffect(() => {
-    setOmrService(preferences?.omrService ?? 'ossia');
+    setOmrService(preferences?.omrService ?? 'custom');
     setOmrUrl(preferences?.omrUrl ?? '');
     setOmrToken('');
   }, [preferences?.omrService, preferences?.omrUrl]);
@@ -321,108 +321,143 @@ export function SettingsPage({
           <form className="settings-list" onSubmit={(event) => void saveOmr(event)}>
             <div className="settings-row">
               <div className="setting-copy">
-                <span className="setting-label">{t('omrService')}</span>
-                <span className="setting-note">{t('omrServiceDescription')}</span>
+                <span className="setting-label" id="omr-enabled-label">
+                  {t('omrEnabled')}
+                </span>
+                <span className="setting-note" id="omr-enabled-description">
+                  {t('omrEnabledDescription')}
+                </span>
               </div>
-              <Segmented
-                ariaLabel={t('omrService')}
-                value={omrService}
-                disabled={!native || !preferences || busy || omrBusy}
-                options={[
-                  { value: 'ossia', label: t('omrServiceOssia') },
-                  { value: 'custom', label: t('omrServiceCustom') },
-                ]}
-                onChange={(value) => void saveOmrService(value as OmrService)}
-              />
+              <button
+                className="switch"
+                type="button"
+                role="switch"
+                aria-labelledby="omr-enabled-label"
+                aria-describedby="omr-enabled-description"
+                aria-checked={preferences?.omrEnabled ?? false}
+                disabled={disabled || omrBusy}
+                onClick={() =>
+                  void onOmrSave({
+                    service: omrService,
+                    enabled: !preferences?.omrEnabled,
+                    url: null,
+                    token: null,
+                    clearUrl: false,
+                    clearToken: false,
+                  })
+                }
+              >
+                <span />
+              </button>
             </div>
-            {omrService === 'custom' && (
-              <div className="settings-row github-token-row">
-                <div className="setting-copy">
-                  <span className="setting-label">{t('omrUrl')}</span>
-                  <span className="setting-note">{t('omrUrlDescription')}</span>
-                </div>
-                <div className="github-token-control">
-                  <input
-                    className="github-token-input omr-settings-input"
-                    type="text"
-                    inputMode="url"
-                    autoComplete="off"
-                    spellCheck={false}
-                    aria-label={t('omrUrl')}
-                    placeholder="https://omr.example.com"
-                    value={omrUrl}
+            {preferences?.omrEnabled && (
+              <>
+                <div className="settings-row">
+                  <div className="setting-copy">
+                    <span className="setting-label">{t('omrService')}</span>
+                    <span className="setting-note">{t('omrServiceDescription')}</span>
+                  </div>
+                  <Segmented
+                    ariaLabel={t('omrService')}
+                    value={omrService}
                     disabled={!native || !preferences || busy || omrBusy}
-                    onChange={(event) => {
-                      setOmrUrl(event.target.value);
-                      setOmrError('');
-                    }}
-                    onBlur={() => void saveOmrUrl()}
+                    options={[
+                      { value: 'ossia', label: t('omrServiceOssia') },
+                      { value: 'custom', label: t('omrServiceCustom') },
+                    ]}
+                    onChange={(value) => void saveOmrService(value as OmrService)}
                   />
                 </div>
-              </div>
-            )}
-            <div className="settings-row github-token-row">
-              <div className="setting-copy">
-                <span className="setting-label">{t('omrToken')}</span>
-                <span className="setting-note">{t('omrTokenDescription')}</span>
-              </div>
-              <div className="github-token-control">
-                {keyConfigured ? (
-                  <div className="github-token-configured">
-                    <code className="github-token-masked">{maskedKey}</code>
-                    {serviceDirty && (
-                      <button
-                        className="secondary-button"
-                        type="submit"
+                {omrService === 'custom' && (
+                  <div className="settings-row github-token-row">
+                    <div className="setting-copy">
+                      <span className="setting-label">{t('omrUrl')}</span>
+                      <span className="setting-note">{t('omrUrlDescription')}</span>
+                    </div>
+                    <div className="github-token-control">
+                      <input
+                        className="github-token-input omr-settings-input"
+                        type="text"
+                        inputMode="url"
+                        autoComplete="off"
+                        spellCheck={false}
+                        aria-label={t('omrUrl')}
+                        placeholder="https://omr.example.com"
+                        value={omrUrl}
                         disabled={!native || !preferences || busy || omrBusy}
-                      >
-                        {omrBusy ? t('working') : t('save')}
-                      </button>
-                    )}
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      disabled={!native || !preferences || busy || omrBusy}
-                      onClick={() => void clearOmrToken()}
-                    >
-                      {t('remove')}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="omr-settings-inline">
-                    <input
-                      className="github-token-input omr-settings-input"
-                      type="password"
-                      autoComplete="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      aria-label={t('omrToken')}
-                      placeholder={t('omrToken')}
-                      value={omrToken}
-                      disabled={!native || !preferences || busy || omrBusy}
-                      onChange={(event) => {
-                        setOmrToken(event.target.value);
-                        setOmrError('');
-                      }}
-                    />
-                    <div className="omr-settings-actions">
-                      <button
-                        className="secondary-button"
-                        type="submit"
-                        disabled={!native || !preferences || busy || omrBusy || !saveVisible}
-                      >
-                        {omrBusy ? t('working') : t('save')}
-                      </button>
+                        onChange={(event) => {
+                          setOmrUrl(event.target.value);
+                          setOmrError('');
+                        }}
+                        onBlur={() => void saveOmrUrl()}
+                      />
                     </div>
                   </div>
                 )}
-                {omrError && (
-                  <p className="github-token-error" role="alert">
-                    {omrError}
-                  </p>
-                )}
-              </div>
-            </div>
+                <div className="settings-row github-token-row">
+                  <div className="setting-copy">
+                    <span className="setting-label">{t('omrToken')}</span>
+                    <span className="setting-note">{t('omrTokenDescription')}</span>
+                  </div>
+                  <div className="github-token-control">
+                    {keyConfigured ? (
+                      <div className="github-token-configured">
+                        <code className="github-token-masked">{maskedKey}</code>
+                        {serviceDirty && (
+                          <button
+                            className="secondary-button"
+                            type="submit"
+                            disabled={!native || !preferences || busy || omrBusy}
+                          >
+                            {omrBusy ? t('working') : t('save')}
+                          </button>
+                        )}
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          disabled={!native || !preferences || busy || omrBusy}
+                          onClick={() => void clearOmrToken()}
+                        >
+                          {t('remove')}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="omr-settings-inline">
+                        <input
+                          className="github-token-input omr-settings-input"
+                          type="password"
+                          autoComplete="off"
+                          autoCapitalize="off"
+                          spellCheck={false}
+                          aria-label={t('omrToken')}
+                          placeholder={t('omrToken')}
+                          value={omrToken}
+                          disabled={!native || !preferences || busy || omrBusy}
+                          onChange={(event) => {
+                            setOmrToken(event.target.value);
+                            setOmrError('');
+                          }}
+                        />
+                        <div className="omr-settings-actions">
+                          <button
+                            className="secondary-button"
+                            type="submit"
+                            disabled={!native || !preferences || busy || omrBusy || !saveVisible}
+                          >
+                            {omrBusy ? t('working') : t('save')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {omrError && (
+                      <p className="github-token-error" role="alert">
+                        {omrError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </form>
         </section>
         <section className="settings-group" aria-labelledby="storage-title">

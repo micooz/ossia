@@ -337,6 +337,7 @@ async fn management_preferences_change(
         update_source: change.update_source.unwrap_or(previous.update_source),
         github_token: previous.github_token.clone(),
         omr_service: previous.omr_service,
+        omr_enabled: previous.omr_enabled,
         omr_url: previous.omr_url.clone(),
         omr_token: previous.omr_token.clone(),
         omr_custom_token: previous.omr_custom_token.clone(),
@@ -448,6 +449,7 @@ async fn management_omr_settings_set(
         .lock()
         .map_err(|_| storage("preferences lock is poisoned"))?;
     let mut preferences = ossia_backend::preferences::load(&config.home)?;
+    preferences.omr_enabled = Some(change.enabled.unwrap_or_else(|| preferences.omr_enabled()));
     preferences.omr_service = change.service;
     if change.service == OmrService::Custom {
         if change.clear_url {

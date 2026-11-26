@@ -96,6 +96,9 @@ pub struct OmrCapabilities {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct OmrSettingsChange {
+    #[serde(default)]
+    #[ts(optional)]
+    pub enabled: Option<bool>,
     pub service: OmrService,
     pub url: Option<String>,
     pub token: Option<String>,

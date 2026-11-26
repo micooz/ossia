@@ -150,9 +150,11 @@ fn guide_documents_remote_omr_configuration() {
         "`OSSIA_OMR_TOKEN`",
         "`Remote OMR token is not configured`",
         "`Custom remote OMR URL is not configured`",
-        "PDF and image imports need an access key",
-        "Tell me once it is",
-        "saved and I will retry the same import",
+        "Remote OMR is optional",
+        "do not silently fall back to visual transcription",
+        "`omr-not-configured`",
+        "`omr-configuration-invalid`",
+        "transcribe the\nmusic into a self-contained LilyPond file",
         "edit `preferences.json` directly",
     ] {
         assert!(all_guide_text().contains(required), "{required}");

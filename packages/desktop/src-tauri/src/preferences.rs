@@ -54,6 +54,7 @@ pub fn snapshot<R: tauri::Runtime>(
             preferences.github_token.as_deref(),
         ),
         omr_service: preferences.omr_service,
+        omr_enabled: preferences.omr_enabled(),
         omr_ossia_url: OSSIA_OMR_URL.to_string(),
         omr_url: preferences.omr_url.clone(),
         omr_token_masked: ossia_backend::preferences::masked_token(

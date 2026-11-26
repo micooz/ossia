@@ -32,7 +32,8 @@ export async function mockManagement(
     updateState,
     releaseNotesState,
     githubTokenMasked = null,
-    omrService = 'ossia',
+    omrService = 'custom',
+    omrEnabled = false,
     omrUrl = null,
     omrTokenMasked = null,
     omrCustomTokenMasked = null,
@@ -60,6 +61,7 @@ export async function mockManagement(
     releaseNotesState?: UpdateSnapshot;
     githubTokenMasked?: string | null;
     omrService?: 'ossia' | 'custom';
+    omrEnabled?: boolean;
     omrUrl?: string | null;
     omrTokenMasked?: string | null;
     omrCustomTokenMasked?: string | null;
@@ -81,6 +83,7 @@ export async function mockManagement(
     updateSource: 'ossia',
     githubTokenMasked,
     omrService,
+    omrEnabled,
     omrOssiaUrl: 'https://ossia.maisow.com/omr',
     omrUrl,
     omrTokenMasked,
@@ -391,6 +394,7 @@ export async function mockManagement(
           'clearToken' in args.change
         ) {
           preferences.omrService = args.change.service;
+          if (args.change.enabled != null) preferences.omrEnabled = args.change.enabled;
           if (args.change.clearToken) {
             if (args.change.service === 'ossia') preferences.omrTokenMasked = null;
             else preferences.omrCustomTokenMasked = null;

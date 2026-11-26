@@ -37,7 +37,7 @@ test('external language changes update management settings', async ({ page }) =>
 });
 
 test('management descriptions wrap while controls stay on one row', async ({ page }, testInfo) => {
-  await mockManagement(page);
+  await mockManagement(page, { omrEnabled: true });
   await page.goto('/main.html');
   await page.getByRole('button', { name: '常规', exact: true }).click();
   for (const language of ['zh-CN', 'en-US']) {
@@ -117,12 +117,22 @@ test('LAN access requires confirmation and shows the restarted service address',
 test('score recognition settings save a masked key and survive ordinary preference saves', async ({
   page,
 }) => {
-  await mockManagement(page);
+  await mockManagement(page, { omrService: 'ossia' });
   await page.goto('/main.html');
   await page.getByRole('button', { name: '常规', exact: true }).click();
 
   const omr = page.locator('.settings-group').filter({ hasText: '乐谱识别' });
-  await expect(omr.locator('.settings-row')).toHaveCount(2);
+  await expect(omr.locator('.settings-row')).toHaveCount(1);
+  await expect(omr.getByRole('group', { name: '服务提供方' })).toHaveCount(0);
+  await expect(omr.getByLabel('访问密钥')).toHaveCount(0);
+  const enabled = omr.getByRole('switch', { name: '使用在线识别' });
+  await expect(enabled).toHaveAttribute('aria-checked', 'false');
+  await enabled.click();
+  await expect(enabled).toHaveAttribute('aria-checked', 'true');
+  await enabled.click();
+  await expect(enabled).toHaveAttribute('aria-checked', 'false');
+  await enabled.click();
+  await expect(enabled).toHaveAttribute('aria-checked', 'true');
   await expect(omr.getByRole('group', { name: '服务提供方' })).toBeVisible();
   await expect(omr.getByLabel('服务地址')).toHaveCount(0);
   await expect(omr.getByLabel('访问密钥')).toHaveAttribute('placeholder', '访问密钥');
@@ -149,7 +159,7 @@ test('score recognition settings save a masked key and survive ordinary preferen
   await expect(omr.locator('code').last()).toHaveText('••••••••oken');
 
   await omr.getByRole('button', { name: '自定义' }).click();
-  await expect(omr.locator('.settings-row')).toHaveCount(3);
+  await expect(omr.locator('.settings-row')).toHaveCount(4);
   await expect(omr.getByLabel('服务地址')).toBeVisible();
   const omrSaves = () =>
     page.evaluate(
@@ -168,6 +178,16 @@ test('score recognition settings save a masked key and survive ordinary preferen
   await expect(omr.locator('code').last()).toHaveText('••••••••1234');
   await expect(omr.getByLabel('服务地址')).toHaveValue('https://omr.example.com/omr');
 
+  await enabled.click();
+  await expect(enabled).toHaveAttribute('aria-checked', 'false');
+  await expect(omr.locator('.settings-row')).toHaveCount(1);
+  await expect(omr.getByLabel('服务地址')).toHaveCount(0);
+  await expect(omr.locator('code')).toHaveCount(0);
+  await enabled.click();
+  await expect(enabled).toHaveAttribute('aria-checked', 'true');
+  await expect(omr.getByLabel('服务地址')).toHaveValue('https://omr.example.com/omr');
+  await expect(omr.locator('code').last()).toHaveText('••••••••1234');
+
   await omr.getByRole('button', { name: '移除' }).click();
   await expect(omr.locator('code')).toHaveCount(0);
   await expect(omr.getByLabel('访问密钥')).toBeVisible();
@@ -184,4 +204,18 @@ test('score recognition settings save a masked key and survive ordinary preferen
   await omr.getByRole('button', { name: 'Ossia OMR' }).click();
   await expect(omr.getByLabel('服务地址')).toHaveCount(0);
   await expect(omr.locator('code').last()).toHaveText('••••••••oken');
+});
+
+test('new recognition settings default to custom service', async ({ page }) => {
+  await mockManagement(page);
+  await page.goto('/main.html');
+  await page.getByRole('button', { name: '常规', exact: true }).click();
+  const omr = page.locator('.settings-group').filter({ hasText: '乐谱识别' });
+  const enabled = omr.getByRole('switch', { name: '使用在线识别' });
+  await expect(enabled).not.toBeChecked();
+  await enabled.click();
+  await expect(enabled).toBeChecked();
+  await expect(omr.getByRole('button', { name: '自定义' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(omr.getByLabel('服务地址')).toHaveValue('');
+  await expect(omr.getByLabel('访问密钥')).toHaveValue('');
 });

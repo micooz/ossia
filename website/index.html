@@ -36,7 +36,7 @@
           <a class="nav-link" href="#features" data-i18n="navigation.features">Features</a
           ><a href="#cases" data-i18n="navigation.cases">Use cases</a
           ><a class="nav-link" href="#download" data-i18n="navigation.download">Download</a
-          ><a class="nav-link" href="#mac" data-i18n="navigation.guide">Guide</a
+          ><a class="nav-link" href="#guide" data-i18n="navigation.guide">Guide</a
           ><a href="https://github.com/micooz/ossia">GitHub</a
           ><button class="language" type="button" aria-label="Switch language to Chinese">
             简体中文
@@ -69,7 +69,7 @@
             <a class="button primary" href="#download"
               ><span data-i18n="hero.download">Download Ossia</span
               ><span class="arrow" aria-hidden="true">↓</span></a
-            ><a class="button secondary" href="#mac"
+            ><a class="button secondary" href="#guide"
               ><span data-i18n="hero.guide">Installation guide</span
               ><span class="arrow" aria-hidden="true">↓</span></a
             >
@@ -479,7 +479,7 @@
         data-i18n-aria-label="guide.landmarkLabel"
       >
         <div class="manual-head">
-          <h2 id="mac"><span data-i18n="guide.title">Installation &amp; quick start</span></h2>
+          <h2 id="guide"><span data-i18n="guide.title">Installation &amp; quick start</span></h2>
           <p>
             <span data-i18n="guide.screenshotNote">
               Screenshots below may show a Chinese UI and evolve across releases. Click any image to
@@ -870,9 +870,12 @@
               <h3><span data-i18n="omr.title">Recognize images &amp; PDFs</span></h3>
               <p>
                 <span data-i18n="omr.description">
-                  MusicXML and MIDI imports need no key. To recognize image and PDF scores more
-                  reliably, open Settings → General → Score recognition service (OMR), select Ossia
-                  OMR or a custom OMR service, and provide its access key. Keep your key private.
+                  OMR is optional. To recognize image and PDF scores more efficiently, open Settings
+                  → General → Score recognition service (OMR), enable Use online recognition, select
+                  Ossia OMR or a self-hosted OMR service, and provide its access key. For a
+                  self-hosted service, also enter its service address. If OMR is disabled, the agent
+                  will try to recognize the score from the image itself; a more capable model is
+                  recommended to improve recognition accuracy.
                 </span>
               </p>
               <p>

@@ -95,6 +95,9 @@ pub struct UiPreferences {
     pub github_token: Option<String>,
     #[serde(default)]
     pub omr_service: OmrService,
+    /// None denotes preferences saved before the explicit OMR switch existed.
+    #[serde(default)]
+    pub omr_enabled: Option<bool>,
     /// Custom OMR server address; unused by the built-in Ossia OMR service.
     #[serde(default)]
     pub omr_url: Option<String>,
@@ -130,11 +133,20 @@ impl Default for UiPreferences {
             update_source: UpdateSource::Ossia,
             update_channel: UpdateChannelPreference::Auto,
             github_token: None,
-            omr_service: OmrService::Ossia,
+            omr_service: OmrService::Custom,
+            omr_enabled: Some(false),
             omr_url: None,
             omr_token: None,
             omr_custom_token: None,
         }
+    }
+}
+
+impl UiPreferences {
+    /// Resolve OMR state for both current and legacy preferences.
+    pub fn omr_enabled(&self) -> bool {
+        self.omr_enabled
+            .unwrap_or(self.omr_service == OmrService::Custom || self.omr_token.is_some())
     }
 }
 
@@ -155,6 +167,7 @@ pub struct ManagementPreferences {
     pub update_source: UpdateSource,
     pub github_token_masked: Option<String>,
     pub omr_service: OmrService,
+    pub omr_enabled: bool,
     pub omr_ossia_url: String,
     pub omr_url: Option<String>,
     pub omr_token_masked: Option<String>,

@@ -46,6 +46,8 @@ export const enUS = {
   storageLoadFailed: 'Could not read storage usage',
   storageCleanupFailed: 'Could not clean storage',
   remoteOmr: 'Score recognition service (OMR)',
+  omrEnabled: 'Use online recognition',
+  omrEnabledDescription: 'Use a remote service to recognize PDF and image scores.',
   omrService: 'Service provider',
   omrServiceDescription:
     'Choose the Ossia OMR online service or connect to a self-hosted OMR service.',

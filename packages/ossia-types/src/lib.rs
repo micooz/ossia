@@ -219,6 +219,8 @@ pub enum ErrorCode {
     Unauthorized,
     Forbidden,
     RuntimeUnavailable,
+    OmrNotConfigured,
+    OmrConfigurationInvalid,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]

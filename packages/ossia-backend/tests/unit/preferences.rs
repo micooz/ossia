@@ -7,7 +7,10 @@ use crate::{
 #[test]
 fn missing_file_uses_defaults() {
     let root = tempfile::tempdir().unwrap();
-    assert_eq!(load(root.path()).unwrap(), UiPreferences::default());
+    let preferences = load(root.path()).unwrap();
+    assert_eq!(preferences, UiPreferences::default());
+    assert_eq!(preferences.omr_service, OmrService::Custom);
+    assert!(!preferences.omr_enabled());
 }
 
 #[test]
@@ -33,6 +36,7 @@ fn legacy_preferences_use_the_default_storage_limit() {
             update_channel: UpdateChannelPreference::Auto,
             github_token: None,
             omr_service: OmrService::Ossia,
+            omr_enabled: None,
             omr_url: None,
             omr_token: None,
             omr_custom_token: None,
@@ -70,6 +74,7 @@ fn round_trips_all_preferences() {
         update_channel: UpdateChannelPreference::Beta,
         github_token: Some("github_pat_secret".into()),
         omr_service: OmrService::Custom,
+        omr_enabled: None,
         omr_url: Some("https://omr.example.com".into()),
         omr_token: Some("secret".into()),
         omr_custom_token: Some("custom-secret".into()),

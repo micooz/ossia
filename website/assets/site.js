@@ -97,6 +97,7 @@ sourceButtons.forEach((button) => {
 });
 const oldAnchors = {
   download: 'download',
+  mac: 'guide',
   macos: 'mac-install',
   windows: 'win',
   agent: 'agent',

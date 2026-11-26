@@ -45,6 +45,8 @@ export const zhCN: Record<MessageKey, string> = {
   storageLoadFailed: '无法读取存储占用',
   storageCleanupFailed: '无法清理存储',
   remoteOmr: '乐谱识别服务（OMR）',
+  omrEnabled: '使用在线识别',
+  omrEnabledDescription: '使用远程服务识别 PDF 和图片乐谱。',
   omrService: '服务提供方',
   omrServiceDescription: '选择 Ossia OMR 在线服务，或连接自部署 OMR 服务。',
   omrServiceOssia: 'Ossia OMR',
