@@ -1,4 +1,4 @@
-import type { ManagementScoreSummary } from '../generated/protocol.ts';
+import type { ManagementScoreSummary } from '../../generated/protocol.ts';
 
 export type ScoreLayout = 'grid' | 'list';
 export type ScoreSortMetric = 'created' | 'updated';

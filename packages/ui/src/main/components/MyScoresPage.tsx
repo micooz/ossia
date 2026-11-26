@@ -11,11 +11,11 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import type { ToastKind } from '../components/Toast.tsx';
-import { describe } from '../errors.ts';
-import type { ManagementScorePage, ManagementScoreSummary } from '../generated/protocol.ts';
-import { useI18n } from '../i18n.tsx';
-import { ScoreCard } from './ScoreCard.tsx';
+import type { ToastKind } from '../../components/Toast.tsx';
+import { describe } from '../../errors.ts';
+import type { ManagementScorePage, ManagementScoreSummary } from '../../generated/protocol.ts';
+import { useI18n } from '../../i18n.tsx';
+import { useScorePreviews } from '../hooks/useScorePreviews.ts';
 import {
   filterAndSortScores,
   parseScoreLayout,
@@ -26,9 +26,9 @@ import {
   type ScoreLayout,
   type ScoreSort,
   type ScoreSortMetric,
-} from './scoreLibrary.ts';
+} from '../utils/scoreLibrary.ts';
+import { ScoreCard } from './ScoreCard.tsx';
 import { Segmented } from './ui.tsx';
-import { useScorePreviews } from './useScorePreviews.ts';
 
 interface MyScoresPageProps {
   browser?: boolean;

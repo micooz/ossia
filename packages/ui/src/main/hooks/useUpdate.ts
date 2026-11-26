@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { UpdateSnapshot } from '../generated/protocol.ts';
+import type { UpdateSnapshot } from '../../generated/protocol.ts';
 
 const UPDATE_EVENT = 'ossia://update';
 const POLL_INTERVAL = 400;

@@ -5,9 +5,9 @@ import type {
   AgentNotice,
   AgentProblem,
   AgentsSnapshot,
-} from '../generated/protocol.ts';
-import { useI18n } from '../i18n.tsx';
-import { agentIcon, displayPath, noticeKeys, stateKeys } from './types.ts';
+} from '../../generated/protocol.ts';
+import { useI18n } from '../../i18n.tsx';
+import { agentIcon, displayPath, noticeKeys, stateKeys } from '../types.ts';
 
 export function AgentsPage({
   native,

@@ -1,10 +1,10 @@
 import { Archive, FileMusic, LoaderCircle, RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
-import type { ManagementScoreSummary } from '../generated/protocol.ts';
-import { useI18n } from '../i18n.tsx';
-import { friendlyScoreTime, type ScoreSortMetric } from './scoreLibrary.ts';
-import type { ScorePreviewView } from './useScorePreviews.ts';
+import type { ManagementScoreSummary } from '../../generated/protocol.ts';
+import { useI18n } from '../../i18n.tsx';
+import type { ScorePreviewView } from '../hooks/useScorePreviews.ts';
+import { friendlyScoreTime, type ScoreSortMetric } from '../utils/scoreLibrary.ts';
 
 interface ScoreCardProps {
   score: ManagementScoreSummary;

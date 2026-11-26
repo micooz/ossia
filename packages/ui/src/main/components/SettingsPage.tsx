@@ -11,8 +11,8 @@ import type {
   TrayClickAction,
   UiLanguage,
   UiTheme,
-} from '../generated/protocol.ts';
-import { useI18n } from '../i18n.tsx';
+} from '../../generated/protocol.ts';
+import { useI18n } from '../../i18n.tsx';
 import { Segmented, formatBytes } from './ui.tsx';
 
 export function SettingsPage({

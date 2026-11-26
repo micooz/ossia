@@ -1,9 +1,9 @@
 import { LoaderCircle, Play, Square, X } from 'lucide-react';
 import type { RefObject } from 'react';
 
-import type { ManagementSnapshot } from '../generated/protocol.ts';
-import { useI18n } from '../i18n.tsx';
-import { cancelDialog, closeDialog } from './dialog.ts';
+import type { ManagementSnapshot } from '../../generated/protocol.ts';
+import { useI18n } from '../../i18n.tsx';
+import { cancelDialog, closeDialog } from '../utils/dialog.ts';
 import { InfoRow } from './ui.tsx';
 
 export function ServiceDialog({

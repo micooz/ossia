@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 
 import { I18nProvider, matchSystemLanguage } from '../i18n.tsx';
-import { MyScoresPage } from '../main/MyScoresPage.tsx';
+import { MyScoresPage } from '../main/components/MyScoresPage.tsx';
 
 import '../main/main.css';
 import './library.css';

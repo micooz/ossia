@@ -1,12 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { describe } from '../errors.ts';
+import { describe } from '../../errors.ts';
 import type {
   ManagementScorePreview,
   ManagementScorePreviewArgs,
   ManagementScoreSummary,
-} from '../generated/protocol.ts';
+} from '../../generated/protocol.ts';
 
 const PREVIEW_CONCURRENCY = 4;
 const PREVIEW_CACHE_LIMIT = 200;

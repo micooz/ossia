@@ -25,17 +25,17 @@ import type {
   UiTheme,
 } from '../generated/protocol.ts';
 import { useI18n } from '../i18n.tsx';
-import { AboutPage } from './AboutPage.tsx';
-import { AgentsPage } from './AgentsPage.tsx';
 import icon from './assets/ossia-icon.svg';
 import logo from './assets/ossia-logo.svg';
-import { MyScoresPage } from './MyScoresPage.tsx';
-import { ServiceDialog } from './ServiceDialog.tsx';
-import { SettingsPage } from './SettingsPage.tsx';
+import { AboutPage } from './components/AboutPage.tsx';
+import { AgentsPage } from './components/AgentsPage.tsx';
+import { MyScoresPage } from './components/MyScoresPage.tsx';
+import { ServiceDialog } from './components/ServiceDialog.tsx';
+import { SettingsPage } from './components/SettingsPage.tsx';
+import { NavItem, formatBytes } from './components/ui.tsx';
+import { useUpdate } from './hooks/useUpdate.ts';
 import { platformName } from './types.ts';
 import type { Page } from './types.ts';
-import { NavItem, formatBytes } from './ui.tsx';
-import { useUpdate } from './useUpdate.ts';
 
 interface MainContentProps {
   native: boolean;

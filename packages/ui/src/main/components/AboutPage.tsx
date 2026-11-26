@@ -8,9 +8,9 @@ import type {
   UpdateSnapshot,
   UpdateSource,
   UpdateState,
-} from '../generated/protocol.ts';
-import { useI18n } from '../i18n.tsx';
-import icon from './assets/ossia-icon.svg';
+} from '../../generated/protocol.ts';
+import { useI18n } from '../../i18n.tsx';
+import icon from '../assets/ossia-icon.svg';
 import { Segmented } from './ui.tsx';
 import { UpdateNotesDialog } from './UpdateNotesDialog.tsx';
 

@@ -1,7 +1,7 @@
 import DOMPurify from 'dompurify';
 import { marked, type Token } from 'marked';
 
-import type { ReleaseNote, UiLanguage, UpdateNotes } from '../generated/protocol.ts';
+import type { ReleaseNote, UiLanguage, UpdateNotes } from '../../generated/protocol.ts';
 
 const CHINESE_MARKER = '<!-- lang:zh -->';
 const HTTPS = /^https:\/\//i;

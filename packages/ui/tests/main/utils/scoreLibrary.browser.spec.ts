@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import type { ManagementScoreSummary } from '../../src/generated/protocol.ts';
+import type { ManagementScoreSummary } from '../../../src/generated/protocol.ts';
 import {
   DEFAULT_SCORE_LAYOUT,
   DEFAULT_SCORE_SORT,
@@ -9,7 +9,7 @@ import {
   parseScoreLayout,
   parseScoreSort,
   serializeScoreSort,
-} from '../../src/main/scoreLibrary.ts';
+} from '../../../src/main/utils/scoreLibrary.ts';
 
 function score(
   documentId: string,

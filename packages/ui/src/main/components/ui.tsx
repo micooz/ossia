@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export { Segmented } from '../components/segmented.tsx';
+export { Segmented } from '../../components/segmented.tsx';
 
 export function NavItem({
   active,
