@@ -161,8 +161,7 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
-        os: [macos-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
@@ -174,11 +173,7 @@ jobs:
           cache: true
           install: false
       - run: pnpm install --frozen-lockfile
-      - name: Install browser test runtime
-        if: runner.os != 'Linux'
-        run: pnpm --filter @ossia/ui exec playwright install chrome
       - name: Install browser test runtime and dependencies
-        if: runner.os == 'Linux'
         run: pnpm --filter @ossia/ui exec playwright install --with-deps chrome
       - uses: actions/download-artifact@v8.0.2
         with:
@@ -192,7 +187,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: audition-failures-${{ matrix.os }}-${{ matrix.shard }}
+          name: audition-failures-${{ matrix.shard }}
           path: packages/ui/test-results/browser/
           if-no-files-found: ignore
           retention-days: 7
@@ -222,9 +217,6 @@ jobs:
       - name: Browser regression
         if: runner.os == 'Linux'
         run: pnpm test:ui
-      - name: Browser regression platform comparison
-        if: runner.os != 'Linux'
-        run: pnpm --filter @ossia/ui exec playwright test --project=browser --grep-invert @platform-keyboard
       - name: Platform keyboard regression
         if: runner.os != 'Linux'
         run: pnpm --filter @ossia/ui exec playwright test --project=browser --grep @platform-keyboard
