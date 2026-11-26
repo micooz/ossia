@@ -414,7 +414,7 @@ test('an initial drawing read can be retried after failure', async ({ context, p
     return route.fallback();
   });
   await page.goto(`/scores?documentId=${firstId}`);
-  await page.getByRole('button', { name: '绘画保存失败，点击重试' }).click();
+  await page.getByRole('button', { name: '绘画保存失败' }).click();
   await expect(page.getByRole('button', { name: '画笔', exact: true })).toBeVisible();
 });
 
@@ -920,7 +920,7 @@ test('failed saves retain the local stroke and can be retried', async ({ context
   await page.mouse.down();
   await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.3);
   await page.mouse.up();
-  const retry = page.getByRole('button', { name: '绘画保存失败，点击重试' });
+  const retry = page.getByRole('button', { name: '绘画保存失败' });
   await expect(retry).toBeVisible();
   await expect(host.locator('.score-freehand-layer polyline')).toHaveCount(1);
   await page.getByRole('button', { name: /选择乐谱/ }).click();
