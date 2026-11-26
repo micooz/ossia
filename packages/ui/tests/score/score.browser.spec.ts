@@ -1286,6 +1286,7 @@ test('version selection, restore order and export dialog use the viewed version'
   expect(await dialog.evaluate((node) => getComputedStyle(node).flexDirection)).toBe('column');
   await page.getByRole('button', { name: '导出' }).click();
   await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: /PDF/ }).click();
   await expect(dialog.getByLabel('PDF 密码')).toHaveAttribute('type', 'password');
   await expect(dialog.getByLabel('PDF 密码')).toHaveValue('');
   await dialog.getByRole('button', { name: '关闭' }).click();
@@ -1303,6 +1304,66 @@ test('version selection, restore order and export dialog use the viewed version'
     expectedSourceHash: h.states[0]!.sourceHash,
     discardCurrentEdit: true,
   });
+});
+
+test('export settings persist per score without saving the PDF password', async ({
+  context,
+  page,
+}) => {
+  await mockScoreRuntime(context);
+  await page.goto(`/scores?documentId=${firstId}`);
+  await page.getByRole('button', { name: '导出' }).click();
+  const dialog = page.locator('.export-dialog');
+  await dialog.getByLabel('PDF 密码').fill('secret');
+  await dialog.getByRole('button', { name: /PNG/ }).click();
+  await dialog.getByLabel('文件名').fill('我的导出');
+  await dialog.getByLabel('像素宽度').fill('2400');
+  await dialog.getByLabel('透明背景').check();
+  await dialog.getByLabel('包含绘画').uncheck();
+  const quality = dialog.getByRole('slider', { name: '图片质量' });
+  await quality.focus();
+  await page.keyboard.press('Home');
+  await expect(dialog.getByLabel('导出指定页面')).toBeEnabled();
+  await dialog.getByLabel('导出指定页面').check();
+  await dialog.getByLabel('起始页').fill('2');
+  await dialog.getByRole('button', { name: '关闭' }).click();
+  await page.reload();
+  await page.getByRole('button', { name: '导出' }).click();
+  await expect(dialog.getByRole('button', { name: /PNG/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.getByLabel('文件名')).toHaveValue('我的导出');
+  await expect(dialog.getByLabel('像素宽度')).toHaveValue('2400');
+  await expect(dialog.getByLabel('透明背景')).toBeChecked();
+  await expect(dialog.getByLabel('包含绘画')).not.toBeChecked();
+  await expect(quality).toHaveAttribute('aria-valuenow', '30');
+  await expect(dialog.getByLabel('导出指定页面')).toBeChecked();
+  await expect(dialog.getByLabel('起始页')).toHaveValue('2');
+  await dialog.getByLabel('结束页').fill('3');
+  await expect(dialog.getByRole('button', { name: '导出', exact: true })).toBeDisabled();
+  await dialog.getByRole('button', { name: /PDF/ }).click();
+  await expect(dialog.getByLabel('PDF 密码')).toHaveValue('');
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain('secret');
+  await page.goto(`/scores?documentId=${secondId}`);
+  await page.getByRole('button', { name: '导出' }).click();
+  await expect(dialog.getByRole('button', { name: /PDF/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.getByLabel('文件名')).not.toHaveValue('我的导出');
+});
+
+test('export settings handle invalid or unavailable browser storage', async ({ context, page }) => {
+  await mockScoreRuntime(context);
+  await page.goto(`/scores?documentId=${firstId}`);
+  await page.evaluate((id) => localStorage.setItem(`ossia:export-settings:v1:${id}`, '{'), firstId);
+  await page.reload();
+  await page.getByRole('button', { name: '导出' }).click();
+  const dialog = page.locator('.export-dialog');
+  await expect(dialog.getByRole('button', { name: /PDF/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => {
+      throw new Error('storage unavailable');
+    };
+  });
+  await dialog.getByRole('button', { name: /PNG/ }).click();
+  await dialog.getByLabel('像素宽度').fill('1200');
+  await expect(dialog.getByLabel('像素宽度')).toHaveValue('1200');
 });
 
 test('export preview can recover from a page loading error', async ({ context, page }) => {
@@ -1573,4 +1634,23 @@ test('MIDI and WAV exports accept validated measure ranges', async ({ context, p
     format: 'wav',
     audioRange: { start: 2, end: 3 },
   });
+  await dialog.getByRole('button', { name: /PDF/ }).click();
+  const pdfDownload = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: '导出', exact: true }).click();
+  await pdfDownload;
+  expect(h.outputs[2]).toMatchObject({ format: 'pdf', audioRange: null });
+  await dialog.getByRole('button', { name: /WAV/ }).click();
+  await expect(range).toBeChecked();
+  await page.reload();
+  await page.getByRole('button', { name: '导出' }).click();
+  await expect(range).toBeChecked();
+  await expect(dialog.getByLabel('起始小节')).toHaveValue('2');
+  await expect(dialog.getByLabel('结束小节')).toHaveValue('3');
+  await dialog.getByLabel('结束小节').fill('4');
+  await page.reload();
+  await page.getByRole('button', { name: '导出' }).click();
+  await expect(dialog.getByLabel('结束小节')).toHaveValue('4');
+  await expect(dialog.getByRole('button', { name: '导出', exact: true })).toBeDisabled();
+  await dialog.getByLabel('结束小节').fill('3');
+  await expect(dialog.getByRole('button', { name: '导出', exact: true })).toBeEnabled();
 });

@@ -10,26 +10,21 @@ import {
   Shapes,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../../components/ui/button.tsx';
 import { Checkbox } from '../../components/ui/checkbox.tsx';
 import { Input } from '../../components/ui/input.tsx';
 import { Slider } from '../../components/ui/slider.tsx';
 import { describe } from '../../errors.ts';
-import type {
-  OutputBatchOutcome,
-  OutputFormat,
-  RenderReference,
-  Version,
-} from '../../generated/protocol.ts';
+import type { OutputBatchOutcome, RenderReference, Version } from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
 import type { DrawingController } from '../hooks/useDrawing.ts';
 import type { Api } from '../utils/api.ts';
+import { readExportSettings, rememberExportSettings } from '../utils/exportSettingsMemory.ts';
+import type { ExportFormat, ExportSettings } from '../utils/exportSettingsMemory.ts';
 import { loadScorePlayback } from '../utils/renderCache.ts';
 import { DrawingLayer } from './DrawingLayer.tsx';
-
-type ExportFormat = Exclude<OutputFormat, 'ly'>;
 
 const PNG_QUALITY_MIN = 30;
 const PNG_QUALITY_MAX = 100;
@@ -100,37 +95,46 @@ export function ExportDialog({
   const { t } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
   const previewStage = useRef<HTMLDivElement>(null);
-  const [format, setFormat] = useState<ExportFormat>('pdf');
-  const [includeDrawing, setIncludeDrawing] = useState(true);
+  const loadedSettings = useMemo(() => readExportSettings(documentId), [documentId]);
+  const [memory, setMemory] = useState(() => ({ documentId, settings: loadedSettings }));
+  const settings = memory.documentId === documentId ? memory.settings : loadedSettings;
+  const {
+    format,
+    includeDrawing,
+    width,
+    pngQuality,
+    pngTransparent,
+    pageRangeEnabled,
+    pageStart,
+    pageEnd,
+    measureRangeEnabled,
+    measureStart,
+    measureEnd,
+  } = settings;
+  const fileName = settings.fileName ?? defaultFileName(documentTitle, viewingVersion?.seq ?? null);
+  function updateSettings(changes: Partial<ExportSettings>) {
+    const next = { ...settings, ...changes };
+    setMemory({ documentId, settings: next });
+    rememberExportSettings(documentId, next);
+  }
   const [pageAspects, setPageAspects] = useState<Record<number, number>>({});
   const [pdfPassword, setPdfPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [width, setWidth] = useState(1600);
-  const [pngQuality, setPngQuality] = useState(90);
-  const [pngTransparent, setPngTransparent] = useState(false);
-  const [fileName, setFileName] = useState('');
   const [versionRender, setVersionRender] = useState<RenderReference | null>(null);
   const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const [previewAttempt, setPreviewAttempt] = useState(0);
   const [visiblePage, setVisiblePage] = useState(1);
-  const [pageRangeEnabled, setPageRangeEnabled] = useState(false);
-  const [pageStart, setPageStart] = useState(1);
-  const [pageEnd, setPageEnd] = useState(1);
   const [previewScrollEdges, setPreviewScrollEdges] = useState({
     start: false,
     end: false,
   });
   const [maxMeasure, setMaxMeasure] = useState<number | null>(null);
-  const [measureRangeEnabled, setMeasureRangeEnabled] = useState(false);
-  const [measureStart, setMeasureStart] = useState(1);
-  const [measureEnd, setMeasureEnd] = useState(1);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
   const versionId = exportVersionId;
   const versionDocumentId = documentId;
-  const versionSeq = viewingVersion?.seq ?? null;
   const previewRender = versionId ? versionRender : currentRender;
   const pageNumbers = previewRender
     ? [...previewRender.manifest.pages]
@@ -165,7 +169,7 @@ export function ExportDialog({
     (!['png', 'svg'].includes(format) || pageCount > 0) &&
     (!(format === 'pdf' && pageRangeEnabled) || pageCount > 0) &&
     (!['pdf', 'png', 'svg'].includes(format) || validPageRange) &&
-    validMeasureRange &&
+    (!['midi', 'wav'].includes(format) || validMeasureRange) &&
     (!includeDrawing ||
       !['pdf', 'png', 'svg'].includes(format) ||
       (drawing.ready && !drawing.error && !drawing.saving));
@@ -175,26 +179,14 @@ export function ExportDialog({
       dialog.current?.close();
       return;
     }
-    setFormat('pdf');
-    setIncludeDrawing(true);
-    setPageRangeEnabled(false);
-    setPageStart(1);
-    setPageEnd(1);
     setVisiblePage(1);
     setPdfPassword('');
     setPasswordVisible(false);
-    setWidth(1600);
-    setPngQuality(90);
-    setPngTransparent(false);
     setMaxMeasure(null);
-    setMeasureRangeEnabled(false);
-    setMeasureStart(1);
-    setMeasureEnd(1);
-    setFileName(defaultFileName(documentTitle, versionSeq));
     setExportError('');
     setExporting(false);
     if (!dialog.current?.open) dialog.current?.showModal();
-  }, [open, documentTitle, versionSeq]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -314,17 +306,16 @@ export function ExportDialog({
   }, [api, format, open, previewKey]);
 
   function chooseFormat(next: ExportFormat) {
-    setFormat(next);
-    if (!['midi', 'wav'].includes(next)) setMeasureRangeEnabled(false);
+    updateSettings({ format: next });
     setExportError('');
   }
 
   function toggleMeasureRange(enabled: boolean) {
-    setMeasureRangeEnabled(enabled);
-    if (enabled && maxMeasure !== null) {
-      setMeasureStart(1);
-      setMeasureEnd(maxMeasure);
-    }
+    updateSettings(
+      enabled && maxMeasure !== null
+        ? { measureRangeEnabled: true, measureStart: 1, measureEnd: maxMeasure }
+        : { measureRangeEnabled: enabled },
+    );
   }
 
   async function exportFile() {
@@ -356,7 +347,10 @@ export function ExportDialog({
         outputDirectory: null,
         crop: null,
         paddingStaffSpaces: null,
-        audioRange: measureRangeEnabled ? { start: measureStart, end: measureEnd } : null,
+        audioRange:
+          ['midi', 'wav'].includes(format) && measureRangeEnabled
+            ? { start: measureStart, end: measureEnd }
+            : null,
         waitMs: null,
       });
       const result = await api.waitJob<OutputBatchOutcome>(job);
@@ -403,11 +397,11 @@ export function ExportDialog({
           checked={pageRangeEnabled}
           disabled={!pageCount}
           onCheckedChange={(checked) => {
-            setPageRangeEnabled(checked === true);
-            if (checked) {
-              setPageStart(1);
-              setPageEnd(pageCount);
-            }
+            updateSettings(
+              checked === true
+                ? { pageRangeEnabled: true, pageStart: 1, pageEnd: pageCount }
+                : { pageRangeEnabled: false },
+            );
           }}
         />
         <span>{t('exportPageRange')}</span>
@@ -423,7 +417,7 @@ export function ExportDialog({
               max={pageCount}
               step={1}
               value={pageStart}
-              onChange={(event) => setPageStart(Number(event.target.value))}
+              onChange={(event) => updateSettings({ pageStart: Number(event.target.value) })}
             />
           </label>
           <label className="export-field" htmlFor="export-page-end">
@@ -435,7 +429,7 @@ export function ExportDialog({
               max={pageCount}
               step={1}
               value={pageEnd}
-              onChange={(event) => setPageEnd(Number(event.target.value))}
+              onChange={(event) => updateSettings({ pageEnd: Number(event.target.value) })}
             />
           </label>
         </div>
@@ -449,7 +443,7 @@ export function ExportDialog({
         <Checkbox
           id="export-include-drawing"
           checked={includeDrawing}
-          onCheckedChange={(checked) => setIncludeDrawing(checked === true)}
+          onCheckedChange={(checked) => updateSettings({ includeDrawing: checked === true })}
         />
         <span>{t('includeDrawing')}</span>
       </label>
@@ -522,7 +516,7 @@ export function ExportDialog({
             <Input
               id="export-file-name"
               value={fileName}
-              onChange={(event) => setFileName(event.target.value)}
+              onChange={(event) => updateSettings({ fileName: event.target.value })}
             />
           </label>
           {['midi', 'wav'].includes(format) && (
@@ -550,7 +544,9 @@ export function ExportDialog({
                       max={maxMeasure ?? undefined}
                       step={1}
                       value={measureStart}
-                      onChange={(event) => setMeasureStart(Number(event.target.value))}
+                      onChange={(event) =>
+                        updateSettings({ measureStart: Number(event.target.value) })
+                      }
                     />
                   </label>
                   <label className="export-field" htmlFor="export-measure-end">
@@ -562,7 +558,9 @@ export function ExportDialog({
                       max={maxMeasure ?? undefined}
                       step={1}
                       value={measureEnd}
-                      onChange={(event) => setMeasureEnd(Number(event.target.value))}
+                      onChange={(event) =>
+                        updateSettings({ measureEnd: Number(event.target.value) })
+                      }
                     />
                   </label>
                 </div>
@@ -616,7 +614,7 @@ export function ExportDialog({
                   max={4096}
                   step={1}
                   value={width}
-                  onChange={(event) => setWidth(Number(event.target.value))}
+                  onChange={(event) => updateSettings({ width: Number(event.target.value) })}
                 />
               </label>
               <div className="export-field">
@@ -632,7 +630,9 @@ export function ExportDialog({
                     max={PNG_QUALITY_MAX}
                     step={1}
                     value={[pngQuality]}
-                    onValueChange={([value]) => setPngQuality(value ?? PNG_QUALITY_MIN)}
+                    onValueChange={([value]) =>
+                      updateSettings({ pngQuality: value ?? PNG_QUALITY_MIN })
+                    }
                   />
                 </div>
               </div>
@@ -642,7 +642,9 @@ export function ExportDialog({
                 <Checkbox
                   id="export-transparent"
                   checked={pngTransparent}
-                  onCheckedChange={(checked) => setPngTransparent(checked === true)}
+                  onCheckedChange={(checked) =>
+                    updateSettings({ pngTransparent: checked === true })
+                  }
                 />
                 <span>{t('pngTransparent')}</span>
               </label>
