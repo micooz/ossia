@@ -1,4 +1,4 @@
-import { ChevronDown, LoaderCircle, ScrollText } from 'lucide-react';
+import { Check, ChevronDown, Copy, LoaderCircle, ScrollText } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '../../components/ui/button.tsx';
@@ -37,9 +37,16 @@ export function ScoreTitleMenu({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const [copyStatus, setCopyStatus] = useState<{ kind: 'success' | 'error' } | null>(null);
   const pointerSelection = useRef(false);
   const penPress = useRef<{ id: number; x: number; y: number; item: HTMLElement } | null>(null);
   const loadedDocuments = useRef<DocumentSummary[] | null>(null);
+
+  useEffect(() => {
+    if (!copyStatus) return;
+    const timer = window.setTimeout(() => setCopyStatus(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copyStatus]);
 
   useEffect(() => {
     if (!open) return;
@@ -67,115 +74,166 @@ export function ScoreTitleMenu({
   }, [api, attempt, open]);
 
   return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={(next) => {
-        if (next) pointerSelection.current = false;
-        setOpen(next);
-      }}
-    >
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="score-title-trigger score-selector-trigger"
-          aria-label={`${t('chooseScore')}: ${title}`}
-          title={title}
-        >
-          <ScrollText
-            className="score-title-menu-icon score-selector-menu-icon"
-            aria-hidden="true"
-            size={17}
-          />
-          <span className="topbar-title score-title-label score-selector-label">{title}</span>
-          <ChevronDown
-            className="score-title-chevron score-selector-chevron"
-            aria-hidden="true"
-            size={15}
-          />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="score-title-menu"
-        onPointerDown={(event) => {
-          pointerSelection.current = true;
-          const item = (event.target as HTMLElement).closest<HTMLElement>('[role="menuitemradio"]');
-          penPress.current =
-            event.pointerType === 'pen' && event.button === 0 && item
-              ? { id: event.pointerId, x: event.clientX, y: event.clientY, item }
-              : null;
-        }}
-        onPointerMove={(event) => {
-          const press = penPress.current;
-          if (
-            press?.id === event.pointerId &&
-            Math.hypot(event.clientX - press.x, event.clientY - press.y) > 10
-          ) {
-            penPress.current = null;
-          }
-        }}
-        onPointerCancel={() => {
-          penPress.current = null;
-        }}
-        onPointerUp={(event) => {
-          const press = penPress.current;
-          penPress.current = null;
-          if (
-            press?.id === event.pointerId &&
-            Math.hypot(event.clientX - press.x, event.clientY - press.y) <= 10 &&
-            press.item.contains(document.elementFromPoint(event.clientX, event.clientY))
-          ) {
-            // Safari may omit click after a longer Pencil contact.
-            event.preventDefault();
-            press.item.click();
-          }
-        }}
-        onCloseAutoFocus={(event) => {
-          if (!pointerSelection.current) return;
-          event.preventDefault();
-          pointerSelection.current = false;
+    <div className="score-title-selector">
+      <DropdownMenu
+        open={open}
+        onOpenChange={(next) => {
+          if (next) pointerSelection.current = false;
+          setOpen(next);
         }}
       >
-        <DropdownMenuLabel>{t('chooseScore')}</DropdownMenuLabel>
-        {documents ? (
-          <DropdownMenuRadioGroup
-            value={documentId}
-            onValueChange={(next) => {
-              if (next !== documentId) onSelect(next);
-            }}
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="score-title-trigger score-selector-trigger"
+            aria-label={`${t('chooseScore')}: ${title}`}
+            title={title}
           >
-            {documents.map((document) => (
-              <DropdownMenuRadioItem
-                key={document.documentId}
-                value={document.documentId}
-                title={document.title}
-              >
-                <span className="ui-menu-item-title">{document.title}</span>
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        ) : loading ? (
-          <div className="score-title-loading-item" role="status">
-            <LoaderCircle className="score-title-loading-spinner" aria-hidden="true" size={15} />
-            <span>{t('loading')}</span>
-          </div>
-        ) : null}
-        {error && (
-          <>
-            <p className="score-title-error" role="alert">
-              {t('scoreListFailed', { error })}
-            </p>
-            <DropdownMenuItem
-              className="score-title-retry-item"
-              onSelect={() => setAttempt((value) => value + 1)}
+            <ScrollText
+              className="score-title-menu-icon score-selector-menu-icon"
+              aria-hidden="true"
+              size={17}
+            />
+            <span className="topbar-title score-title-label score-selector-label">{title}</span>
+            <ChevronDown
+              className="score-title-chevron score-selector-chevron"
+              aria-hidden="true"
+              size={15}
+            />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="score-title-menu"
+          onPointerDown={(event) => {
+            pointerSelection.current = true;
+            const item = (event.target as HTMLElement).closest<HTMLElement>(
+              '[role="menuitemradio"]',
+            );
+            penPress.current =
+              event.pointerType === 'pen' && event.button === 0 && item
+                ? { id: event.pointerId, x: event.clientX, y: event.clientY, item }
+                : null;
+          }}
+          onPointerMove={(event) => {
+            const press = penPress.current;
+            if (
+              press?.id === event.pointerId &&
+              Math.hypot(event.clientX - press.x, event.clientY - press.y) > 10
+            ) {
+              penPress.current = null;
+            }
+          }}
+          onPointerCancel={() => {
+            penPress.current = null;
+          }}
+          onPointerUp={(event) => {
+            const press = penPress.current;
+            penPress.current = null;
+            if (
+              press?.id === event.pointerId &&
+              Math.hypot(event.clientX - press.x, event.clientY - press.y) <= 10 &&
+              press.item.contains(document.elementFromPoint(event.clientX, event.clientY))
+            ) {
+              // Safari may omit click after a longer Pencil contact.
+              event.preventDefault();
+              press.item.click();
+            }
+          }}
+          onCloseAutoFocus={(event) => {
+            if (!pointerSelection.current) return;
+            event.preventDefault();
+            pointerSelection.current = false;
+          }}
+        >
+          <DropdownMenuLabel>{t('chooseScore')}</DropdownMenuLabel>
+          {documents ? (
+            <DropdownMenuRadioGroup
+              value={documentId}
+              onValueChange={(next) => {
+                if (next !== documentId) onSelect(next);
+              }}
             >
-              <span className="ui-menu-item-title">{t('retry')}</span>
-            </DropdownMenuItem>
-          </>
+              {documents.map((document) => (
+                <DropdownMenuRadioItem
+                  key={document.documentId}
+                  value={document.documentId}
+                  title={document.title}
+                >
+                  <span className="ui-menu-item-title">{document.title}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          ) : loading ? (
+            <div className="score-title-loading-item" role="status">
+              <LoaderCircle className="score-title-loading-spinner" aria-hidden="true" size={15} />
+              <span>{t('loading')}</span>
+            </div>
+          ) : null}
+          {error && (
+            <>
+              <p className="score-title-error" role="alert">
+                {t('scoreListFailed', { error })}
+              </p>
+              <DropdownMenuItem
+                className="score-title-retry-item"
+                onSelect={() => setAttempt((value) => value + 1)}
+              >
+                <span className="ui-menu-item-title">{t('retry')}</span>
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <button
+        type="button"
+        className="score-title-copy"
+        aria-label={t('copyScoreName')}
+        onClick={async () => {
+          try {
+            if (navigator.clipboard) {
+              await navigator.clipboard.writeText(title);
+            } else {
+              const previousFocus = document.activeElement;
+              const field = document.createElement('textarea');
+              field.value = title;
+              field.setAttribute('readonly', '');
+              field.style.cssText = 'position:fixed;inset-block-start:0;opacity:0';
+              document.body.append(field);
+              field.select();
+              try {
+                if (!document.execCommand('copy')) throw new Error('Copy failed');
+              } finally {
+                field.remove();
+                if (previousFocus instanceof HTMLElement)
+                  previousFocus.focus({ preventScroll: true });
+              }
+            }
+            setCopyStatus({ kind: 'success' });
+          } catch {
+            setCopyStatus({ kind: 'error' });
+          }
+        }}
+      >
+        {copyStatus?.kind === 'success' ? (
+          <Check aria-hidden="true" size={17} />
+        ) : (
+          <Copy aria-hidden="true" size={17} />
         )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </button>
+      <span
+        className="score-title-copy-status"
+        data-success={copyStatus?.kind === 'success'}
+        role="status"
+      >
+        {copyStatus?.kind === 'success'
+          ? t('scoreNameCopied')
+          : copyStatus?.kind === 'error'
+            ? t('copyScoreNameFailed')
+            : ''}
+      </span>
+    </div>
   );
 }

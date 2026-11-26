@@ -278,6 +278,70 @@ code {
   padding-inline: 0.45rem;
   color: var(--topbar-fg);
 }
+.score-title-selector {
+  position: relative;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.score-title-copy {
+  position: absolute;
+  inset-inline-start: 0.2rem;
+  inset-block-start: 50%;
+  display: grid;
+  place-items: center;
+  min-inline-size: 24px;
+  min-block-size: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--topbar-fg);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+.score-title-selector:hover .score-title-copy,
+.score-title-selector:has(.score-title-copy:focus-visible) .score-title-copy {
+  opacity: 1;
+  pointer-events: auto;
+}
+.score-title-copy:hover:not(:disabled) {
+  background: transparent;
+}
+.score-title-copy:focus-visible {
+  outline: none;
+  color: var(--accent-text);
+}
+@media (min-width: 681px) and (hover: hover) {
+  .score-title-selector:hover .score-title-menu-icon,
+  .score-title-selector:has(.score-title-copy:focus-visible) .score-title-menu-icon {
+    visibility: hidden;
+  }
+}
+.score-title-copy-status {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  z-index: 10;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: var(--topbar-bg-top);
+  color: var(--topbar-fg);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.score-title-copy-status:empty {
+  padding: 0;
+}
+.score-title-copy-status[data-success='true'] {
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .score-selector-label {
   min-inline-size: 0;
   max-inline-size: 100%;
@@ -481,6 +545,10 @@ code {
 .score-topbar .ui-button[data-variant='ghost'][aria-pressed='true'] {
   border-color: transparent;
   background: var(--topbar-hover);
+}
+.score-topbar
+  .score-title-trigger[data-variant='ghost']:hover:not(:disabled):not([data-state='open']) {
+  background: transparent;
 }
 .score-view {
   position: relative;
@@ -2025,6 +2093,9 @@ dialog::backdrop {
   }
 }
 @media (max-width: 680px) {
+  .score-title-copy {
+    display: none;
+  }
   .bar {
     padding: 0.7rem;
     gap: 0.5rem;
@@ -2136,6 +2207,9 @@ dialog::backdrop {
   }
 }
 @media (hover: none) {
+  .score-title-copy {
+    display: none;
+  }
   .score-controls {
     opacity: 1;
     pointer-events: auto;

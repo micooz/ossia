@@ -71,6 +71,50 @@ test('score page focuses on one document, all pages and its title', async ({ con
   ).toBe('#1c1c20');
 });
 
+test('copies the score name without opening the score menu', async ({ context, page }) => {
+  await mockScoreRuntime(context, { languageEvent: 'en-US' });
+  await page.goto(`/scores?documentId=${firstId}`);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: (text: string) => {
+          (window as Window & { copiedText?: string }).copiedText = text;
+          return Promise.resolve();
+        },
+      },
+    });
+  });
+  await page.locator('.score-title-trigger').hover();
+  await page.getByRole('button', { name: 'Copy score name' }).click();
+  expect(await page.evaluate(() => (window as Window & { copiedText?: string }).copiedText)).toBe(
+    '合成钢琴练习',
+  );
+  await expect(page.getByRole('status').filter({ hasText: 'Score name copied' })).toHaveAttribute(
+    'data-success',
+    'true',
+  );
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await page.getByRole('button', { name: /Choose a score/ }).click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await page.mouse.move(900, 400);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await expect(page.locator('.score-title-menu-icon')).toBeVisible();
+});
+
+test('restores the score icon after closing the selector', async ({ context, page }) => {
+  await mockScoreRuntime(context);
+  await page.goto(`/scores?documentId=${firstId}`);
+  const trigger = page.locator('.score-title-trigger');
+  await trigger.click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await page.mouse.move(900, 400);
+  await page.keyboard.press('Escape');
+  await trigger.focus();
+  await expect(page.locator('.score-title-menu-icon')).toBeVisible();
+});
+
 test('language settings synchronize across score tabs and survive reload', async ({
   context,
   page,
