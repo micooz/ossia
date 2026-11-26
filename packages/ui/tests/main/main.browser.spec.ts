@@ -310,7 +310,7 @@ test('management shows details and target config paths only for connected agents
           const controlLocator = row.locator('.segmented, select, .switch');
           if ((await controlLocator.count()) === 0) continue;
           const control = await controlLocator.boundingBox();
-          expect(control!.y).toBeLessThan(label!.y + label!.height);
+          expect(control!.x).toBeGreaterThanOrEqual(label!.x + label!.width - 1);
           for (const button of await row.locator('.segment-button').all()) {
             expect(
               await button.evaluate((element) => element.scrollHeight <= element.clientHeight),
