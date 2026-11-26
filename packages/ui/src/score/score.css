@@ -283,6 +283,9 @@ code {
   min-inline-size: 0;
   max-inline-size: 100%;
 }
+.score-title-trigger {
+  max-inline-size: min(20rem, 100%);
+}
 .score-title-copy {
   position: absolute;
   inset-inline-start: 0.2rem;

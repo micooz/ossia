@@ -979,6 +979,24 @@ test('modifier drag pans the score when it fits the viewport', async ({ context,
   await expect.poll(async () => (await host.boundingBox())!.x).toBeLessThan(before - 60);
 });
 
+test('long score titles do not overlap the version selector', async ({ context, page }) => {
+  const title = '巴赫：C 大调前奏曲 BWV 846'.repeat(4);
+  await mockScoreRuntime(context, { title, languageEvent: 'en-US' });
+  await page.setViewportSize({ width: 800, height: 800 });
+  await page.goto(`/scores?documentId=${firstId}`);
+  const score = page.locator('.score-title-trigger');
+  const version = page.locator('.score-version-control button');
+  await expect(score.locator('.score-title-label')).toHaveText(title);
+  for (const width of [800, 700, 640, 1200]) {
+    await page.setViewportSize({ width, height: 800 });
+    const scoreBox = await score.boundingBox();
+    const versionBox = await version.boundingBox();
+    expect(scoreBox!.x + scoreBox!.width).toBeLessThanOrEqual(versionBox!.x);
+  }
+  await version.click();
+  await expect(page.getByRole('menuitemradio', { name: /Version 2/ })).toBeVisible();
+});
+
 test('narrow topbar keeps one row and collapses the score selector to a menu icon', async ({
   context,
   page,

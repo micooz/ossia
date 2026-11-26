@@ -134,6 +134,7 @@ export async function mockScoreRuntime(
   options: {
     languageEvent?: 'en-US';
     language?: UiLanguage;
+    title?: string;
     elements?: GeometryElement[];
     elementsByPage?: Record<number, GeometryElement[]>;
     svg?: string;
@@ -164,6 +165,7 @@ export async function mockScoreRuntime(
   };
   const states: DocumentState[] = [scoreDocument(), scoreDocument(secondId)].map((document) => ({
     ...document,
+    title: document.documentId === firstId ? (options.title ?? document.title) : document.title,
     lastSuccessfulRender: reference.manifest,
   }));
   const selections = new Map<string, Selection | null>();
