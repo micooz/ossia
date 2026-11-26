@@ -148,7 +148,7 @@ jobs:
         run: pnpm verify
         env:
           OSSIA_AUDITION_OUTPUT: ${{ runner.temp }}/audition-fixtures.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: audition-fixtures
           path: ${{ runner.temp }}/audition-fixtures.json
@@ -180,7 +180,7 @@ jobs:
       - name: Install browser test runtime and dependencies
         if: runner.os == 'Linux'
         run: pnpm --filter @ossia/ui exec playwright install --with-deps chrome
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: audition-fixtures
           path: ${{ runner.temp }}
@@ -190,7 +190,7 @@ jobs:
           OSSIA_AUDITION_FIXTURES: ${{ runner.temp }}/audition-fixtures.json
       - name: Upload audition failure traces
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: audition-failures-${{ matrix.os }}-${{ matrix.shard }}
           path: packages/ui/test-results/browser/
@@ -230,7 +230,7 @@ jobs:
         run: pnpm --filter @ossia/ui exec playwright test --project=browser --grep @platform-keyboard
       - name: Upload browser failure traces
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: browser-failures-${{ matrix.os }}
           path: packages/ui/test-results/browser/
