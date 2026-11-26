@@ -162,7 +162,6 @@ pub(crate) fn derive(
                 return None;
             }
             let feature = match (pair[0].raw.as_str(), pair[1].raw.as_str()) {
-                ("\\change", "Staff") => "a cross-staff voice",
                 ("\\new" | "\\context", "TabStaff") => "the TabStaff context",
                 ("\\new" | "\\context", "DrumStaff") => "the DrumStaff context",
                 _ => return None,

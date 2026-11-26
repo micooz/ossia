@@ -40,6 +40,9 @@ resolved locally to enable offline schema validation with `xmllint`.
 Run the fixed cases with the installed LilyPond engine. The suite checks PDF and
 SVG rendering, MIDI equality with the original, measure selection, playhead
 coverage, individual-note audition, and overlapping rhythmic symbols.
+Cases with `compareOriginal` also compare browser playback and the engraved staff
+assignment of each note and rest. Pass `--compare-original` to enable these
+checks during an audit.
 
 ```sh
 pnpm verify:jianpu

@@ -190,11 +190,31 @@ fn jianpu_keys_and_unsupported_features_use_source_positions() {
     assert_eq!(svg.matches("<tspan>–</tspan>").count(), 2);
     assert_eq!(svg.matches("<tspan>0</tspan>").count(), 2);
 
+    let rhythm = compile(
+        r"\time 4/4
+        \tuplet 3/2 { c'2 d'4 } \times 4/5 { f'8 g' a' b' c'' } |
+        \grace { d'16 f' } g'4 \appoggiatura a'16 b'4
+        \acciaccatura g'16 f'4 \afterGrace d'4 { c'16 } |",
+    );
+    assert!(
+        rhythm.format_errors.is_empty(),
+        "{:?}",
+        rhythm.format_errors
+    );
+    let svg = fs::read_to_string(assets.join(&rhythm.pages[0].artifact.path)).unwrap();
+    assert!(svg.contains("<tspan>3</tspan>"));
+    assert!(svg.contains("<tspan>5:4</tspan>"));
+    assert_eq!(svg.matches("<tspan>–</tspan>").count(), 1);
+
     for (music, feature) in [
         ("c'1 | \\key f \\major f'1", "a key change"),
         ("cih'1", "a microtonal"),
-        ("\\change Staff = \"other\" c'1", "a cross-staff voice"),
-        ("\\tuplet 3/2 { c'8 d' e' } f'2.", "tuplet"),
+        ("\\change Staff = \"other\" c'1", "unresolved staff change"),
+        ("c'8*2 d'2.", "scaled"),
+        (
+            "\\tuplet 3/2 { c'8 \\tuplet 3/2 { d'16 e' f' } g'8 } a'2.",
+            "nested tuplets",
+        ),
         ("R1", "multi-measure rests"),
     ] {
         let score = compile(music);

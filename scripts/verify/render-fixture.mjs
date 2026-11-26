@@ -24,7 +24,9 @@ export function fixtureRenderer(mode = 'playback') {
   return (entry) => {
     const filename = path.resolve(fixtures, entry.source);
     const source = readFileSync(filename, 'utf8');
-    const raw = execFileSync(exe, [engine, filename, ...modeArgs], {
+    const referenceArgs =
+      mode === 'jianpu' && entry.expect?.compareOriginal ? ['--compare-original'] : [];
+    const raw = execFileSync(exe, [engine, filename, ...modeArgs, ...referenceArgs], {
       cwd: root,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,

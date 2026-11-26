@@ -146,6 +146,7 @@ pub fn build_playback(
         ppqn,
         last_tick,
         timing::pickup_ticks(index.source(), ppqn),
+        crate::is_jianpu_source(index.source()),
     );
     let NoteGroupBuild {
         mut groups,

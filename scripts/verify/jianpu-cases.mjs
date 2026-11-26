@@ -183,6 +183,10 @@ export function auditJianpu(bundle, expected = {}) {
   const issues = [];
   if (!jianpu.pdf) issues.push({ kind: 'missing-pdf' });
   if (!jianpu.sameMidi) issues.push({ kind: 'different-midi', diagnostics: jianpu.baselineErrors });
+  if (expected.compareOriginal && !jianpu.samePlayback)
+    issues.push({ kind: 'different-browser-playback', diagnostics: jianpu.baselineErrors });
+  if (expected.compareOriginal && !jianpu.samePrintedRhythm)
+    issues.push({ kind: 'different-printed-rhythm', diagnostics: jianpu.baselineErrors });
   if (layout.capability !== 'measure' || layout.reason)
     issues.push({ kind: 'incomplete-measure-mapping', reason: layout.reason });
   const selection = auditSelection(bundle);
@@ -232,8 +236,11 @@ export function auditJianpu(bundle, expected = {}) {
 /** Verify named regression cases or scan current library sources and local files. */
 export async function runJianpuCases(args = [], renderFixture) {
   const libraryMode = args.includes('--library');
+  const compareOriginal = args.includes('--compare-original');
   const baseArg = args.find((arg) => arg.startsWith('--base='));
-  const operands = args.filter((arg) => arg !== '--library' && arg !== baseArg);
+  const operands = args.filter(
+    (arg) => arg !== '--library' && arg !== '--compare-original' && arg !== baseArg,
+  );
   const files = libraryMode ? operands.filter((arg) => arg.toLowerCase().endsWith('.ly')) : [];
   const ids = operands.filter((arg) => !files.includes(arg));
   let selected;
@@ -253,9 +260,10 @@ export async function runJianpuCases(args = [], renderFixture) {
   const render = renderFixture ?? fixtureRenderer('jianpu');
   const totals = { passed: 0, 'expected-unsupported': 0, unsupported: 0, failed: 0 };
   for (const entry of selected) {
+    const expect = compareOriginal ? { ...entry.expect, compareOriginal } : entry.expect;
     let report;
     try {
-      report = auditJianpu(render(entry), entry.expect);
+      report = auditJianpu(render({ ...entry, expect }), expect);
     } catch (error) {
       report = {
         status: 'failed',

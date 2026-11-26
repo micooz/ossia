@@ -72,11 +72,39 @@
     }
   },
   {
-    "id": "cross-staff",
+    "id": "bach-goldberg-aria",
     "source": "../playback/bach-goldberg-aria.ly",
     "expect": {
-      "unsupported": "cross-staff voice",
-      "line": 48
+      "measures": 32,
+      "staves": 2,
+      "compareOriginal": true
+    }
+  },
+  {
+    "id": "bach-goldberg-var1",
+    "source": "bach-goldberg-var1.ly",
+    "expect": {
+      "measures": 32,
+      "staves": 2,
+      "compareOriginal": true
+    }
+  },
+  {
+    "id": "hollow-knight-original",
+    "source": "../playback/hollow-knight-original.ly",
+    "expect": {
+      "measures": 27,
+      "staves": 2,
+      "compareOriginal": true
+    }
+  },
+  {
+    "id": "duet",
+    "source": "duet.ly",
+    "expect": {
+      "measures": 2,
+      "staves": 2,
+      "compareOriginal": true
     }
   },
   {

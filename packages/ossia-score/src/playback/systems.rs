@@ -12,10 +12,13 @@ pub(super) fn system_spans(
     ppqn: u64,
     last_tick: u64,
     pickup: Option<u64>,
+    jianpu: bool,
 ) -> Vec<PlaybackSystemSpan> {
     let Some(mut times) = measure_times(midi, ppqn, last_tick, pickup) else {
         return Vec::new();
     };
+    // Jianpu systems are already padded around their engraved ink.
+    let padding = if jianpu { 0. } else { 1.2 };
     if layout
         .columns
         .iter()
@@ -26,7 +29,7 @@ pub(super) fn system_spans(
                 .end_seconds
                 .min(super::timing::seconds_at(last_tick, ppqn, midi));
         }
-        return fallback_spans(layout, &times);
+        return fallback_spans(layout, &times, padding);
     }
     let by_measure: HashMap<_, _> = times.iter().map(|time| (time.measure, *time)).collect();
     let mut spans = Vec::new();
@@ -64,8 +67,8 @@ pub(super) fn system_spans(
                     end_seconds: time.end_seconds,
                     x0,
                     x1,
-                    y0: system.top - page.staff_space * 1.2,
-                    y1: system.bot + page.staff_space * 1.2,
+                    y0: system.top - page.staff_space * padding,
+                    y1: system.bot + page.staff_space * padding,
                 });
             }
         }
@@ -84,7 +87,11 @@ pub(super) fn system_spans(
 /// Engraved columns remain the visual coordinate system. Their order maps onto
 /// the performance measure timeline, so tempo and meter changes still determine
 /// wall-clock movement instead of assuming columns have equal seconds.
-fn fallback_spans(layout: &ScoreLayout, times: &[MeasureTime]) -> Vec<PlaybackSystemSpan> {
+fn fallback_spans(
+    layout: &ScoreLayout,
+    times: &[MeasureTime],
+    padding: f64,
+) -> Vec<PlaybackSystemSpan> {
     let columns = layout
         .columns
         .iter()
@@ -115,8 +122,8 @@ fn fallback_spans(layout: &ScoreLayout, times: &[MeasureTime]) -> Vec<PlaybackSy
             end_seconds: end,
             x0,
             x1: column.x1,
-            y0: system.top - page.staff_space * 1.2,
-            y1: system.bot + page.staff_space * 1.2,
+            y0: system.top - page.staff_space * padding,
+            y1: system.bot + page.staff_space * padding,
         });
     }
     spans

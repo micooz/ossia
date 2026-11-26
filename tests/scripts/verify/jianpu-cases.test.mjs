@@ -77,7 +77,13 @@ test('finds colliding simultaneous numbers and an incomplete measure grid', () =
     bbox: { x0: 10, x1: 12, y0: 10, y1: 12 },
   });
   const bundle = {
-    jianpu: { pdf: true, sameMidi: true, lineOffset: 1 },
+    jianpu: {
+      pdf: true,
+      sameMidi: true,
+      samePlayback: true,
+      samePrintedRhythm: true,
+      lineOffset: 1,
+    },
     layout: {
       sourceHash: 'source',
       capability: 'measure',
@@ -92,4 +98,10 @@ test('finds colliding simultaneous numbers and an incomplete measure grid', () =
   assert.equal(status, 'failed');
   assert.ok(issues.some(({ kind }) => kind === 'incomplete-measure-mapping'));
   assert.deepEqual(issues.find(({ kind }) => kind === 'overlapping-rhythms')?.lines, [2, 3]);
+  const changed = auditJianpu(
+    { ...bundle, jianpu: { ...bundle.jianpu, samePlayback: false, samePrintedRhythm: false } },
+    { compareOriginal: true },
+  );
+  assert.ok(changed.issues.some(({ kind }) => kind === 'different-browser-playback'));
+  assert.ok(changed.issues.some(({ kind }) => kind === 'different-printed-rhythm'));
 });

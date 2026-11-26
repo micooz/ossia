@@ -195,9 +195,9 @@ usual score controls or `ossia_output` for visual and audio exports. A LilyPond
 export keeps the first-line declaration for reimport into Ossia. Outside Ossia,
 LilyPond prints the original staff notation.
 
-Jianpu accepts one pitched staff or two staves in a `PianoStaff`, with up to two
-voices per staff. The key may be major or minor. Octave dots show the written
-pitch even inside an octave-displacement bracket. Use standard pitches and
-written durations. Key changes, cross-staff voices, grace notes, tuplets, scaled
-durations and multi-measure rests are rejected. If a check or import fails,
-inspect the diagnostics before changing the source.
+Jianpu accepts pitched staves with aligned measures, multiple voices, and voice
+changes between staves of the same `PianoStaff`. It supports grace notes and
+single-level tuplets. The key may be major or minor. Octave dots show the written
+pitch even inside an octave-displacement bracket. Key changes, explicit duration
+scaling and multi-measure rests are rejected. Inspect diagnostics before changing
+the source.

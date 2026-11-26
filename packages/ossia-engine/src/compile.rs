@@ -5,7 +5,7 @@ use crate::cache::Cache;
 pub fn render_options_hash(point_and_click: bool) -> ContentHash {
     ContentHash::of(
         &serde_json::to_vec(&serde_json::json!({
-            "pointAndClick": point_and_click, "derivationVersion": 7,
+            "pointAndClick": point_and_click, "derivationVersion": 8,
             "interactionVersion": ossia_types::INTERACTION_VERSION,
         }))
         .expect("render options serialize"),
@@ -139,9 +139,20 @@ impl Engine {
             Some(&derived),
             Some(original),
         );
-        if let Some((_, feature)) = diagnostics
+        if let Some(feature) = diagnostics
             .iter()
-            .find_map(|diagnostic| diagnostic.message.split_once("warning: Ossia Jianpu: "))
+            .find_map(|diagnostic| {
+                diagnostic
+                    .message
+                    .split_once("warning: Ossia Jianpu: ")
+                    .map(|(_, feature)| feature.to_owned())
+                    .or_else(|| {
+                        diagnostic
+                            .message
+                            .split_once("warning: cannot find context to change to: Staff = ")
+                            .map(|(_, target)| format!("an unresolved staff change to {target}"))
+                    })
+            })
             .filter(|_| jianpu)
         {
             return Err(AppError {
