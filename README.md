@@ -45,6 +45,10 @@ Create a score for Bach's <em>Sheep May Safely Graze</em>, BWV 208.
 
 Import this score image, check it carefully against the original, and correct any errors.
 
+<img src="docs/readme-assets/case-import-pdf.webp" alt="Agent transcribing and checking a PDF score in Ossia" width="720">
+
+Ask an agent to transcribe a PDF score without online OMR, then check and refine the result against the original.
+
 ### Arrange scores
 
 <img src="docs/readme-assets/case-arrange.webp" alt="Arranging a score for piano four hands" width="720">

@@ -571,6 +571,18 @@
     "en": "View full image: Import an image of a score",
     "zh": "查看大图：导入图片乐谱"
   },
+  "cases.import-pdf.title": {
+    "en": "Agent transcribing and checking a PDF score in Ossia",
+    "zh": "Agent 在 Ossia 中识别并校对 PDF 乐谱"
+  },
+  "cases.import-pdf.prompt": {
+    "en": "Ask an agent to transcribe a PDF score without online OMR, then check and refine the result against the original.",
+    "zh": "在未开启在线识别时，让 Agent 识别 PDF 乐谱，并对照原谱校对调整。"
+  },
+  "cases.import-pdf.imageLabel": {
+    "en": "View full image: Transcribe a PDF score",
+    "zh": "查看大图：识别 PDF 乐谱"
+  },
   "cases.transpose.title": {
     "en": "Analyze and transpose",
     "zh": "分析调性并移调"

@@ -45,6 +45,10 @@ Ossia 可以帮你从现有乐谱或简单想法开始，一步步完成乐谱�
 
 导入这张图片乐谱，仔细核对原谱并改正错误。
 
+<img src="docs/readme-assets/case-import-pdf.webp" alt="Agent 在 Ossia 中识别并校对 PDF 乐谱" width="720">
+
+在未开启在线识别时，让 Agent 识别 PDF 乐谱，并对照原谱校对调整。
+
 ### 改编乐谱
 
 <img src="docs/readme-assets/case-arrange.webp" alt="改编钢琴四手连弹乐谱" width="720">
