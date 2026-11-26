@@ -31,7 +31,7 @@ impl UpdateService {
         let channel = version::effective_channel(preference, &self.build);
         let changed = {
             let mut snapshot = self.snapshot.lock().unwrap();
-            if snapshot.channel == channel {
+            if snapshot.channel == channel || snapshot.state.in_flight() {
                 false
             } else {
                 snapshot.channel = channel;

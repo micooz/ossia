@@ -25,6 +25,7 @@ export function AboutPage({
   update,
   onCheck,
   onApply,
+  onCancel,
   onNotes,
   onAutoDownload,
   onChannel,
@@ -38,6 +39,7 @@ export function AboutPage({
   update: UpdateSnapshot | null;
   onCheck: () => void;
   onApply: () => void;
+  onCancel: () => void;
   onNotes: () => Promise<UpdateNotes | null>;
   onAutoDownload: (enabled: boolean) => void;
   onChannel: (channel: UpdateChannel) => void;
@@ -202,6 +204,11 @@ export function AboutPage({
               )}
               <span>{label}</span>
             </button>
+            {update?.state === 'downloading' && (
+              <button className="secondary-button" type="button" onClick={onCancel}>
+                {t('cancel')}
+              </button>
+            )}
           </div>
         </div>
         <div className="settings-row update-notes-row">
@@ -338,7 +345,7 @@ export function AboutPage({
           <Segmented
             ariaLabel={t('updateChannel')}
             value={preferences?.updateChannel ?? 'stable'}
-            disabled={!native || !preferences || preferencesBusy}
+            disabled={!native || !preferences || preferencesBusy || busy}
             compact
             options={[
               { value: 'stable', label: t('updateChannelStable') },

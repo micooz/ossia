@@ -301,8 +301,8 @@ fn asset_requests_accept_only_binary_data() {
     assert_eq!(accepts, ["application/octet-stream"]);
 }
 
-#[test]
-fn signed_asset_redirect_does_not_forward_the_token() {
+#[tokio::test]
+async fn signed_asset_redirect_does_not_forward_the_token() {
     let mock = Mock::start(Arc::new(|path, _| {
         if path == "/asset" {
             MockResponse::redirect("/signed")
@@ -310,17 +310,21 @@ fn signed_asset_redirect_does_not_forward_the_token() {
             MockResponse::text("sha256 data")
         }
     }));
-    let text = super::download::text(&format!("{}/asset", mock.base), Some("secret")).unwrap();
+    let text = super::download::text(&format!("{}/asset", mock.base), Some("secret"))
+        .await
+        .unwrap();
     assert_eq!(text, "sha256 data");
     let hits = mock.hits();
     assert_eq!(hits[0].1.as_deref(), Some("Bearer secret"));
     assert_eq!(hits[1].1, None);
 }
 
-#[test]
-fn anonymous_asset_requests_have_no_authorization() {
+#[tokio::test]
+async fn anonymous_asset_requests_have_no_authorization() {
     let mock = Mock::start(Arc::new(|_, _| MockResponse::text("sha256 data")));
-    let text = super::download::text(&format!("{}/asset", mock.base), None).unwrap();
+    let text = super::download::text(&format!("{}/asset", mock.base), None)
+        .await
+        .unwrap();
     assert_eq!(text, "sha256 data");
     assert_eq!(mock.hits()[0].1, None);
 }

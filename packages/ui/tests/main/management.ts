@@ -351,6 +351,10 @@ export async function mockManagement(
         if (command === 'update_state' || command === 'update_check') return update;
         if (command === 'release_notes') return releaseNotesState ?? update;
         if (command === 'update_apply') return update;
+        if (command === 'update_cancel') {
+          Object.assign(update, { state: 'idle', latest: null, done: null, total: null });
+          return { ...update };
+        }
         if (command === 'update_token_set') {
           preferences.githubTokenMasked = args?.token ? '••••••••test' : null;
           return { ...preferences };

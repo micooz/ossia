@@ -415,6 +415,7 @@ export const enUS = {
   updateSource: 'Built from source; this build cannot update itself',
   updateNoRelease: 'No release published yet',
   updateFound: 'Update available',
+  cancelUpdateDownload: 'Cancel update download',
   updateDownloading: 'Downloading…',
   updateReady: 'Ready to install',
   updateInstalling: 'Updating…',

@@ -455,7 +455,6 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
   const platform = native ? platformName() : 'browser';
   const updateActionable =
     !!update.snapshot &&
-    !update.snapshot.isDebugBuild &&
     (update.snapshot.state === 'found' ||
       update.snapshot.state === 'ready' ||
       update.snapshot.state === 'downloading' ||
@@ -477,7 +476,11 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
         ? t('updateInstalling')
         : update.snapshot?.state === 'checking'
           ? t('updateChecking')
-          : t('updateAction');
+          : update.snapshot?.isDebugBuild && update.snapshot.state === 'ready'
+            ? t('updateDebugReady')
+            : update.snapshot?.isDebugBuild
+              ? t('updateDebugDownload')
+              : t('updateAction');
 
   return (
     <div className="app-shell">
@@ -532,28 +535,44 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
           </div>
           <div className="header-actions">
             {native && page !== 'about' && updateActionable && (
-              <button
-                className="update-header-action"
-                type="button"
-                disabled={updateBusy}
-                aria-busy={updateBusy}
-                onClick={() => {
-                  if (
-                    update.snapshot?.state === 'found' ||
-                    update.snapshot?.state === 'ready' ||
-                    (update.snapshot?.state === 'error' && update.snapshot.latest !== null)
-                  ) {
-                    void update.apply();
-                  } else {
-                    void update.check();
+              <div className="update-header-wrap">
+                <button
+                  className="update-header-action"
+                  type="button"
+                  disabled={
+                    updateBusy ||
+                    (update.snapshot?.isDebugBuild && update.snapshot.state === 'ready')
                   }
-                }}
-              >
-                <span className="update-action-icon" aria-hidden="true">
-                  <ArrowUpCircle />
-                </span>
-                {updateHeaderLabel}
-              </button>
+                  aria-busy={updateBusy}
+                  onClick={() => {
+                    if (
+                      update.snapshot?.state === 'found' ||
+                      update.snapshot?.state === 'ready' ||
+                      (update.snapshot?.state === 'error' && update.snapshot.latest !== null)
+                    ) {
+                      void update.apply();
+                    } else {
+                      void update.check();
+                    }
+                  }}
+                >
+                  <span className="update-action-icon" aria-hidden="true">
+                    <ArrowUpCircle />
+                  </span>
+                  {updateHeaderLabel}
+                </button>
+                {update.snapshot?.state === 'downloading' && (
+                  <button
+                    className="update-header-cancel"
+                    type="button"
+                    aria-label={t('cancelUpdateDownload')}
+                    title={t('cancelUpdateDownload')}
+                    onClick={() => void update.cancel()}
+                  >
+                    <X aria-hidden="true" />
+                  </button>
+                )}
+              </div>
             )}
             <button
               type="button"
@@ -639,6 +658,7 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
               update={update.snapshot}
               onCheck={() => void update.check()}
               onApply={() => void update.apply()}
+              onCancel={() => void update.cancel()}
               onNotes={async () => (await update.notes())?.notes ?? null}
               onAutoDownload={(enabled) => void setAutoDownload(enabled)}
               onChannel={(channel) => void setUpdateChannel(channel)}

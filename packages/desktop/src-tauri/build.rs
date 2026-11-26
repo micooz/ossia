@@ -70,6 +70,7 @@ fn main() {
             "management_open_score",
             "update_state",
             "update_check",
+            "update_cancel",
             "release_notes",
             "update_apply",
             "update_token_set",

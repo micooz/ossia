@@ -393,6 +393,7 @@ export const zhCN: Record<MessageKey, string> = {
   updateSource: '从源码构建，不能自我更新',
   updateNoRelease: '尚未发布版本',
   updateFound: '发现新版本',
+  cancelUpdateDownload: '取消下载更新',
   updateDownloading: '正在下载…',
   updateReady: '可以安装',
   updateInstalling: '正在更新…',

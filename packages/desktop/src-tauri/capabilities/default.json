@@ -25,6 +25,7 @@
     "allow-management-open-score",
     "allow-update-state",
     "allow-update-check",
+    "allow-update-cancel",
     "allow-release-notes",
     "allow-update-apply",
     "allow-update-token-set",

@@ -430,7 +430,7 @@ test('about rows keep controls beside their labels at common window widths', asy
     for (const row of await page.locator('.about-page .settings-row').all()) {
       const label = await row.locator('.setting-label').first().boundingBox();
       const control = await row
-        .locator('.update-version-actions, .secondary-button, .switch, .segmented')
+        .locator('.update-version-actions, .secondary-button, .switch, .segmented, .text-button')
         .first()
         .boundingBox();
       expect(control!.y).toBeLessThan(label!.y + label!.height);
@@ -442,4 +442,75 @@ test('about rows keep controls beside their labels at common window widths', asy
         .evaluate((element) => element.scrollWidth <= element.clientWidth),
     ).toBe(true);
   }
+});
+
+test('cancels a download from About and enables changing its source', async ({ page }) => {
+  await mockManagement(page, {
+    updateState: { ...found, state: 'downloading', done: 29, total: 100 },
+  });
+  await page.goto('/main.html');
+  await page.getByRole('button', { name: '关于', exact: true }).click();
+  const source = page.getByRole('group', { name: '更新源' });
+  await expect(source.getByRole('button', { name: 'GitHub' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /正在下载… \d+%/ })).toBeDisabled();
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(source.getByRole('button', { name: 'GitHub' })).toBeEnabled();
+  await source.getByRole('button', { name: 'GitHub' }).click();
+  await expect(source.getByRole('button', { name: 'GitHub' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+});
+
+test('cancels a download from the title bar', async ({ page }) => {
+  await mockManagement(page, {
+    updateState: { ...found, state: 'downloading', done: 29, total: 100 },
+  });
+  await page.goto('/main.html');
+  const cancel = page.getByRole('button', { name: '取消下载更新' });
+  await expect(cancel).toBeVisible();
+  await cancel.focus();
+  await page.keyboard.press('Enter');
+  await expect(cancel).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as Window & { managementCommands?: string[] }).managementCommands?.includes(
+          'update_cancel',
+        ),
+      ),
+    )
+    .toBe(true);
+});
+
+for (const state of ['checking', 'installing'] as const) {
+  test(`does not offer cancellation while ${state}`, async ({ page }) => {
+    await mockManagement(page, { updateState: { ...found, state } });
+    await page.goto('/main.html');
+    await expect(page.getByRole('button', { name: '取消下载更新' })).toHaveCount(0);
+    await page.getByRole('button', { name: '关于', exact: true }).click();
+    await expect(page.getByRole('button', { name: '取消', exact: true })).toHaveCount(0);
+  });
+}
+
+test('development builds show download progress and cancellation in the header', async ({
+  page,
+}) => {
+  await mockManagement(page, {
+    updateState: { ...found, isDebugBuild: true, state: 'downloading', done: 30, total: 100 },
+  });
+  await page.goto('/main.html');
+  await expect(page.getByRole('button', { name: /正在下载… 30%/ })).toBeDisabled();
+  await page.getByRole('button', { name: '取消下载更新' }).click();
+  await expect(page.getByRole('button', { name: '取消下载更新' })).toHaveCount(0);
+});
+
+test('development builds show a verified download without an install action in the header', async ({
+  page,
+}) => {
+  await mockManagement(page, {
+    updateState: { ...found, isDebugBuild: true, state: 'ready', staged: true },
+  });
+  await page.goto('/main.html');
+  await expect(page.getByRole('button', { name: '下载并校验完成' })).toBeDisabled();
 });

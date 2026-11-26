@@ -627,6 +627,7 @@ pub fn run(config: Result<server::Config>, show_main_window: bool) {
             management_open_score,
             update::runtime::update_state,
             update::runtime::update_check,
+            update::runtime::update_cancel,
             update::runtime::release_notes,
             update::runtime::update_apply,
             update::runtime::update_token_set,

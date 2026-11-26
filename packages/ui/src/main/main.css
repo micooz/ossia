@@ -1439,6 +1439,42 @@ button.score-card-title:hover {
   stroke-width: 2.4;
 }
 
+.update-header-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.update-header-cancel {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.update-header-cancel::before {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #805900;
+  content: '';
+}
+
+.update-header-cancel svg {
+  position: relative;
+  width: 10px;
+  height: 10px;
+}
+
 .update-header-action {
   display: inline-flex;
   min-height: 28px;

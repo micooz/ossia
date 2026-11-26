@@ -51,6 +51,10 @@ Automatic download is enabled by default; a found release downloads immediately
 and waits for the user. Closing or restarting Ossia without choosing **Update**
 discards the download and keeps the current version.
 
+Downloads can be cancelled from the About page or title bar. Cancellation removes
+the partial download and allows changing the source; a later check uses the
+selected source.
+
 Only one check, download, or install may run at a time. A verified download
 survives a failed later check, but not a process restart. A scheduled check that
 finds another operation in progress retries after one hour. Failed checks retry
@@ -111,6 +115,7 @@ Only the `management` window has these commands:
 
 - `update_state`
 - `update_check`
+- `update_cancel`
 - `release_notes`
 - `update_apply`
 - `update_token_set`

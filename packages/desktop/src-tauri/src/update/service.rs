@@ -28,6 +28,11 @@ pub use install::InstallOutcome;
 #[path = "../../tests/unit/update_service.rs"]
 mod tests;
 
+struct ActiveDownload {
+    cancel: tokio::sync::watch::Sender<bool>,
+    done: tokio::sync::watch::Receiver<bool>,
+}
+
 struct Staged {
     path: PathBuf,
     version: String,
@@ -46,6 +51,7 @@ pub struct UpdateService {
     notes_cache: Arc<Mutex<NotesCache>>,
     release: Arc<Mutex<Option<Release>>>,
     staged: Arc<Mutex<Option<Staged>>>,
+    download: Arc<Mutex<Option<ActiveDownload>>>,
     installing: Arc<AtomicBool>,
     install_settled: Arc<(Mutex<()>, Condvar)>,
     announce: Arc<Mutex<Option<Sink>>>,
@@ -137,6 +143,7 @@ impl UpdateService {
             notes_cache: Arc::new(Mutex::new(cache)),
             release: Arc::new(Mutex::new(None)),
             staged: Arc::new(Mutex::new(None)),
+            download: Arc::new(Mutex::new(None)),
             installing: Arc::new(AtomicBool::new(false)),
             install_settled: Arc::new((Mutex::new(()), Condvar::new())),
             announce: Arc::new(Mutex::new(None)),
@@ -512,6 +519,36 @@ impl UpdateService {
                 return None;
             }
         };
+        Some(prepared)
+    }
+
+    pub async fn cancel_download(&self) -> UpdateSnapshot {
+        let done = {
+            let active = self.download.lock().unwrap();
+            active.as_ref().map(|active| {
+                let _ = active.cancel.send(true);
+                active.done.clone()
+            })
+        };
+        if let Some(mut done) = done {
+            while !*done.borrow_and_update() {
+                if done.changed().await.is_err() {
+                    break;
+                }
+            }
+        }
+        self.snapshot()
+    }
+
+    async fn finish_download(&self, prepared: Download) -> UpdateSnapshot {
+        let version = prepared.version.clone();
+        let dir = prepared.path.parent().map(Path::to_path_buf);
+        let (cancel, mut cancelled) = tokio::sync::watch::channel(false);
+        let (done, done_rx) = tokio::sync::watch::channel(false);
+        *self.download.lock().unwrap() = Some(ActiveDownload {
+            cancel,
+            done: done_rx,
+        });
         self.set(UpdateSnapshot {
             state: UpdateState::Downloading,
             done: Some(0),
@@ -519,26 +556,43 @@ impl UpdateService {
             error: None,
             ..self.base_snapshot()
         });
-        Some(prepared)
-    }
-
-    async fn finish_download(&self, prepared: Download) -> UpdateSnapshot {
-        let version = prepared.version.clone();
-        let progress = self.snapshot.clone();
-        let outcome = tokio::task::spawn_blocking(move || prepared.run(&progress)).await;
-        let settled = match outcome {
-            Ok(Ok(path)) => {
-                *self.staged.lock().unwrap() = Some(Staged { path, version });
-                UpdateSnapshot {
-                    state: UpdateState::Ready,
-                    error: None,
-                    ..self.base_snapshot()
-                }
-            }
-            Ok(Err(error)) => self.fail(&error),
-            Err(error) => self.fail(&Error::other(format!("download: {error}"))),
+        let outcome = tokio::select! {
+            biased;
+            _ = cancelled.changed() => None,
+            result = prepared.run(&self.snapshot) => Some(result),
         };
-        self.set(settled);
-        self.snapshot()
+        let mut active = self.download.lock().unwrap();
+        let was_cancelled = *cancelled.borrow();
+        let settled = if was_cancelled || outcome.is_none() {
+            if let Some(dir) = dir {
+                let _ = std::fs::remove_dir_all(dir);
+            }
+            UpdateSnapshot {
+                state: UpdateState::Idle,
+                latest: None,
+                error: None,
+                done: None,
+                total: None,
+                ..self.base_snapshot()
+            }
+        } else {
+            match outcome.unwrap() {
+                Ok(path) => {
+                    *self.staged.lock().unwrap() = Some(Staged { path, version });
+                    UpdateSnapshot {
+                        state: UpdateState::Ready,
+                        error: None,
+                        ..self.base_snapshot()
+                    }
+                }
+                Err(error) => self.fail(&error),
+            }
+        };
+        *self.snapshot.lock().unwrap() = settled.clone();
+        *active = None;
+        drop(active);
+        self.notify();
+        let _ = done.send(true);
+        settled
     }
 }

@@ -109,3 +109,74 @@ async fn successful_check_publishes_available_version() {
     assert_eq!(status.latest.as_deref(), Some("0.2.0"));
     assert!(!status.stale);
 }
+
+#[tokio::test]
+async fn cancelling_stalled_downloads_cleans_up_and_allows_switching_source() {
+    use super::super::{feed::Asset, stage::Download};
+    use std::io::{Read, Write};
+    use std::time::Duration;
+
+    for (checksum, send_headers) in [(false, false), (false, true), (true, true)] {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (accepted, received) = std::sync::mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(3)))
+                .unwrap();
+            let mut request = [0; 4096];
+            stream.read(&mut request).unwrap();
+            if send_headers {
+                stream
+                    .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 1024\r\n\r\npartial")
+                    .unwrap();
+            }
+            accepted.send(()).unwrap();
+            let _ = stream.read(&mut request);
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("asset.zip");
+        let url = format!("http://{address}/asset");
+        let prepared = Download {
+            asset: Asset {
+                name: "asset.zip".into(),
+                url: url.clone(),
+                size: 1024,
+                digest: (!checksum).then(|| format!("sha256:{}", "0".repeat(64))),
+            },
+            version: "0.2.0".into(),
+            sums_url: checksum.then_some(url),
+            path: path.clone(),
+            token: None,
+        };
+        let service = UpdateService::for_build("http://127.0.0.1:9", "micooz/ossia", "v0.1.0");
+        let task_service = service.clone();
+        let task = tokio::spawn(async move { task_service.finish_download(prepared).await });
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while received.try_recv().is_err() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(service.snapshot().state, UpdateState::Downloading);
+        assert_eq!(
+            service.set_channel(UpdateChannelPreference::Beta).state,
+            UpdateState::Downloading
+        );
+        let cancelled = tokio::time::timeout(Duration::from_secs(2), service.cancel_download())
+            .await
+            .unwrap();
+        assert_eq!(cancelled.state, UpdateState::Idle);
+        assert!(cancelled.error.is_none());
+        assert!(!path.exists());
+        assert!(!dir.path().exists());
+        assert_eq!(task.await.unwrap().state, UpdateState::Idle);
+        assert_eq!(
+            service.set_source(UpdateSource::Github).source,
+            UpdateSource::Github
+        );
+        server.join().unwrap();
+    }
+}

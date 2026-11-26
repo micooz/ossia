@@ -151,6 +151,11 @@ pub(crate) fn update_state(state: tauri::State<'_, Management>) -> Result<Update
 }
 
 #[tauri::command]
+pub(crate) async fn update_cancel(state: tauri::State<'_, Management>) -> Result<UpdateSnapshot> {
+    Ok(service(&state)?.cancel_download().await)
+}
+
+#[tauri::command]
 pub(crate) async fn update_check(state: tauri::State<'_, Management>) -> Result<UpdateSnapshot> {
     let config = config(&state)?;
     let preferences = ossia_backend::preferences::load(&config.home)?;

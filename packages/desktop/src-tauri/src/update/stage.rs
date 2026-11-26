@@ -52,9 +52,9 @@ pub fn prepare(
 }
 
 impl Download {
-    pub fn run(self, progress: &Arc<Mutex<UpdateSnapshot>>) -> Result<PathBuf> {
+    pub async fn run(self, progress: &Arc<Mutex<UpdateSnapshot>>) -> Result<PathBuf> {
         let path = self.path.clone();
-        let fetched = self.fetch(progress);
+        let fetched = self.fetch(progress).await;
         if fetched.is_err() {
             if let Some(dir) = path.parent() {
                 let _ = std::fs::remove_dir_all(dir);
@@ -63,7 +63,7 @@ impl Download {
         fetched
     }
 
-    fn fetch(self, progress: &Arc<Mutex<UpdateSnapshot>>) -> Result<PathBuf> {
+    async fn fetch(self, progress: &Arc<Mutex<UpdateSnapshot>>) -> Result<PathBuf> {
         let sums = match self.asset.digest {
             Some(_) => None,
             None => {
@@ -71,7 +71,7 @@ impl Download {
                     .sums_url
                     .as_deref()
                     .ok_or_else(|| Error::other("the release publishes no SHA256SUMS"))?;
-                Some(download::text(url, self.token.as_deref())?)
+                Some(download::text(url, self.token.as_deref()).await?)
             }
         };
         let expected = verify::expected(&self.asset, sums.as_deref())?;
@@ -87,7 +87,8 @@ impl Download {
                     snapshot.total = Some(total);
                 }
             },
-        )?;
+        )
+        .await?;
         if actual != expected {
             let _ = std::fs::remove_file(&self.path);
             return Err(Error::other(format!(

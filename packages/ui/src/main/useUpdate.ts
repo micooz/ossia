@@ -10,6 +10,7 @@ const POLL_INTERVAL = 400;
 export function useUpdate(native: boolean, onError: (message: string) => void) {
   const [snapshot, setSnapshot] = useState<UpdateSnapshot | null>(null);
   const poll = useRef<number | undefined>(undefined);
+  const revision = useRef(0);
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
 
@@ -29,8 +30,10 @@ export function useUpdate(native: boolean, onError: (message: string) => void) {
         return;
       }
       poll.current = window.setTimeout(() => {
+        const requested = revision.current;
         void invoke<UpdateSnapshot>('update_state')
           .then((next) => {
+            if (requested !== revision.current) return;
             setSnapshot(next);
             watch(next);
           })
@@ -43,7 +46,9 @@ export function useUpdate(native: boolean, onError: (message: string) => void) {
   const refresh = useCallback(async () => {
     if (!native) return;
     try {
+      const requested = revision.current;
       const next = await invoke<UpdateSnapshot>('update_state');
+      if (requested !== revision.current) return;
       setSnapshot(next);
       watch(next);
     } catch (error) {
@@ -57,6 +62,7 @@ export function useUpdate(native: boolean, onError: (message: string) => void) {
     let dispose: (() => void) | undefined;
     void listen<UpdateSnapshot>(UPDATE_EVENT, (event) => {
       if (!live) return;
+      revision.current += 1;
       setSnapshot(event.payload);
       watch(event.payload);
     }).then((unlisten) => {
@@ -72,11 +78,14 @@ export function useUpdate(native: boolean, onError: (message: string) => void) {
   }, [native, refresh, stopPolling, watch]);
 
   const run = useCallback(
-    async (command: 'update_check' | 'update_apply' | 'release_notes') => {
+    async (command: 'update_check' | 'update_apply' | 'release_notes' | 'update_cancel') => {
       try {
+        const requested = ++revision.current;
         const next = await invoke<UpdateSnapshot>(command);
-        setSnapshot(next);
-        watch(next);
+        if (requested === revision.current) {
+          setSnapshot(next);
+          watch(next);
+        }
         return next;
       } catch (error) {
         onErrorRef.current(String(error));
@@ -91,6 +100,7 @@ export function useUpdate(native: boolean, onError: (message: string) => void) {
     refresh,
     check: () => run('update_check'),
     apply: () => run('update_apply'),
+    cancel: () => run('update_cancel'),
     notes: () => run('release_notes'),
   };
 }
