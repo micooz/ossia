@@ -333,6 +333,7 @@ export function AboutPage({
         <div className="settings-row">
           <div className="setting-copy">
             <span className="setting-label">{t('updateChannel')}</span>
+            <span className="setting-note">{t('updateChannelDescription')}</span>
           </div>
           <Segmented
             ariaLabel={t('updateChannel')}
@@ -345,6 +346,20 @@ export function AboutPage({
             ]}
             onChange={(value) => onChannel(value as UpdateChannel)}
           />
+        </div>
+        <div className="settings-row">
+          <span className="setting-label">{t('community')}</span>
+          <button
+            className="text-button"
+            type="button"
+            disabled={!native}
+            onClick={() => onOpenExternal('https://github.com/micooz/ossia')}
+          >
+            GitHub
+            <span className="update-action-icon" aria-hidden="true">
+              <ExternalLink />
+            </span>
+          </button>
         </div>
       </div>
       {notes && (

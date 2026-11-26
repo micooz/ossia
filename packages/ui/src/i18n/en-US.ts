@@ -19,6 +19,7 @@ export const enUS = {
   general: 'General',
   about: 'About',
   aboutTitle: 'About Ossia',
+  community: 'Community',
   appearance: 'Appearance',
   behavior: 'Behavior',
   storage: 'Storage',
@@ -423,6 +424,8 @@ export const enUS = {
   updateDebugDownload: 'Download and verify',
   updateDebugReady: 'Downloaded and verified',
   updateChannel: 'Update channel',
+  updateChannelDescription:
+    'Stable does not install beta releases; Beta installs both beta and stable releases.',
   updateFeedSource: 'Update source',
   updateFeedSourceDescription:
     'The Ossia source is optimized for mainland China; the GitHub source is available worldwide.',
