@@ -1,7 +1,8 @@
 use super::events::Tick;
+use super::harmony::Chord;
 use super::measures::{Barline, Measure};
 use super::note_xml::{duration_type, write_note_group};
-use super::score::{key_signature, Chord, Direction, Metronome, Part, Score, Tempo};
+use super::score::{key_signature, Direction, Metronome, Part, Score, Tempo};
 use super::tablature::write_tuning;
 use super::{invalid_events, Result};
 use crate::{failure, io_error, RunContext};
@@ -145,8 +146,10 @@ pub(super) fn encode(score: &Score, run: &RunContext) -> Result<Vec<u8>> {
                     )?;
                 }
             }
-            for (&time, chord) in part.harmonies.range(measure.from..measure.to) {
-                write_harmony(&mut xml, chord, time - measure.from)?;
+            for (&time, chords) in part.harmonies.range(measure.from..measure.to) {
+                for (staff, chord) in chords {
+                    write_harmony(&mut xml, chord, time - measure.from, *staff)?;
+                }
             }
 
             if tracks.is_empty() {
@@ -366,8 +369,13 @@ fn write_attributes(
     xml.end("attributes")
 }
 
-fn write_harmony(xml: &mut Xml, chord: &Chord, offset: Tick) -> Result<()> {
-    xml.start("harmony", &[("placement", "above")])?;
+fn write_harmony(xml: &mut Xml, chord: &Chord, offset: Tick, staff: usize) -> Result<()> {
+    let attributes: &[(&str, &str)] = if chord.visible {
+        &[("placement", "above")]
+    } else {
+        &[("placement", "above"), ("print-object", "no")]
+    };
+    xml.start("harmony", attributes)?;
     xml.start("root", &[])?;
     if let Some(root) = chord.root {
         xml.value("root-step", root.step()?)?;
@@ -391,7 +399,7 @@ fn write_harmony(xml: &mut Xml, chord: &Chord, offset: Tick) -> Result<()> {
         frame.write(xml)?;
     }
     emit_offset(xml, offset)?;
-    xml.value("staff", 1)?;
+    xml.value("staff", staff)?;
     xml.end("harmony")
 }
 

@@ -66,7 +66,7 @@ pub(super) struct Meter(pub Fraction, pub Fraction, pub u32, pub u32);
 pub(super) type Key = (Pitch, Vec<(u8, Fraction)>);
 pub(super) type Clef = (String, i8, i8);
 pub(super) type Repeat = (u32, Vec<u32>, i8);
-pub(super) type Harmony = (Vec<Pitch>, Vec<Pitch>);
+pub(super) type Harmony = (Vec<Pitch>, Vec<Pitch>, bool);
 
 #[derive(Debug, Deserialize)]
 pub(super) struct Context {

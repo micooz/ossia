@@ -1,10 +1,10 @@
-use super::events::{Clef, Event, Fraction, Harmony, Id, Key, Metadata, Notation, Pitch, Tick};
+use super::events::{Clef, Event, Fraction, Id, Key, Metadata, Notation, Pitch, Tick};
+use super::harmony::{build_harmonies, Harmonies};
 use super::measures::{apply_repeats, measure_grid, split_rests, Measure};
 use super::notes::{attach_lyrics, build_voice, Voice};
-use super::tablature::{attach_frames, Frame};
 use super::{invalid_events, unsupported, Result};
 use crate::RunContext;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 pub(super) struct Score {
     pub metadata: Metadata,
@@ -25,7 +25,7 @@ pub(super) struct Metronome(pub i8, pub u8, pub Fraction, pub Fraction);
 pub(super) struct Part {
     pub name: String,
     pub staves: Vec<Staff>,
-    pub harmonies: BTreeMap<Tick, Chord>,
+    pub harmonies: Harmonies,
 }
 
 #[derive(Default)]
@@ -41,13 +41,6 @@ pub(super) struct Staff {
 pub(super) enum Direction {
     Dynamic(String),
     Wedge(&'static str),
-}
-
-pub(super) struct Chord {
-    pub root: Option<Pitch>,
-    pub kind: &'static str,
-    pub bass: Option<Pitch>,
-    pub frame: Option<Frame>,
 }
 
 impl Score {
@@ -94,8 +87,6 @@ impl Score {
 
         let mut voices = BTreeMap::new();
         let mut lyrics = BTreeMap::new();
-        let mut chord_names = None;
-        let mut fretboards = None;
         for context in contexts.values() {
             run.check()?;
             let context_events = streams.get(&context.id).map(Vec::as_slice).unwrap_or(&[]);
@@ -109,12 +100,8 @@ impl Score {
                 "Lyrics" => {
                     lyrics.insert(context.id, context_events.to_vec());
                 }
-                "ChordNames" if chord_names.is_none() => chord_names = Some(context),
-                "ChordNames" => return Err(unsupported(source, &[], "multiple ChordNames tracks")),
-                "FretBoards" if fretboards.is_none() => fretboards = Some(context),
-                "FretBoards" => return Err(unsupported(source, &[], "multiple FretBoards tracks")),
                 "Score" | "Staff" | "TabStaff" | "PianoStaff" | "GrandStaff" | "StaffGroup"
-                | "ChoirStaff" | "Dynamics" | "NullVoice" => {}
+                | "ChoirStaff" | "Dynamics" | "NullVoice" | "ChordNames" | "FretBoards" => {}
                 kind => return Err(unsupported(source, &[], format_args!("the {kind} context"))),
             }
         }
@@ -137,35 +124,7 @@ impl Score {
             return Err(unsupported(source, &[], "a score without a pitched staff"));
         }
 
-        let chord_part = chord_names
-            .map(|chords| {
-                groups
-                    .iter()
-                    .find(|(group, _)| {
-                        let mut id = **group;
-                        while id != 0 {
-                            if id == chords.parent {
-                                return true;
-                            }
-                            id = contexts[&id].parent;
-                        }
-                        false
-                    })
-                    .map(|(id, _)| *id)
-                    .ok_or_else(|| {
-                        unsupported(source, &[], "a harmony track without a target staff")
-                    })
-            })
-            .transpose()?;
-        if let Some(frames) = fretboards {
-            if chord_names.is_none_or(|chords| chords.parent != frames.parent) {
-                return Err(unsupported(
-                    source,
-                    &[],
-                    "fretboard diagrams without a matching chord track",
-                ));
-            }
-        }
+        let mut harmonies = build_harmonies(&contexts, &streams, &groups, end.time, source, run)?;
 
         let mut parts = Vec::new();
         let mut has_notation = false;
@@ -271,33 +230,6 @@ impl Score {
                 staves.push(staff);
             }
 
-            let mut harmonies = BTreeMap::new();
-            if Some(group) == chord_part {
-                let id = chord_names.ok_or_else(invalid_events)?.id;
-                for event in streams.get(&id).into_iter().flatten() {
-                    let chord = match event.kind.as_str() {
-                        "harmony" => {
-                            let (pitches, bass): Harmony = event.fields()?;
-                            classify_chord(&pitches, &bass)
-                                .ok_or_else(|| event.fail(source, "this chord symbol"))?
-                        }
-                        "no-chord" => Chord {
-                            root: None,
-                            kind: "none",
-                            bass: None,
-                            frame: None,
-                        },
-                        _ => continue,
-                    };
-                    if event.time >= end.time || harmonies.insert(event.time, chord).is_some() {
-                        return Err(event.fail(source, "a harmony without a unique score position"));
-                    }
-                }
-                if let Some(frames) = fretboards {
-                    let events = streams.get(&frames.id).map(Vec::as_slice).unwrap_or(&[]);
-                    attach_frames(events, &mut harmonies, source)?;
-                }
-            }
             // A separate Dynamics context belongs to the first staff in its group.
             for ctx in contexts
                 .values()
@@ -315,7 +247,7 @@ impl Score {
             parts.push(Part {
                 name,
                 staves,
-                harmonies,
+                harmonies: harmonies.remove(&group).unwrap_or_default(),
             });
         }
         if !voices.is_empty() {
@@ -437,48 +369,4 @@ pub(super) fn key_signature((tonic, entries): &Key) -> Option<(i64, &'static str
         _ => return None,
     };
     Some((fifths, mode))
-}
-
-pub(super) fn classify_chord(pitches: &[Pitch], bass: &[Pitch]) -> Option<Chord> {
-    let root = *pitches.first()?;
-    let chromatic = root.chromatic()?;
-    let intervals = pitches
-        .iter()
-        .map(|p| {
-            let scale_step =
-                (i32::from(p.1) - i32::from(root.1)) * 7 + i32::from(p.0) - i32::from(root.0);
-            Some((scale_step, p.chromatic()? - chromatic))
-        })
-        .collect::<Option<BTreeSet<_>>>()?;
-    let intervals = intervals.into_iter().collect::<Vec<_>>();
-    let kind = match intervals.as_slice() {
-        [(0, 0), (2, 4), (4, 7)] => "major",
-        [(0, 0), (2, 3), (4, 7)] => "minor",
-        [(0, 0), (2, 4), (4, 8)] => "augmented",
-        [(0, 0), (2, 3), (4, 6)] => "diminished",
-        [(0, 0), (1, 2), (4, 7)] => "suspended-second",
-        [(0, 0), (3, 5), (4, 7)] => "suspended-fourth",
-        [(0, 0), (2, 4), (4, 7), (6, 10)] => "dominant",
-        [(0, 0), (2, 4), (4, 7), (6, 11)] => "major-seventh",
-        [(0, 0), (2, 3), (4, 7), (6, 10)] => "minor-seventh",
-        [(0, 0), (2, 3), (4, 7), (6, 11)] => "major-minor",
-        [(0, 0), (2, 3), (4, 6), (6, 9)] => "diminished-seventh",
-        [(0, 0), (2, 3), (4, 6), (6, 10)] => "half-diminished",
-        [(0, 0), (2, 4), (4, 8), (6, 10)] => "augmented-seventh",
-        [(0, 0), (2, 4), (4, 7), (5, 9)] => "major-sixth",
-        [(0, 0), (2, 3), (4, 7), (5, 9)] => "minor-sixth",
-        [(0, 0), (4, 7)] => "power",
-        _ => return None,
-    };
-    let bass = match bass {
-        [] => None,
-        [p] if p.chromatic().is_some() => Some(*p),
-        _ => return None,
-    };
-    Some(Chord {
-        root: Some(root),
-        kind,
-        bass,
-        frame: None,
-    })
 }

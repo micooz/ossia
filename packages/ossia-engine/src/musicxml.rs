@@ -2,6 +2,7 @@ use super::*;
 use ossia_score::SourceMap;
 
 mod events;
+mod harmony;
 mod measures;
 mod note_xml;
 mod notes;

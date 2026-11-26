@@ -1,5 +1,5 @@
 use super::events::{Event, Harmony, Pitch, Tick};
-use super::score::{classify_chord, Chord};
+use super::harmony::{classify_chord, Chord};
 use super::write::Xml;
 use super::{invalid_events, Result};
 use serde_json::Value;
@@ -28,7 +28,7 @@ pub(super) fn positions(events: &[&Event], source: &str) -> Result<HashMap<Pitch
 
 pub(super) fn attach_frames(
     events: &[&Event],
-    harmonies: &mut BTreeMap<Tick, Chord>,
+    harmonies: &mut [&mut BTreeMap<Tick, Chord>],
     source: &str,
 ) -> Result<()> {
     let mut written = BTreeMap::new();
@@ -48,17 +48,20 @@ pub(super) fn attach_frames(
                 "a fretboard diagram without one matching chord symbol",
             )
         };
-        let (pitches, bass) = written.get(&event.time).ok_or_else(fail)?;
+        let (pitches, bass, _) = written.get(&event.time).ok_or_else(fail)?;
         let diagram = classify_chord(pitches, bass).ok_or_else(fail)?;
-        let chord = harmonies
-            .get_mut(&event.time)
+        let mut matches = harmonies
+            .iter_mut()
+            .filter_map(|track| track.get_mut(&event.time))
             .filter(|chord| {
                 chord.kind == diagram.kind
                     && pitch_class(chord.root) == pitch_class(diagram.root)
                     && pitch_class(chord.bass) == pitch_class(diagram.bass)
-                    && chord.frame.is_none()
-            })
-            .ok_or_else(fail)?;
+            });
+        let chord = matches.next().ok_or_else(fail)?;
+        if matches.next().is_some() || chord.frame.is_some() {
+            return Err(fail());
+        }
         chord.frame = Some(Frame::read(event, source)?);
     }
     Ok(())

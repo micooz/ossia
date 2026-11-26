@@ -106,6 +106,57 @@ fn validate_measure_timing(root: Node<'_, '_>, label: &str) {
 
 #[test]
 #[ignore = "requires native LilyPond 2.26.0"]
+fn native_musicxml_exports_multiple_chord_tracks() {
+    let root = PathBuf::from(std::env::var_os("OSSIA_TEST_LILYPOND_ROOT").unwrap());
+    let work = tempfile::tempdir().unwrap();
+    let run = RunContext::new(Duration::from_secs(120));
+    let engine = Engine::verify(&root, &work.path().join("scratch"), &run).unwrap();
+    let source = r#"\version "2.26.0"
+\score {
+  \new StaffGroup <<
+    \new ChordNames \chordmode { c2:maj9 g2:11 }
+    \new ChordNames { \omit ChordName \chordmode { a2:m9/+b s2 } }
+    \new PianoStaff << \new Staff { c'1 } \new Staff { c1 } >>
+    \new StaffGroup <<
+      \new ChordNames \chordmode { d1:m }
+      \new Staff { d'1 }
+    >>
+  >>
+}
+"#;
+    let xml = export(&engine, source, &run);
+    validate_schema(&xml, work.path(), "multiple-chord-tracks");
+    let doc = Document::parse(std::str::from_utf8(&xml).unwrap()).unwrap();
+    let parts = named(doc.root_element(), "part");
+    assert_eq!(parts.len(), 2);
+    let harmonies = named(named(parts[0], "measure")[0], "harmony");
+    assert_eq!(
+        harmonies
+            .iter()
+            .map(|&chord| value(chord, "kind"))
+            .collect::<Vec<_>>(),
+        ["major-ninth", "minor-ninth", "dominant-11th"]
+    );
+    assert_eq!(harmonies[0].attribute("print-object"), None);
+    assert_eq!(harmonies[1].attribute("print-object"), Some("no"));
+    assert_eq!(value(named(harmonies[1], "bass")[0], "bass-step"), "B");
+    let divisions = value(
+        named(named(parts[0], "measure")[0], "attributes")[0],
+        "divisions",
+    )
+    .parse::<i64>()
+    .unwrap();
+    assert!(named(harmonies[0], "offset").is_empty());
+    assert!(named(harmonies[1], "offset").is_empty());
+    assert_eq!(value(harmonies[2], "offset"), (divisions * 2).to_string());
+    let harmonies = named(named(parts[1], "measure")[0], "harmony");
+    assert_eq!(harmonies.len(), 1);
+    assert_eq!(value(harmonies[0], "kind"), "minor");
+    validate_measure_timing(doc.root_element(), "multiple-chord-tracks");
+}
+
+#[test]
+#[ignore = "requires native LilyPond 2.26.0"]
 fn native_musicxml_exports_editable_notation() {
     let root = PathBuf::from(std::env::var_os("OSSIA_TEST_LILYPOND_ROOT").unwrap());
     let work = tempfile::tempdir().unwrap();
