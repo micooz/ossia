@@ -29,9 +29,9 @@ pnpm verify:selection doraemon-original bach-sheep-four-hands sor-original-locat
 ## MusicXML export
 
 Run `pnpm verify:musicxml` with the installed LilyPond engine. The suite checks
-complete scores and focused notation excerpts, including the Goldberg Variations
-Aria, grace notes, cross-staff voices, guitar tablature with chord diagrams,
-and Sor's Etude Op. 35 No. 14 with a mid-measure repeat.
+complete scores and focused excerpts covering grace notes, cross-staff voices,
+guitar tablature, chord diagrams, mid-measure repeats, and alternative endings.
+
 Set `OSSIA_TEST_MUSICXML_XSD` to a local MusicXML 4.0 schema with its imports
 resolved locally to enable offline schema validation with `xmllint`.
 

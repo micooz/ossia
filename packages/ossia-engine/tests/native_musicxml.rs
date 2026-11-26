@@ -160,6 +160,26 @@ fn native_musicxml_exports_editable_notation() {
             include_str!("../../../tests/fixtures/inputs/repeat.ly"),
         ),
         (
+            "doraemon-three-endings",
+            include_str!("../../../tests/fixtures/playback/doraemon-original.ly"),
+        ),
+        (
+            "shared-endings",
+            r#"\version "2.26.0"
+{
+  \repeat volta 5 {
+    c'1
+    \alternative { \volta 1,2 { d'1 } \volta 3 { e'1 } \volta 4,5 { f'1 } }
+  }
+  \repeat volta 3 { g'1 }
+}"#,
+        ),
+        (
+            "implicit-final-pass",
+            r#"\version "2.26.0"
+{ \repeat volta 2 { c'1 } \alternative { \volta 1 { d'1 } } e'1 }"#,
+        ),
+        (
             "mid-measure-repeat",
             r#"\version "2.26.0"
 { \time 4/4
@@ -265,6 +285,89 @@ harmony = \chordmode { f1/a b1:m }
         let measures = named(parts.remove(0), "measure");
         assert!(!measures.is_empty(), "{name}");
         match name {
+            "doraemon-three-endings" | "shared-endings" | "implicit-final-pass" => {
+                let mut endings = Vec::new();
+                let mut repeats = Vec::new();
+                for measure in &measures {
+                    let number = measure.attribute("number").unwrap();
+                    for barline in named(*measure, "barline") {
+                        let side = barline.attribute("location").unwrap();
+                        for ending in named(barline, "ending") {
+                            endings.push((
+                                number,
+                                side,
+                                ending.attribute("number").unwrap(),
+                                ending.attribute("type").unwrap(),
+                            ));
+                        }
+                        for repeat in named(barline, "repeat") {
+                            repeats.push((
+                                number,
+                                side,
+                                repeat.attribute("direction").unwrap(),
+                                repeat.attribute("times"),
+                            ));
+                        }
+                    }
+                }
+                if name == "doraemon-three-endings" {
+                    assert_eq!(measures.len(), 49);
+                    assert_eq!(
+                        endings,
+                        [
+                            ("27", "left", "1", "start"),
+                            ("34", "right", "1", "stop"),
+                            ("35", "left", "2", "start"),
+                            ("42", "right", "2", "stop"),
+                            ("43", "left", "3", "start"),
+                            ("49", "right", "3", "discontinue"),
+                        ]
+                    );
+                    assert_eq!(
+                        repeats,
+                        [
+                            ("9", "left", "forward", None),
+                            ("34", "right", "backward", None),
+                            ("42", "right", "backward", None),
+                        ]
+                    );
+                } else if name == "shared-endings" {
+                    assert_eq!(
+                        endings,
+                        [
+                            ("2", "left", "1,2", "start"),
+                            ("2", "right", "1,2", "stop"),
+                            ("3", "left", "3", "start"),
+                            ("3", "right", "3", "stop"),
+                            ("4", "left", "4,5", "start"),
+                            ("4", "right", "4,5", "stop"),
+                        ]
+                    );
+                    assert_eq!(
+                        repeats,
+                        [
+                            ("1", "left", "forward", None),
+                            ("2", "right", "backward", Some("3")),
+                            ("3", "right", "backward", None),
+                            ("4", "right", "backward", None),
+                            ("5", "left", "forward", None),
+                            ("5", "right", "backward", Some("3")),
+                        ]
+                    );
+                } else {
+                    assert_eq!(
+                        endings,
+                        [("2", "left", "1", "start"), ("2", "right", "1", "stop")]
+                    );
+                    assert_eq!(
+                        repeats,
+                        [
+                            ("1", "left", "forward", None),
+                            ("2", "right", "backward", None),
+                        ]
+                    );
+                }
+            }
             "mid-measure-repeat" => {
                 let measure_lengths = measures
                     .iter()
@@ -679,6 +782,10 @@ fn native_musicxml_refuses_unsupported_notation_and_respects_context() {
         (
             r#"{ \repeat volta 2 { \repeat volta 2 { c'1 } } }"#,
             "nested volta",
+        ),
+        (
+            r#"{ \repeat volta 3 { c'1 } \alternative { \volta 1,3 { d'1 } \volta 2 { e'1 } } }"#,
+            "alternative endings that do not cover consecutive repeat passes",
         ),
         (
             r#"\new Staff << { \repeat volta 2 { c'2 } d'2 } \\ { g'1 } >>"#,

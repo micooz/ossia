@@ -2,7 +2,7 @@ use super::events::{ticks, Event, Meter, Repeat, Tick};
 use super::notes::{Note, Voice};
 use super::{invalid_events, unsupported, Result};
 use crate::RunContext;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{btree_map::Entry, BTreeMap, BTreeSet};
 use std::ops::Bound::Excluded;
 
 const MAX_MEASURES: usize = 100_000;
@@ -10,7 +10,7 @@ const MAX_MEASURES: usize = 100_000;
 #[derive(Default)]
 pub(super) struct Barline {
     pub repeat: Option<u32>,
-    pub ending: Option<u32>,
+    pub ending: Option<Vec<u32>>,
 }
 
 pub(super) struct Measure {
@@ -161,31 +161,44 @@ pub(super) fn split_rests(
     Ok(())
 }
 
+// Close the preceding brackets and bars before opening new ones at the same tick.
+#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+enum Boundary {
+    EndingEnd,
+    RepeatEnd,
+    RepeatStart,
+    EndingStart,
+}
+
 pub(super) fn apply_repeats(
     measures: &mut Vec<Measure>,
     events: &[Event],
     source: &str,
 ) -> Result<()> {
-    // On a shared boundary, close the preceding repeat or ending before opening the next one.
-    let mut boundaries = BTreeMap::<(Tick, u8), (u32, &Event)>::new();
+    let mut boundaries = BTreeMap::<(Tick, Boundary), (Repeat, &Event)>::new();
     for event in events {
-        let (kind, number) = match event.kind.as_str() {
-            "volta-repeat-start-event" => (2, event.fields::<Repeat>()?.0),
-            "volta-repeat-end-event" => (1, event.fields::<Repeat>()?.0),
+        let (kind, fields) = match event.kind.as_str() {
+            "volta-repeat-start-event" => (Boundary::RepeatStart, event.fields()?),
+            "volta-repeat-end-event" => (Boundary::RepeatEnd, event.fields()?),
             "volta-span-event" => {
-                let (_, numbers, side): Repeat = event.fields()?;
-                let [number @ (1 | 2)] = numbers.as_slice() else {
-                    return Err(event.fail(source, "a volta other than first and second endings"));
+                let fields: Repeat = event.fields()?;
+                let kind = match fields.2 {
+                    -1 => Boundary::EndingStart,
+                    1 => Boundary::EndingEnd,
+                    _ => return Err(invalid_events()),
                 };
-                (if side == -1 { 3 } else { 0 }, *number)
+                (kind, fields)
             }
             _ => continue,
         };
-        if boundaries
-            .insert((event.time, kind), (number, event))
-            .is_some_and(|(old, _)| old != number)
-        {
-            return Err(event.fail(source, "conflicting repeats across voices"));
+        match boundaries.entry((event.time, kind)) {
+            Entry::Vacant(entry) => {
+                entry.insert((fields, event));
+            }
+            Entry::Occupied(entry) if entry.get().0 != fields => {
+                return Err(event.fail(source, "conflicting repeats across voices"));
+            }
+            Entry::Occupied(_) => {}
         }
     }
 
@@ -224,22 +237,39 @@ pub(super) fn apply_repeats(
 
     let mut repeat = None;
     let mut ending = None;
-    for ((time, kind), (number, event)) in boundaries {
+    let mut boundaries = boundaries.into_iter().peekable();
+    while let Some(((time, kind), ((count, passes, _), event))) = boundaries.next() {
         let index = measures.partition_point(|m| m.from < time);
         let fail = || event.fail(source, "nested, overlapping, or unaligned repeats");
-        if kind >= 2 {
+        let fail_ending = || {
+            event.fail(
+                source,
+                "alternative endings that do not cover consecutive repeat passes",
+            )
+        };
+        if matches!(kind, Boundary::RepeatStart | Boundary::EndingStart) {
             let measure = measures
                 .get_mut(index)
                 .filter(|m| m.from == time)
                 .ok_or_else(fail)?;
             match kind {
-                2 if repeat.is_none() && number > 0 => {
-                    repeat = Some(number);
-                    measure.left.repeat = Some(number);
+                Boundary::RepeatStart if repeat.is_none() && count > 0 => {
+                    repeat = Some((count, 1));
+                    measure.left.repeat = Some(count);
                 }
-                3 if ending.is_none() => {
-                    ending = Some(number);
-                    measure.left.ending = Some(number);
+                Boundary::EndingStart if ending.is_none() => {
+                    let (total, next_pass) = repeat.ok_or_else(fail)?;
+                    if count != total
+                        || passes.first() != Some(&next_pass)
+                        || passes.last().is_some_and(|&pass| pass > total)
+                        || passes
+                            .windows(2)
+                            .any(|pair| pair[0].checked_add(1) != Some(pair[1]))
+                    {
+                        return Err(fail_ending());
+                    }
+                    measure.left.ending = Some(passes.clone());
+                    ending = Some(passes);
                 }
                 _ => return Err(fail()),
             }
@@ -250,13 +280,40 @@ pub(super) fn apply_repeats(
                 .filter(|m| m.to == time)
                 .ok_or_else(fail)?;
             match kind {
-                0 if ending == Some(number) => {
+                Boundary::EndingEnd if ending.as_ref() == Some(&passes) => {
                     ending = None;
-                    measure.right.ending = Some(number);
+                    let (total, first) = repeat.ok_or_else(fail)?;
+                    let last = *passes.last().ok_or_else(invalid_events)?;
+                    let returns = passes.len() > 1 || last < total || total == 1;
+                    let has_return = boundaries.peek().is_some_and(|((at, boundary), _)| {
+                        *at == time && *boundary == Boundary::RepeatEnd
+                    });
+                    if count != total || returns != has_return {
+                        return Err(fail_ending());
+                    }
+                    if returns {
+                        boundaries.next();
+                        // A backward bar's count is one plus its number of jumps.
+                        measure.right.repeat = Some(last - first + 1 + u32::from(last < total));
+                    }
+                    let next = (last < total).then(|| last + 1);
+                    repeat = match next {
+                        Some(pass)
+                            if boundaries.peek().is_some_and(|((at, boundary), _)| {
+                                *at == time && *boundary == Boundary::EndingStart
+                            }) =>
+                        {
+                            Some((total, pass))
+                        }
+                        // The final pass can skip all brackets and continue after the last one.
+                        Some(pass) if pass != total => return Err(fail_ending()),
+                        _ => None,
+                    };
+                    measure.right.ending = Some(passes);
                 }
-                1 if repeat == Some(number) => {
+                Boundary::RepeatEnd if ending.is_none() && repeat == Some((count, 1)) => {
                     repeat = None;
-                    measure.right.repeat = Some(number);
+                    measure.right.repeat = Some(count);
                 }
                 _ => return Err(fail()),
             }

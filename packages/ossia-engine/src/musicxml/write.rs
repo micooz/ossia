@@ -470,24 +470,31 @@ fn write_barline(xml: &mut Xml, bar: &Barline, left: bool) -> Result<()> {
         "barline",
         &[("location", if left { "left" } else { "right" })],
     )?;
-    if let Some(number) = bar.ending {
+    if let Some(passes) = &bar.ending {
         let kind = if left {
             "start"
-        } else if number == 1 {
+        } else if bar.repeat.is_some() {
             "stop"
         } else {
             "discontinue"
         };
-        xml.empty("ending", &[("number", &number.to_string()), ("type", kind)])?;
+        let numbers = passes
+            .iter()
+            .map(u32::to_string)
+            .collect::<Vec<_>>()
+            .join(",");
+        xml.empty("ending", &[("number", &numbers), ("type", kind)])?;
     }
     if let Some(times) = bar.repeat {
         if left {
             xml.empty("repeat", &[("direction", "forward")])?;
-        } else {
+        } else if bar.ending.is_none() || times != 2 {
             xml.empty(
                 "repeat",
                 &[("direction", "backward"), ("times", &times.to_string())],
             )?;
+        } else {
+            xml.empty("repeat", &[("direction", "backward")])?;
         }
     }
     xml.end("barline")
