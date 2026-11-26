@@ -239,7 +239,8 @@ export function ScoreWorkspace({
     else if (render) previous.current = { documentId: doc.documentId, render };
   }, [doc?.documentId, notFound, render]);
   const draftRender =
-    render ?? (previous.current?.documentId === doc?.documentId ? previous.current?.render : null);
+    playback.render ??
+    (previous.current?.documentId === doc?.documentId ? previous.current?.render : null);
   if (notFound) return <ScoreNotFound />;
   if (!doc) {
     return (
@@ -303,11 +304,11 @@ export function ScoreWorkspace({
             <p className="error" role="alert">
               {versionRender.error}
             </p>
-          ) : versionRender.render ? (
+          ) : playback.render ? (
             <ScoreView
               key={viewKey}
               api={api}
-              render={versionRender.render}
+              render={playback.render}
               layout={layout}
               onLayoutChange={onLayout}
               zoom={zoom}

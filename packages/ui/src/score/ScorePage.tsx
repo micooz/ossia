@@ -399,6 +399,7 @@ function ScoreApp({
   const playback = useScorePlayback(
     api,
     activeRender,
+    viewKey,
     playbackEnabled && !!scoreSettings.settings,
     onError,
     scoreSettings.settings,
@@ -407,7 +408,7 @@ function ScoreApp({
   const [loadedParts, setLoadedParts] = useState<{ key: string; parts: PlaybackPart[] } | null>(
     null,
   );
-  const settingsRenderKey = activeRender?.renderKey;
+  const settingsRenderKey = playback.render?.renderKey;
   const settingsParts = settingsRenderKey
     ? loadedParts?.key === settingsRenderKey
       ? loadedParts.parts

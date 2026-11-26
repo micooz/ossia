@@ -49,14 +49,23 @@ const START_LEAD_SECONDS = 0.03;
 /** Own score playback timing, audio scheduling, audition state and the playhead. */
 export function useScorePlayback(
   api: Api,
-  render: RenderReference | null,
+  latestRender: RenderReference | null,
+  viewKey: string,
   enabled: boolean,
   onError: (error: unknown) => void,
   settings: ScoreSettings | null,
   selectedMeasure?: number,
 ) {
   const [state, setState] = useState<PlaybackState>(EMPTY_STATE);
+  const [session, setSession] = useState<{ viewKey: string; render: RenderReference } | null>(null);
   const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
+  // A pause keeps the same render so the playhead and timeline stay aligned when resuming.
+  const render =
+    enabled &&
+    session?.viewKey === viewKey &&
+    session.render.manifest.sourceHash === latestRender?.manifest.sourceHash
+      ? session.render
+      : latestRender;
   const timelineRef = useRef<ScorePlayback | null>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -73,6 +82,7 @@ export function useScorePlayback(
   const timerRef = useRef<number | null>(null);
   const frameRef = useRef<number | null>(null);
   const starting = useRef<Promise<void> | null>(null);
+  const generation = useRef(0);
   const seekRef = useRef<Promise<void> | null>(null);
   const seekTargetRef = useRef<number | null>(null);
 
@@ -119,6 +129,7 @@ export function useScorePlayback(
     seekRef.current = null;
     seekTargetRef.current = null;
     resumeReadyRef.current = false;
+    setSession(null);
     setState((current) => ({
       ...current,
       phase: 'idle',
@@ -166,10 +177,12 @@ export function useScorePlayback(
     async (offset: number, keepPlaying = true) => {
       const timeline = timelineRef.current;
       if (!timeline || !enabled) return;
+      const run = generation.current;
       const instruments = JSON.stringify(settingsRef.current?.instruments ?? {});
       clearScheduler();
       scoreAudio.stopAll();
       await scoreAudio.resume();
+      if (run !== generation.current) return;
       if (instruments !== JSON.stringify(settingsRef.current?.instruments ?? {})) {
         setPhase('paused');
         return;
@@ -195,8 +208,10 @@ export function useScorePlayback(
   const play = useCallback(async () => {
     if (starting.current) return starting.current;
     const timeline = timelineRef.current;
-    if (!timeline || !enabled) return;
-    const run = (async () => {
+    if (!timeline || !enabled || !render) return;
+    const run = generation.current;
+    setSession({ viewKey, render });
+    const playing = (async () => {
       try {
         const wasPaused = phaseRef.current === 'paused';
         const canResume = resumeReadyRef.current;
@@ -217,6 +232,7 @@ export function useScorePlayback(
             (note) => settingsRef.current?.instruments[note.partId] ?? note.instrument,
           ),
         );
+        if (run !== generation.current) return;
         if (instruments !== JSON.stringify(settingsRef.current?.instruments ?? {})) {
           publishPosition(fallbackOffset);
           setPhase('paused');
@@ -224,6 +240,7 @@ export function useScorePlayback(
         }
         if (wasPaused && canResume) {
           await scoreAudio.resume();
+          if (run !== generation.current) return;
           setPhase('playing');
           schedule();
           tick();
@@ -231,15 +248,29 @@ export function useScorePlayback(
           await beginAt(fallbackOffset);
         }
       } catch (error) {
+        if (run !== generation.current) return;
+        setSession(null);
         setPhase('idle');
         onError(error);
       }
     })();
-    starting.current = run.finally(() => {
-      starting.current = null;
+    const tracked = playing.finally(() => {
+      if (starting.current === tracked) starting.current = null;
     });
-    return starting.current;
-  }, [beginAt, enabled, onError, publishPosition, schedule, selectedMeasure, setPhase, tick]);
+    starting.current = tracked;
+    return tracked;
+  }, [
+    beginAt,
+    enabled,
+    onError,
+    publishPosition,
+    render,
+    schedule,
+    selectedMeasure,
+    setPhase,
+    tick,
+    viewKey,
+  ]);
 
   const pause = useCallback(async () => {
     if (phaseRef.current !== 'playing') return;
@@ -311,6 +342,7 @@ export function useScorePlayback(
       options?: { simultaneous?: boolean; highlightElementId?: string },
     ) => {
       if (!enabled) return;
+      const run = generation.current;
       const members = auditionMembers(timelineRef.current, group, options?.simultaneous ?? false);
       const combined = combinedAuditionGroup(members, group);
       const activeGroup =
@@ -359,7 +391,9 @@ export function useScorePlayback(
             );
           });
           await scoreAudio.load(instruments);
+          if (run !== generation.current) return;
           await scoreAudio.resume();
+          if (run !== generation.current) return;
           const now = scoreAudio.now();
           await Promise.all(
             sounds.map((member, index) =>
@@ -367,7 +401,7 @@ export function useScorePlayback(
             ),
           );
         } catch (error) {
-          onError(error);
+          if (run === generation.current) onError(error);
         }
       }
     },
@@ -405,12 +439,16 @@ export function useScorePlayback(
       if (!target) return true;
       seekTargetRef.current = target.startSeconds;
       const previous = seekRef.current ?? Promise.resolve();
+      const run = generation.current;
       let tracked: Promise<void>;
       tracked = previous
         .catch(() => {})
-        .then(() => beginAt(target.startSeconds))
+        .then(() => {
+          if (run === generation.current) return beginAt(target.startSeconds);
+        })
         .catch(onError)
         .finally(() => {
+          if (run !== generation.current) return;
           if (seekTargetRef.current === target.startSeconds) seekTargetRef.current = null;
           if (seekRef.current === tracked) seekRef.current = null;
         });
@@ -421,6 +459,8 @@ export function useScorePlayback(
   );
 
   const stop = useCallback(() => {
+    generation.current++;
+    starting.current = null;
     clearScheduler();
     scoreAudio.stopAll();
     timelineRef.current = null;
@@ -434,6 +474,7 @@ export function useScorePlayback(
     seekTargetRef.current = null;
     resumeReadyRef.current = false;
     phaseRef.current = 'idle';
+    setSession(null);
     setState(EMPTY_STATE);
   }, [clearScheduler]);
 
@@ -492,7 +533,7 @@ export function useScorePlayback(
     return () => {
       live = false;
     };
-  }, [api, enabled, onError, renderKey, stop]);
+  }, [api, enabled, onError, renderKey, stop, viewKey]);
 
   const activeElementIds = useMemo(
     () => new Set(state.activeGroup?.elementIds ?? []),
@@ -504,6 +545,7 @@ export function useScorePlayback(
   );
 
   return {
+    render,
     unavailableReason,
     ...state,
     toggle,

@@ -7,7 +7,7 @@ import type {
   SelectionTarget,
 } from '../../src/generated/protocol.ts';
 import { scheduleWindow } from '../../src/score/utils/playbackSchedule.ts';
-import { firstId, secondId, hash, mockScoreRuntime } from './score-runtime.ts';
+import { firstId, secondId, hash, mockScoreRuntime, newer } from './score-runtime.ts';
 
 const target = (elementId: string): SelectionTarget => ({ kind: 'element', elementId });
 
@@ -197,6 +197,34 @@ async function pageWithPlayback(
   await expect(page.locator('.score-image')).toHaveCount(2);
   return { runtime, page };
 }
+
+test('a refreshed render waits for the current playback to finish', async ({ context }) => {
+  const timeline = playback([system(1, 0, 3)]);
+  timeline.durationSeconds = 3;
+  const { runtime, page } = await pageWithPlayback(context, timeline);
+  const play = page.getByRole('button', { name: '播放', exact: true });
+  const pause = page.getByRole('button', { name: '暂停', exact: true });
+  const line = page.locator('.score-playhead');
+  await play.click();
+  await expect(line).toHaveAttribute('x1', '31.5');
+
+  const refreshed = page.waitForResponse(`**/documents/${firstId}/context`);
+  runtime.rerender(newer);
+  expect((await (await refreshed).json()).render.renderKey).toBe(newer);
+  await expect(line).toHaveAttribute('x1', '61.5', { timeout: 2_000 });
+  await pause.click();
+  await expect(play).toBeVisible();
+  await expect(line).toHaveAttribute('x1', '61.5');
+  expect(runtime.pageRequests.every((path) => !path.includes(newer))).toBe(true);
+
+  await play.click();
+  await expect(pause).toBeVisible();
+  await expect(line).toHaveAttribute('x1', '61.5');
+  await expect.poll(() => runtime.pageRequests.some((path) => path.includes(newer))).toBe(true);
+  await expect(line).toHaveCount(0);
+  await expect(play).toBeEnabled();
+  expect(runtime.playbackRequests).toContain(`/renders/${newer}/playback`);
+});
 
 test('score settings remember each part and apply its sample during playback', async ({
   context,

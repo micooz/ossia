@@ -97,9 +97,10 @@ function geometry(
   elements: GeometryElement[] = [],
   elementsByPage?: Record<number, GeometryElement[]>,
   pageCount = 2,
+  renderKey = hash,
 ): RenderGeometry {
   return {
-    renderKey: hash,
+    renderKey,
     sourceHash: hash,
     pages: Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => ({
       page,
@@ -168,6 +169,7 @@ export async function mockScoreRuntime(
     title: document.documentId === firstId ? (options.title ?? document.title) : document.title,
     lastSuccessfulRender: reference.manifest,
   }));
+  const updatedRenders = new Map<string, string>();
   const selections = new Map<string, Selection | null>();
   const drawings = new Map<string, Drawing>();
   const scoreSettings = new Map<string, ScoreSettings>();
@@ -237,7 +239,7 @@ export async function mockScoreRuntime(
       annotationRegions: [],
       render: document.lastSuccessfulRender
         ? {
-            renderKey: document.lastSuccessfulRender.sourceHash,
+            renderKey: updatedRenders.get(documentId) ?? document.lastSuccessfulRender.sourceHash,
             manifest: document.lastSuccessfulRender,
           }
         : null,
@@ -356,14 +358,17 @@ export async function mockScoreRuntime(
       reveals.push(path.split('/')[2] ?? '');
       return reply({ opened: true });
     }
-    if (path === '/renders/' + hash + '/geometry') {
+    if (path.startsWith('/renders/') && path.endsWith('/geometry')) {
       geometryRequests.push(path);
-      return reply(geometry(options.elements, options.elementsByPage, options.pageCount));
+      return reply(
+        geometry(options.elements, options.elementsByPage, options.pageCount, path.split('/')[2]),
+      );
     }
     if (path.startsWith('/renders/') && path.endsWith('/playback')) {
       playbackRequests.push(path);
+      const playback = options.playback && { ...options.playback, renderKey: path.split('/')[2]! };
       return reply(
-        options.playback ??
+        playback ??
           ({
             renderKey: path.split('/')[2]!,
             sourceHash: path.split('/')[2]!,
@@ -559,6 +564,11 @@ export async function mockScoreRuntime(
       }
     },
     contextFor,
+    rerender: (renderKey: string) => {
+      updatedRenders.set(firstId, renderKey);
+      states[0]!.lastSuccessfulRender = { ...reference.manifest, optionsHash: renderKey };
+      emit('job-changed');
+    },
     disconnect: (value: boolean) => {
       loseEvents = value;
       if (value) for (const stream of streams) stream.destroy();
