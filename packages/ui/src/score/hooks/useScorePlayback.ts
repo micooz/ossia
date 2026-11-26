@@ -53,6 +53,7 @@ export function useScorePlayback(
   enabled: boolean,
   onError: (error: unknown) => void,
   settings: ScoreSettings | null,
+  selectedMeasure?: number,
 ) {
   const [state, setState] = useState<PlaybackState>(EMPTY_STATE);
   const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
@@ -199,7 +200,16 @@ export function useScorePlayback(
       try {
         const wasPaused = phaseRef.current === 'paused';
         const canResume = resumeReadyRef.current;
-        const fallbackOffset = wasPaused ? positionRef.current : (auditionRef.current ?? 0);
+        const selectedSpan =
+          selectedMeasure === undefined
+            ? undefined
+            : timeline.systems.find(
+                (span) =>
+                  span.measureStart <= selectedMeasure && span.measureEnd >= selectedMeasure,
+              );
+        const fallbackOffset = wasPaused
+          ? positionRef.current
+          : (auditionRef.current ?? selectedSpan?.startSeconds ?? 0);
         const instruments = JSON.stringify(settingsRef.current?.instruments ?? {});
         setPhase('loading');
         await scoreAudio.load(
@@ -229,7 +239,7 @@ export function useScorePlayback(
       starting.current = null;
     });
     return starting.current;
-  }, [beginAt, enabled, onError, publishPosition, schedule, setPhase, tick]);
+  }, [beginAt, enabled, onError, publishPosition, schedule, selectedMeasure, setPhase, tick]);
 
   const pause = useCallback(async () => {
     if (phaseRef.current !== 'playing') return;
@@ -259,6 +269,31 @@ export function useScorePlayback(
   const clearAuditionHighlight = useCallback(() => {
     setState((current) => (current.activeGroup ? { ...current, activeGroup: null } : current));
   }, []);
+
+  const cueMeasure = useCallback(
+    (page: number, measure: number) => {
+      if (!enabled || phaseRef.current === 'loading') return;
+      const span = timelineRef.current?.systems.find(
+        (candidate) =>
+          candidate.page === page &&
+          candidate.measureStart <= measure &&
+          candidate.measureEnd >= measure,
+      );
+      if (!span) return;
+      auditionRef.current = span.startSeconds;
+      auditionGroupRef.current = null;
+      playheadGroupRef.current = null;
+      clearAuditionHighlight();
+      if (phaseRef.current === 'playing') {
+        void beginAt(span.startSeconds).catch(onError);
+      } else {
+        resumeReadyRef.current = false;
+        scoreAudio.stopAll();
+        publishPosition(span.startSeconds);
+      }
+    },
+    [beginAt, clearAuditionHighlight, enabled, onError, publishPosition],
+  );
 
   const toggle = useCallback(async () => {
     if (!timelineRef.current || !enabled) return;
@@ -472,6 +507,7 @@ export function useScorePlayback(
     unavailableReason,
     ...state,
     toggle,
+    cueMeasure,
     audition,
     auditionAdjacent,
     seekMeasure,

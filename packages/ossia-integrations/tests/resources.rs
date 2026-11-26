@@ -37,6 +37,10 @@ fn bundled_resources_are_complete() {
     let piano = resources.read_text(Resource::SkillPiano).unwrap();
     assert!(piano.contains("\\key c \\major"));
     assert!(piano.contains("c4 d e f"));
+    assert!(resources
+        .read_text(Resource::SkillJianpu)
+        .unwrap()
+        .starts_with("% ossia:notation=jianpu\n\\version \"2.26.0\"\n"));
     for resource in [
         Resource::SkillPiano,
         Resource::SkillSingleStaff,

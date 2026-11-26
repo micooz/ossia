@@ -5,7 +5,7 @@ use crate::cache::Cache;
 pub fn render_options_hash(point_and_click: bool) -> ContentHash {
     ContentHash::of(
         &serde_json::to_vec(&serde_json::json!({
-            "pointAndClick": point_and_click, "derivationVersion": 5,
+            "pointAndClick": point_and_click, "derivationVersion": 7,
             "interactionVersion": ossia_types::INTERACTION_VERSION,
         }))
         .expect("render options serialize"),
@@ -112,7 +112,9 @@ impl Engine {
         template: &RenderManifest,
         context: &RunContext,
     ) -> Result<RenderManifest, AppError> {
-        let derived = source::derive(snapshot.source(), format, options.point_and_click)?;
+        let original = snapshot.source();
+        let jianpu = format != RenderFormat::Midi && ossia_score::is_jianpu_source(original);
+        let derived = source::derive(original, format, options.point_and_click)?;
         source::validate_render_structure(&derived.text)?;
         let scratch = Scratch::new(&self.scratch_root)?;
         fs::write(scratch.path().join("score.ly"), &derived.text).map_err(io_error)?;
@@ -135,8 +137,19 @@ impl Engine {
             scratch.path(),
             &self.root,
             Some(&derived),
-            Some(snapshot.source()),
+            Some(original),
         );
+        if let Some((_, feature)) = diagnostics
+            .iter()
+            .find_map(|diagnostic| diagnostic.message.split_once("warning: Ossia Jianpu: "))
+            .filter(|_| jianpu)
+        {
+            return Err(AppError {
+                code: ErrorCode::UnsupportedSource,
+                message: format!("Jianpu layout does not support {feature}"),
+                detail: Some(serde_json::json!({"diagnostics": diagnostics})),
+            });
+        }
         if !output.success {
             return Err(AppError {
                 code: ErrorCode::CompileFailed,
@@ -167,7 +180,16 @@ impl Engine {
                 RenderFormat::Svg => {
                     let svg = std::str::from_utf8(&bytes)
                         .map_err(|_| AppError::invalid("SVG is not UTF-8"))?;
-                    bytes = source::normalize_svg(svg, &derived, snapshot.source())?.into_bytes();
+                    let svg = source::normalize_svg(svg, &derived, original)?;
+                    if options.point_and_click
+                        && jianpu
+                        && !svg.contains("data-ossia-kind=\"JianpuStaff\"")
+                    {
+                        return Err(AppError::unsupported(
+                            "Jianpu staff geometry is unavailable",
+                        ));
+                    }
+                    bytes = svg.into_bytes();
                     "svg"
                 }
                 RenderFormat::Pdf => {

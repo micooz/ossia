@@ -2,12 +2,18 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { runAuditionCases } from './audition-cases.mjs';
+import { runJianpuCases } from './jianpu-cases.mjs';
 import { runPlaybackCases } from './playback-cases.mjs';
 import { fixtureRenderer, fixtures } from './render-fixture.mjs';
 import { runSelectionCases } from './selection-cases.mjs';
 
-/** Run all verification suites for the selected cases, sharing renders by source. */
+/** Run the full verification suite or select playback cases by ID. */
 export async function runVerification(ids = []) {
+  if (!ids.length) {
+    console.log('Verifying Jianpu fixtures');
+    const status = await runJianpuCases();
+    if (status) return status;
+  }
   const render = fixtureRenderer('all');
   const renders = new Map();
   const renderOnce = (entry) => {

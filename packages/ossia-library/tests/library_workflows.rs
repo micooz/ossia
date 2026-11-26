@@ -450,6 +450,61 @@ fn playback_failure_requires_a_confirmation_bound_to_the_input() {
 }
 
 #[test]
+fn jianpu_requires_playback_to_import_and_commit() {
+    let source = "% ossia:notation=jianpu\nc'1";
+    let f = Fixture::source(source);
+    let bad = format!("{source} % NO_MIDI");
+    let import = |input: &str, context: &RunContext| {
+        f.library.import(
+            &f.engine,
+            ImportRequest {
+                title: "Jianpu",
+                input: input.as_bytes(),
+                format: InputFormat::Ly,
+                confirmation: None,
+                author: "test",
+            },
+            context,
+        )
+    };
+    assert_eq!(
+        import(&bad, &RunContext::default()).unwrap_err().message,
+        "MIDI unavailable"
+    );
+    let cancelled = RunContext::default();
+    cancelled.cancellation.cancel();
+    assert_eq!(
+        import(source, &cancelled).unwrap_err().code,
+        ErrorCode::Cancelled
+    );
+    assert_eq!(f.library.document_count().unwrap(), 1);
+
+    let edit = f.begin();
+    let hash = f.write(&bad);
+    let check = f.library.check(
+        &f.engine,
+        CheckRequest {
+            expect: None,
+            reference: None,
+            document_id: f.doc.document_id,
+            edit_id: Some(edit.edit_id),
+            expected_source_hash: &hash,
+            options: &CompileOptions::default(),
+        },
+        &RunContext::default(),
+    );
+    assert_eq!(check.err().unwrap().message, "MIDI unavailable");
+    assert!(f.commit(&edit, &hash).is_err());
+    assert_eq!(
+        f.library
+            .get_document(f.doc.document_id)
+            .unwrap()
+            .head_version_id,
+        f.doc.head_version_id
+    );
+}
+
+#[test]
 fn loss_confirmation_and_refusal_never_publish_unconfirmed_documents() {
     let root = tempfile::tempdir().unwrap();
     let library = Library::open(root.path()).unwrap();

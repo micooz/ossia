@@ -69,6 +69,7 @@ pub fn build_layout(index: &ScoreIndex, pages: &[SvgPage<'_>]) -> Result<ScoreLa
     let mut evidence = Vec::new();
     let mut occurrences = HashMap::<(u32, u32), usize>::new();
     let staff_kinds: Vec<_> = index.staves.iter().map(|staff| staff.kind).collect();
+    let jianpu = crate::is_jianpu_source(index.source());
     for p in input {
         let mut page = PageLayout {
             page: p.page,
@@ -86,11 +87,14 @@ pub fn build_layout(index: &ScoreIndex, pages: &[SvgPage<'_>]) -> Result<ScoreLa
                 page.reason = Some(error.to_string());
                 page.error = Some(error);
             }
-            Ok((view_box, elements, objects)) => {
+            Ok((view_box, elements, mut objects)) => {
+                if jianpu {
+                    systems::normalize_jianpu_staff_indices(&mut objects, staff_kinds.len());
+                }
                 page.view_box = Some(view_box);
                 page.elements = elements;
                 page.objects = objects;
-                match systems(&page.elements, &page.objects, &staff_kinds) {
+                match systems(&page.elements, &page.objects, &staff_kinds, jianpu) {
                     Err(error) => {
                         page.capability = LocationCapability::AnchorOnly;
                         page.reason = Some(error.to_string());
@@ -312,14 +316,34 @@ pub fn build_layout(index: &ScoreIndex, pages: &[SvgPage<'_>]) -> Result<ScoreLa
     } else {
         LocationCapability::None
     };
-    Ok(ScoreLayout {
+    let mut layout = ScoreLayout {
         source_hash: index.source_hash.clone(),
         pages: result,
         columns,
         capability,
         reason: partial
             .then(|| "partial layout capability; inspect individual pages and columns".into()),
-    })
+    };
+    if crate::is_jianpu_source(index.source())
+        && layout
+            .columns
+            .iter()
+            .all(|column| column.measure_start.is_none())
+        && crate::selection::engraved::measures(index, &layout).is_some()
+    {
+        for (ordinal, column) in layout.columns.iter_mut().enumerate() {
+            let number = Some(ordinal as u32 + 1);
+            column.measure_start = number;
+            column.measure_end = number;
+        }
+        for page in &mut layout.pages {
+            page.capability = LocationCapability::Measure;
+            page.reason = None;
+        }
+        layout.capability = LocationCapability::Measure;
+        layout.reason = None;
+    }
+    Ok(layout)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

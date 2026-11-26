@@ -1,0 +1,90 @@
+[
+  {
+    "id": "piano-prelude",
+    "source": "../playback/piano-prelude.ly",
+    "expect": {
+      "measures": 35,
+      "staves": 2
+    }
+  },
+  {
+    "id": "ark-original",
+    "source": "../playback/ark-original.ly",
+    "expect": {
+      "measures": 32,
+      "staves": 2
+    }
+  },
+  {
+    "id": "jianpu-scaffold",
+    "source": "../../../packages/ossia-integrations/resources/skill/ossia/references/jianpu.ly",
+    "expect": {
+      "measures": 52,
+      "staves": 2
+    }
+  },
+  {
+    "id": "minor-accidentals",
+    "source": "minor-accidentals.ly",
+    "expect": {
+      "measures": 2,
+      "staves": 1
+    }
+  },
+  {
+    "id": "octave-bracket",
+    "source": "octave-bracket.ly",
+    "expect": {
+      "measures": 2,
+      "staves": 1
+    }
+  },
+  {
+    "id": "pickup",
+    "source": "pickup.ly",
+    "expect": {
+      "measures": 3,
+      "staves": 1
+    }
+  },
+  {
+    "id": "tab-staff",
+    "source": "../playback/sakura-tab.ly",
+    "expect": {
+      "unsupported": "TabStaff",
+      "line": 59
+    }
+  },
+  {
+    "id": "microtonal",
+    "source": "microtonal.ly",
+    "expect": {
+      "unsupported": "microtonal",
+      "line": 3
+    }
+  },
+  {
+    "id": "modulation",
+    "source": "modulation.ly",
+    "expect": {
+      "unsupported": "key change",
+      "line": 4
+    }
+  },
+  {
+    "id": "cross-staff",
+    "source": "../playback/bach-goldberg-aria.ly",
+    "expect": {
+      "unsupported": "cross-staff voice",
+      "line": 48
+    }
+  },
+  {
+    "id": "multi-measure-rest",
+    "source": "../playback/majo-original.ly",
+    "expect": {
+      "unsupported": "multi-measure rests",
+      "line": 56
+    }
+  }
+]

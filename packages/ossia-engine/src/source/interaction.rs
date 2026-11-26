@@ -1,9 +1,9 @@
 use super::Edit;
 use ossia_score::{source_elements, tokenize, TokenKind};
 
-pub(super) fn edits(source: &str) -> Vec<Edit> {
+pub(super) fn edits(source: &str, preamble: usize) -> Vec<Edit> {
     let mut edits = vec![Edit {
-        range: 0..0,
+        range: preamble..preamble,
         replacement: format!("{}\n", include_str!("../interaction.ily")),
         maps_to_original: false,
     }];

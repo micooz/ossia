@@ -68,6 +68,11 @@ test('requests playback and selection data in the same fixture invocation', () =
   ]);
 });
 
+test('requests the Jianpu audit data from the native executable', () => {
+  fixtureRenderer('jianpu')({ source: 'score.ly' });
+  assert.equal(execFileSync.mock.calls[1][1].at(-1), '--jianpu');
+});
+
 test('propagates a failed build and invalid renderer output', () => {
   execFileSync.mockImplementationOnce(() => {
     throw new Error('cargo failed');

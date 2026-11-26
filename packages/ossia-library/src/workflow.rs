@@ -209,8 +209,13 @@ impl Library {
         let snapshot = self
             .job_snapshot(id)?
             .ok_or_else(|| storage_error("queued check has no snapshot"))?;
+        let jianpu = ossia_score::is_jianpu_source(snapshot.source());
+        let mut formats = parameters.formats;
+        if jianpu && parameters.edit_id.is_some() && !formats.contains(&RenderFormat::Midi) {
+            formats.push(RenderFormat::Midi);
+        }
         let options = CompileOptions {
-            formats: parameters.formats,
+            formats,
             point_and_click: parameters.point_and_click,
         };
         let job = self.transition_job(
@@ -224,6 +229,21 @@ impl Library {
         let compiled: Result<(RenderManifest, bool, MusicReport)> = (|| {
             let render = engine.compile(&snapshot, &options, &self.artifact_root()?, context)?;
             let svg = self.validate_render(engine, &snapshot, &render)?;
+            if jianpu && options.formats.contains(&RenderFormat::Midi) {
+                if !svg {
+                    return Err(compile_error(&render));
+                }
+                if render.midi.is_none() {
+                    return Err(render
+                        .format_errors
+                        .iter()
+                        .find(|failure| failure.format == RenderFormat::Midi)
+                        .map(|failure| failure.error.clone())
+                        .unwrap_or_else(|| {
+                            AppError::unsupported("Jianpu playback is unavailable")
+                        }));
+                }
+            }
             let music = self.music_report(&snapshot, &render)?;
             Ok((render, svg, music))
         })();

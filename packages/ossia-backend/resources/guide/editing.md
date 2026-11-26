@@ -25,10 +25,10 @@ The installed Ossia skill keeps starter sources under `references/` beside its
 - `references/single-staff.ly`: short single-staff example.
 - `references/guitar-tab.ly`: single `TabStaff` with a first-position C major
   scale and string/fret annotations.
+- `references/jianpu.ly`: a 52-measure piano example with two staves on two A4 pages.
 
-These are structural examples; take clef, key, octave, time, instruments and
-paper size from the request. They omit `\paper`, so LilyPond uses A4 portrait
-unless the request specifies a size or orientation. Outside `\relative`, a plain
+Take clef, key, octave, time, instruments and paper size from the request. The
+other scaffolds use LilyPond's default A4 portrait layout. Outside `\relative`, a plain
 `c` is C3 and `c'` is middle C. Do not infer an octave from note names; verify
 the performed pitches. The single-staff scaffold performs 60–72.
 
@@ -162,3 +162,42 @@ proves equal performed pitch, start and duration; it does not prove note
 spelling, staff assignment, annotation text or placement. Inspect the rendered
 region as well. Preserve exact `{numerator,denominator}` quarter-note durations
 in evidence and do not translate them into a named note value without checking.
+
+## Jianpu
+
+### Convert or edit a score in place
+
+Use [Edit an existing score](#edit-an-existing-score) to keep the score's link
+and version history. To switch to Jianpu, use `ossia_write_source` to insert
+`% ossia:notation=jianpu` on the first line and keep the music intact. In
+`ossia_check`, compare against the pre-edit version with
+`reference: {"source":{"kind":"version","versionId":…},"comparison":"tracks"}`.
+After the SVG, MIDI and reference checks pass, save with `ossia_commit`.
+For changes to an existing Jianpu score, use the same source edit workflow
+and keep the declaration.
+
+### Create a Jianpu score from a saved version
+
+Use this workflow when the user wants a separate score with its own link and
+version history.
+
+1. Export `ly` from the chosen `versionId` using `ossia_output`. Add
+   `% ossia:notation=jianpu` on the first line of the exported file and keep the
+   music intact. See `references/jianpu.ly` for a two-staff example.
+2. Import the copy with `ossia_import` and a distinct title. Pass
+   `reference: {"source":{"kind":"version","versionId":…},"comparison":"tracks"}`
+   using the exported version. After verification, open the new score's link.
+
+### Playback, export and supported notation
+
+Click inside a measure, away from its symbols, to cue playback there. Use the
+usual score controls or `ossia_output` for visual and audio exports. A LilyPond
+export keeps the first-line declaration for reimport into Ossia. Outside Ossia,
+LilyPond prints the original staff notation.
+
+Jianpu accepts one pitched staff or two staves in a `PianoStaff`, with up to two
+voices per staff. The key may be major or minor. Octave dots show the written
+pitch even inside an octave-displacement bracket. Use standard pitches and
+written durations. Key changes, cross-staff voices, grace notes, tuplets, scaled
+durations and multi-measure rests are rejected. If a check or import fails,
+inspect the diagnostics before changing the source.

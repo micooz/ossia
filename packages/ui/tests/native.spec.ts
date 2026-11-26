@@ -16,6 +16,7 @@ import type {
   Job,
   JobOutcome,
   RenderGeometry,
+  ScorePlayback,
   GeometryPage,
   GeometryRegion,
   SelectionTarget,
@@ -119,6 +120,59 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   if (home) await cli('stop').catch(() => {});
   if (temporary) await fs.rm(temporary, { recursive: true, force: true });
+});
+
+test('Jianpu starts at a selected measure and follows the score onto the next page', async ({
+  page,
+}) => {
+  const source = await fs.readFile(
+    path.join(root, 'tests/fixtures/playback/piano-prelude.ly'),
+    'utf8',
+  );
+  const candidate = path.join(temporary, 'prelude-jianpu.ly');
+  await fs.writeFile(candidate, `% ossia:notation=jianpu\n${source}`);
+  const title = 'BWV 846 简谱播放测试';
+  await waitJob(await cli<Job>('import', { title, path: candidate }));
+  const score = (await cli<DocumentPage>('list')).items.find((doc) => doc.title === title)!;
+  await page.goto(score.url!);
+  const api = `${new URL(score.url!).origin}/api/v1`;
+  const context: DocumentContext = await (
+    await page.request.get(`${api}/documents/${score.documentId}/context`)
+  ).json();
+  const key = context.render!.renderKey;
+  const geometry: RenderGeometry = await (
+    await page.request.get(`${api}/renders/${key}/geometry`)
+  ).json();
+  const playback: ScorePlayback = await (
+    await page.request.get(`${api}/renders/${key}/playback`)
+  ).json();
+  const boundary = playback.systems.findIndex((span) => span.page === 2);
+  expect(boundary).toBeGreaterThan(0);
+  const previous = playback.systems[boundary - 1]!;
+  const first = geometry.pages[0]!;
+  const region = first.regions.find(
+    (candidate) =>
+      candidate.locator.staffIndex === 0 &&
+      candidate.locator.measureStart === previous.measureStart,
+  )!;
+  const { x, y } = measureWhitespace(first, region);
+  const box = first.viewBox!;
+  const firstPage = page.locator('.page-host[data-page="1"]');
+  const secondPage = page.locator('.page-host[data-page="2"]');
+  const play = page.getByRole('button', { name: '播放', exact: true });
+  await expect(play).toBeEnabled();
+  await expect(firstPage.locator('.overlay.interactive')).toBeVisible();
+  await clickScore(
+    firstPage.locator('.overlay'),
+    (x - box.x0) / (box.x1 - box.x0),
+    (y - box.y0) / (box.y1 - box.y0),
+  );
+  const line = firstPage.locator('.score-playhead');
+  await expect(line).toHaveCount(1);
+  expect(Number(await line.getAttribute('x1'))).toBeGreaterThanOrEqual(previous.x0 - 0.1);
+  await play.click();
+  await expect(page.getByRole('button', { name: '暂停', exact: true })).toBeVisible();
+  await expect(secondPage.locator('.score-playhead')).toHaveCount(1, { timeout: 15_000 });
 });
 
 test('real score drawing persists and exports with the score', async ({ page }) => {

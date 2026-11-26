@@ -109,6 +109,7 @@ fn guide_points_to_schema_lookup_and_skill_scaffolds() {
         "references/piano.ly",
         "references/single-staff.ly",
         "references/guitar-tab.ly",
+        "references/jianpu.ly",
     ] {
         assert!(all_guide_text().contains(scaffold));
     }

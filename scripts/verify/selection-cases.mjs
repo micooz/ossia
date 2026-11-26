@@ -10,20 +10,7 @@ export async function runSelectionCases(args, renderFixture) {
   const libraryMode = args.includes('--library');
   const baseArg = args.find((arg) => arg.startsWith('--base='));
   const ids = args.filter((arg) => arg !== '--library' && arg !== baseArg);
-  const library = path.join(root, '.ossia');
-  const selected = libraryMode
-    ? (ids.length ? ids.map((id) => ({ id })) : await listLibrary(library, baseArg)).map(
-        ({ id, title }) => {
-          if (!/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id))
-            throw new Error(`invalid document ID: ${id}`);
-          return {
-            id,
-            title,
-            source: path.join(library, 'documents', id.toLowerCase(), 'score.ly'),
-          };
-        },
-      )
-    : fixtureCases(ids);
+  const selected = libraryMode ? await libraryCases(ids, baseArg) : fixtureCases(ids);
   if (!selected.length)
     throw new Error(libraryMode ? 'the project library is empty' : 'select known fixture IDs');
 
@@ -64,6 +51,17 @@ export async function runSelectionCases(args, renderFixture) {
     }
   }
   return Number(failed);
+}
+
+/** Resolve current source paths in the development library. */
+export async function libraryCases(ids, baseArg) {
+  const library = path.join(root, '.ossia');
+  const documents = ids.length ? ids.map((id) => ({ id })) : await listLibrary(library, baseArg);
+  return documents.map(({ id, title }) => {
+    if (!/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id))
+      throw new Error(`invalid document ID: ${id}`);
+    return { id, title, source: path.join(library, 'documents', id.toLowerCase(), 'score.ly') };
+  });
 }
 
 function fixtureCases(ids) {

@@ -96,7 +96,7 @@ fn plugin_package_declares_both_halves_and_absolute_mcp_command() {
             .iter()
             .filter(|file| file.kind == "skill-reference")
             .count(),
-        3
+        4
     );
 
     let patch = files

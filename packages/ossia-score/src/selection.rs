@@ -5,7 +5,7 @@ use ossia_types::{
 };
 use std::collections::HashMap;
 
-mod engraved;
+pub(crate) mod engraved;
 
 /// Browser hit areas and the source evidence needed to resolve engraved measures.
 #[derive(Debug)]
@@ -213,11 +213,15 @@ fn barline_extent(
     staff: &StaffGeometry,
     staff_index: usize,
     x: f64,
+    jianpu: bool,
 ) -> Option<(f64, f64)> {
     let at_boundary = |bbox: BBox| {
         (bbox.x0 - x).abs() <= page.staff_space * 0.3
-            && bbox.y0 <= staff.top + 0.1
-            && bbox.y1 >= staff.bot - 0.1
+            && if jianpu {
+                bbox.y0 < staff.bot && bbox.y1 > staff.top
+            } else {
+                bbox.y0 <= staff.top + 0.1 && bbox.y1 >= staff.bot - 0.1
+            }
     };
     let merge = |extent: Option<(f64, f64)>, bbox: BBox| {
         Some(extent.map_or((bbox.x0, bbox.x1), |(left, right)| {
@@ -233,7 +237,7 @@ fn barline_extent(
                 && at_boundary(o.bbox)
         })
         .fold(None, |extent, o| merge(extent, o.bbox));
-    if grouped.is_some() {
+    if jianpu || grouped.is_some() {
         return grouped;
     }
     page.elements
@@ -306,7 +310,8 @@ fn object_region(
 ) -> Option<SelectionRegion> {
     if matches!(
         object.kind.as_str(),
-        "BarLine"
+        "JianpuStaff"
+            | "BarLine"
             | "Stem"
             | "Beam"
             | "Flag"
@@ -424,6 +429,7 @@ pub fn selection_geometry(
         }
     }
     let engraved = engraved::measures(index, layout).unwrap_or_default();
+    let jianpu = crate::is_jianpu_source(index.source());
     let mut pages = Vec::new();
     for page in &layout.pages {
         let elements = page
@@ -500,10 +506,13 @@ pub fn selection_geometry(
                 }
                 let mut x0 = column.x0.max(staff.x0);
                 let mut x1 = column.x1.min(staff.x1);
-                if let Some((_, right)) = barline_extent(page, staff, staff_index, column.x0) {
+                if let Some((_, right)) =
+                    barline_extent(page, staff, staff_index, column.x0, jianpu)
+                {
                     x0 = x0.max(right);
                 }
-                if let Some((left, _)) = barline_extent(page, staff, staff_index, column.x1) {
+                if let Some((left, _)) = barline_extent(page, staff, staff_index, column.x1, jianpu)
+                {
                     x1 = x1.min(left);
                 }
                 let on_staff = |object: &&SvgObject| {

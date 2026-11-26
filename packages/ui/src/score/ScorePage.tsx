@@ -393,12 +393,16 @@ function ScoreApp({
     (historyVersion ? !!historyRender : annotationAvailable);
   const annotationActive = annotationMode && annotationAvailable;
   const activeDrawingMode = drawingAvailable ? drawingMode : null;
+  const selectedMeasure = historyVersion
+    ? undefined
+    : selection.selected.findLast((target) => target.kind === 'measure')?.locator.measureStart;
   const playback = useScorePlayback(
     api,
     activeRender,
     playbackEnabled && !!scoreSettings.settings,
     onError,
     scoreSettings.settings,
+    selectedMeasure,
   );
   const [loadedParts, setLoadedParts] = useState<{ key: string; parts: PlaybackPart[] } | null>(
     null,

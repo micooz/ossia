@@ -10,6 +10,7 @@ const SKILL_PIANO: &[u8] = include_bytes!("../resources/skill/ossia/references/p
 const SKILL_SINGLE_STAFF: &[u8] =
     include_bytes!("../resources/skill/ossia/references/single-staff.ly");
 const SKILL_GUITAR_TAB: &[u8] = include_bytes!("../resources/skill/ossia/references/guitar-tab.ly");
+const SKILL_JIANPU: &[u8] = include_bytes!("../resources/skill/ossia/references/jianpu.ly");
 const ICON: &[u8] = include_bytes!("../resources/assets/ossia.svg");
 const DSH_HOST: &[u8] = include_bytes!("../resources/dsh/index.js");
 const DSH_CLIENT: &[u8] = include_bytes!("../resources/dsh/client.js");
@@ -23,6 +24,7 @@ pub(crate) enum Resource {
     SkillPiano,
     SkillSingleStaff,
     SkillGuitarTab,
+    SkillJianpu,
     Icon,
     DshHost,
     DshClient,
@@ -37,6 +39,7 @@ impl Resource {
             Self::SkillPiano => "skill/ossia/references/piano.ly",
             Self::SkillSingleStaff => "skill/ossia/references/single-staff.ly",
             Self::SkillGuitarTab => "skill/ossia/references/guitar-tab.ly",
+            Self::SkillJianpu => "skill/ossia/references/jianpu.ly",
             Self::Icon => "assets/ossia.svg",
             Self::DshHost => "dsh/index.js",
             Self::DshClient => "dsh/client.js",
@@ -51,6 +54,7 @@ impl Resource {
             Self::SkillPiano => SKILL_PIANO,
             Self::SkillSingleStaff => SKILL_SINGLE_STAFF,
             Self::SkillGuitarTab => SKILL_GUITAR_TAB,
+            Self::SkillJianpu => SKILL_JIANPU,
             Self::Icon => ICON,
             Self::DshHost => DSH_HOST,
             Self::DshClient => DSH_CLIENT,

@@ -51,7 +51,7 @@ fn plugin_files_point_to_the_absolute_runtime_and_shared_root() {
         integrator.paths().codex_home.join("config.toml")
     );
     let files = plugin_files(&ctx).unwrap();
-    assert_eq!(files.len(), 8);
+    assert_eq!(files.len(), 9);
     let manifest = files
         .iter()
         .find(|file| file.kind == "plugin-manifest")
@@ -99,9 +99,9 @@ fn plugin_files_point_to_the_absolute_runtime_and_shared_root() {
             .iter()
             .filter(|file| file.kind == "skill-reference")
             .count(),
-        3
+        4
     );
-    for name in ["piano.ly", "single-staff.ly", "guitar-tab.ly"] {
+    for name in ["piano.ly", "single-staff.ly", "guitar-tab.ly", "jianpu.ly"] {
         assert!(files.iter().any(|file| {
             file.kind == "skill-reference"
                 && file

@@ -64,6 +64,7 @@ interface Props {
   playhead?: boolean;
   playbackSystems?: PlaybackSystemSpan[];
   onAuditionNote?: (element: GeometryElement, simultaneous: boolean) => void;
+  onCueMeasure?: (page: number, measure: number) => void;
   viewKey?: string;
   initialPan?: ScoreViewPan;
   onPanChange?: (x: number, y: number) => void;
@@ -102,6 +103,7 @@ export function ScoreView({
   playhead = false,
   playbackSystems = EMPTY_SYSTEMS,
   onAuditionNote,
+  onCueMeasure,
   viewKey,
   initialPan = { x: 0, y: 0 },
   onPanChange,
@@ -252,6 +254,7 @@ export function ScoreView({
     editor,
     dismiss,
     onAuditionNote,
+    onCueMeasure,
     onSelect,
     onPoint,
     geometry,
@@ -269,6 +272,7 @@ export function ScoreView({
       editor,
       dismiss,
       onAuditionNote,
+      onCueMeasure,
       onSelect,
       onPoint,
       geometry,
@@ -317,6 +321,10 @@ export function ScoreView({
             element.region.target.kind === 'element'
           ) {
             current.onAuditionNote?.(element, event.altKey);
+            return;
+          }
+          if (target?.kind === 'measure' && current.onCueMeasure) {
+            current.onCueMeasure(pageLayout.page, target.locator.measureStart);
             return;
           }
         }

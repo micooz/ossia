@@ -12,7 +12,7 @@ the current document and read every document needed for the task.
 ## Task index
 
 - [Create and edit](guide/editing.md): score creation, editing, selection,
-  title metadata, scaffolds, LilyPond reference and visual annotations.
+  title metadata, scaffolds, Jianpu, LilyPond reference and visual annotations.
 - [Import and recognition](guide/import.md): supported inputs, conversion,
   remote score recognition, import reports and validation.
 - [Evidence and checks](guide/evidence.md): musical evidence, expectations,

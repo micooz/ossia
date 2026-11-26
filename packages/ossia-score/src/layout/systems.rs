@@ -31,11 +31,10 @@ fn sorted_unique(mut n: Vec<f64>) -> Vec<f64> {
     n
 }
 
-pub(super) fn systems(
+fn ruled_staves(
     elements: &[SvgElement],
-    objects: &[SvgObject],
     staff_kinds: &[StaffKind],
-) -> Result<(f64, Vec<SystemGeometry>), AppError> {
+) -> Result<(f64, Vec<StaffGeometry>), AppError> {
     let lines: Vec<_> = elements
         .iter()
         .filter(|e| {
@@ -96,6 +95,67 @@ pub(super) fn systems(
             },
         ));
     }
+    if !staves.chunks(staff_kinds.len().max(1)).all(|group| {
+        group.len() == staff_kinds.len()
+            && group
+                .iter()
+                .zip(staff_kinds)
+                .all(|((lines, _), kind)| matches(*kind, *lines))
+    }) {
+        return Err(AppError::unsupported(
+            "source staff mapping does not match SVG",
+        ));
+    }
+    Ok((
+        staff_space,
+        staves.into_iter().map(|(_, staff)| staff).collect(),
+    ))
+}
+
+pub(super) fn normalize_jianpu_staff_indices(objects: &mut [SvgObject], staff_count: usize) {
+    // ChordNames and other non-pitched contexts can take an interaction staff ID.
+    // Only the pitched staves contribute numbers, rests or measure boundaries.
+    let mut pitched: Vec<_> = objects
+        .iter()
+        .filter(|object| {
+            !object.hit_only && matches!(object.kind.as_str(), "NoteHead" | "Rest" | "BarLine")
+        })
+        .filter_map(|object| object.staff_index)
+        .collect();
+    pitched.sort_unstable();
+    pitched.dedup();
+    if pitched.len() == staff_count {
+        for object in objects {
+            object.staff_index = object
+                .staff_index
+                .and_then(|staff| pitched.binary_search(&staff).ok());
+        }
+    }
+}
+
+pub(super) fn systems(
+    elements: &[SvgElement],
+    objects: &[SvgObject],
+    staff_kinds: &[StaffKind],
+    jianpu: bool,
+) -> Result<(f64, Vec<SystemGeometry>), AppError> {
+    let (staff_space, staves) = if jianpu {
+        let mut staves: Vec<_> = objects
+            .iter()
+            .filter(|object| object.kind == "JianpuStaff" && !object.hit_only)
+            .map(|object| StaffGeometry {
+                top: object.bbox.y0,
+                bot: object.bbox.y1,
+                x0: object.bbox.x0,
+                x1: object.bbox.x1,
+            })
+            .collect();
+        staves.sort_by(|a, b| a.top.total_cmp(&b.top));
+        // LilyPond emits coordinates in staff spaces.
+        (1., staves)
+    } else {
+        ruled_staves(elements, staff_kinds)?
+    };
     if staff_kinds.is_empty() || staves.is_empty() || staves.len() % staff_kinds.len() != 0 {
         return Err(AppError::unsupported(
             "source staff mapping does not match SVG",
@@ -123,10 +183,10 @@ pub(super) fn systems(
             for (system_index, group) in staves.chunks(staff_kinds.len()).enumerate() {
                 // Engraving staff ids are not guaranteed to be local zero-based indices.
                 let distance = match object.staff_index.and_then(|index| group.get(index)) {
-                    Some((_, staff)) => Some(vertical_distance(staff, y)),
+                    Some(staff) => Some(vertical_distance(staff, y)),
                     None => group
                         .iter()
-                        .map(|(_, staff)| vertical_distance(staff, y))
+                        .map(|staff| vertical_distance(staff, y))
                         .min_by(f64::total_cmp),
                 };
                 if let Some(distance) = distance {
@@ -145,19 +205,10 @@ pub(super) fn systems(
     };
     // Source contexts determine staves per system, removing the ambiguous one-gap/two-staff case.
     for (system_index, group) in staves.chunks(staff_kinds.len()).enumerate() {
-        if !group
-            .iter()
-            .zip(staff_kinds)
-            .all(|((lines, _), kind)| matches(*kind, *lines))
-        {
-            return Err(AppError::unsupported(
-                "source staff mapping does not match SVG",
-            ));
-        }
         let mut system = SystemGeometry {
-            top: group[0].1.top,
-            bot: group.last().unwrap().1.bot,
-            staves: group.iter().map(|(_, staff)| staff.clone()).collect(),
+            top: group[0].top,
+            bot: group.last().unwrap().bot,
+            staves: group.to_vec(),
             bar_xs: Vec::new(),
         };
         let bars: Vec<_> = objects
@@ -180,14 +231,23 @@ pub(super) fn systems(
             .fold(f64::INFINITY, f64::min);
         if let Some(first) = system.bar_xs.first().copied() {
             if first - left > staff_space
-                && elements.iter().any(|e| {
+                && (elements.iter().any(|e| {
                     let (x, y) = e.bbox.center();
                     e.anchor.as_ref().is_some_and(|a| a.byte.is_some())
                         && x >= left
                         && x < first
                         && y >= system.top - staff_space * 2.
                         && y <= system.bot + staff_space * 2.
-                })
+                }) || (jianpu
+                    && objects.iter().any(|object| {
+                        let (x, y) = object.bbox.center();
+                        object.note.is_some()
+                            && object.span.is_some()
+                            && x >= left
+                            && x < first
+                            && y >= system.top
+                            && y <= system.bot
+                    })))
             {
                 system.bar_xs.insert(0, left);
             }
@@ -220,7 +280,98 @@ pub(super) fn systems(
         }
         result.push(system);
     }
+    if jianpu {
+        fit_jianpu_staves(&mut result, objects, staff_space);
+    }
     Ok((staff_space, result))
+}
+
+fn fit_jianpu_staves(systems: &mut [SystemGeometry], objects: &[SvgObject], space: f64) {
+    // Staff markers identify each row, but their height covers the largest chord
+    // anywhere in the score. Use the engraved bounds of this system instead.
+    #[derive(Clone, Default)]
+    struct StaffInk {
+        music: Option<(f64, f64)>,
+        bars: Option<(f64, f64)>,
+    }
+    let mut ink = systems
+        .iter()
+        .map(|system| vec![StaffInk::default(); system.staves.len()])
+        .collect::<Vec<_>>();
+    for object in objects.iter().filter(|object| {
+        !object.hit_only
+            && matches!(
+                object.kind.as_str(),
+                "BarLine"
+                    | "NoteHead"
+                    | "Rest"
+                    | "Slur"
+                    | "PhrasingSlur"
+                    | "Tie"
+                    | "Script"
+                    | "Arpeggio"
+            )
+    }) {
+        let Some(staff_index) = object.staff_index else {
+            continue;
+        };
+        let (x, y) = object.bbox.center();
+        let system = systems
+            .iter()
+            .enumerate()
+            .filter_map(|(i, system)| {
+                let staff = system.staves.get(staff_index)?;
+                (x >= staff.x0 && x <= staff.x1)
+                    .then_some((i, (y - (staff.top + staff.bot) / 2.).abs()))
+            })
+            .min_by(|(_, a), (_, b)| a.total_cmp(b));
+        if let Some((i, _)) = system {
+            let staff = &mut ink[i][staff_index];
+            let bounds = if object.kind == "BarLine" {
+                &mut staff.bars
+            } else {
+                &mut staff.music
+            };
+            let (top, bot) = bounds.unwrap_or((object.bbox.y0, object.bbox.y1));
+            *bounds = Some((top.min(object.bbox.y0), bot.max(object.bbox.y1)));
+        }
+    }
+    for (system, ink) in systems.iter_mut().zip(ink) {
+        // Bar heights can reflect voices used only on other systems.
+        let ink: Vec<_> = ink
+            .into_iter()
+            .map(|staff| staff.music.or(staff.bars))
+            .collect();
+        let padding = space * 0.5;
+        for (i, staff) in system.staves.iter_mut().enumerate() {
+            if let Some((top, bot)) = ink[i] {
+                let top_padding = i
+                    .checked_sub(1)
+                    .and_then(|previous| ink[previous])
+                    .map_or(padding, |(_, above)| {
+                        padding.min((top - above).max(0.) / 2.)
+                    });
+                let bot_padding = ink
+                    .get(i + 1)
+                    .and_then(|next| *next)
+                    .map_or(padding, |(below, _)| {
+                        padding.min((below - bot).max(0.) / 2.)
+                    });
+                staff.top = top - top_padding;
+                staff.bot = bot + bot_padding;
+            }
+        }
+        system.top = system
+            .staves
+            .iter()
+            .map(|s| s.top)
+            .fold(f64::INFINITY, f64::min);
+        system.bot = system
+            .staves
+            .iter()
+            .map(|s| s.bot)
+            .fold(f64::NEG_INFINITY, f64::max);
+    }
 }
 
 fn barlines(elements: &[SvgElement], system: &SystemGeometry) -> Vec<f64> {

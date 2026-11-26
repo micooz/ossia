@@ -3,7 +3,7 @@ use ossia_types::SourceSpan;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
-pub(super) type EngravedMeasures = BTreeMap<(usize, u32), Vec<SourceSpan>>;
+pub(crate) type EngravedMeasures = BTreeMap<(usize, u32), Vec<SourceSpan>>;
 
 #[derive(Clone, Copy)]
 struct Moment(i64, u64);
@@ -14,17 +14,22 @@ impl Moment {
     }
 }
 
-/// Index an unnumbered grid only when every cell has engraved source evidence
-/// and successive engraved columns agree with the native score timeline.
-pub(super) fn measures(index: &ScoreIndex, layout: &ScoreLayout) -> Option<EngravedMeasures> {
-    if layout.columns.is_empty()
-        || index.staves.is_empty()
-        || index.measure_count().is_ok()
-        || layout
-            .columns
-            .iter()
-            .any(|column| column.measure_start.is_some())
-    {
+/// Index a grid when every cell has engraved source evidence and successive
+/// columns agree with the native score timeline.
+pub(crate) fn measures(index: &ScoreIndex, layout: &ScoreLayout) -> Option<EngravedMeasures> {
+    if layout.columns.is_empty() || index.staves.is_empty() || index.measure_count().is_ok() {
+        return None;
+    }
+    let unnumbered = layout
+        .columns
+        .iter()
+        .all(|column| column.measure_start.is_none());
+    let numbered_jianpu = crate::is_jianpu_source(index.source())
+        && layout.columns.iter().enumerate().all(|(ordinal, column)| {
+            let number = u32::try_from(ordinal + 1).ok();
+            number.is_some() && column.measure_start == number && column.measure_end == number
+        });
+    if !unnumbered && !numbered_jianpu {
         return None;
     }
     let mut measures = BTreeMap::<_, Vec<SourceSpan>>::new();

@@ -146,8 +146,52 @@ pub(crate) fn derive(
         Ok(tokens) => scores::omitted_score(tokens, format),
         Err(_) => None,
     };
+    let preamble = source.len() - source.trim_start_matches('\u{feff}').len();
     if format == RenderFormat::Svg && anchors {
-        edits.extend(interaction::edits(source));
+        edits.extend(interaction::edits(source, preamble));
+    }
+    if format != RenderFormat::Midi && ossia_score::is_jianpu_source(source) {
+        let tokens = tokens.as_ref().map_err(|_| {
+            AppError::unsupported("Jianpu requires source with an inspectable LilyPond structure")
+        })?;
+        let prohibited = tokens.windows(2).find_map(|pair| {
+            if omitted_score
+                .as_ref()
+                .is_some_and(|range| range.contains(&pair[0].range.start))
+            {
+                return None;
+            }
+            let feature = match (pair[0].raw.as_str(), pair[1].raw.as_str()) {
+                ("\\change", "Staff") => "a cross-staff voice",
+                ("\\new" | "\\context", "TabStaff") => "the TabStaff context",
+                ("\\new" | "\\context", "DrumStaff") => "the DrumStaff context",
+                _ => return None,
+            };
+            Some((pair[0].range.start, feature))
+        });
+        if let Some((byte, feature)) = prohibited {
+            return Err(AppError {
+                code: ErrorCode::UnsupportedSource,
+                message: format!("Jianpu layout does not support {feature}"),
+                detail: SourceMap::new(source)
+                    .position(byte)
+                    .ok()
+                    .map(|position| serde_json::json!({"position": position})),
+            });
+        }
+        edits.push(Edit {
+            range: preamble..preamble,
+            replacement: format!(
+                "#(define ossia-jianpu-svg {})\n{}\n",
+                if format == RenderFormat::Svg && anchors {
+                    "#t"
+                } else {
+                    "#f"
+                },
+                include_str!("jianpu.ily")
+            ),
+            maps_to_original: false,
+        });
     }
     if let Ok(tokens) = &tokens {
         {

@@ -125,8 +125,12 @@ impl Library {
             }
             OutputSource::Version { version_id } => {
                 let snapshot = self.version_snapshot(*version_id)?;
-                let render =
-                    self.output_render(engine, &snapshot, None, RenderFormat::Svg, context)?;
+                let render = if ossia_score::is_jianpu_source(snapshot.source()) {
+                    self.render_version(engine, snapshot.document_id(), *version_id, context)?
+                        .manifest
+                } else {
+                    self.output_render(engine, &snapshot, None, RenderFormat::Svg, context)?
+                };
                 (snapshot, engine.build_id().to_owned(), render)
             }
         };

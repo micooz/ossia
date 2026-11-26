@@ -229,6 +229,7 @@ fn plugin_files(ctx: &AgentContext) -> Result<(String, Vec<FilePlan>), AppError>
     let piano = ctx.resource(Resource::SkillPiano)?;
     let single_staff = ctx.resource(Resource::SkillSingleStaff)?;
     let guitar_tab = ctx.resource(Resource::SkillGuitarTab)?;
+    let jianpu = ctx.resource(Resource::SkillJianpu)?;
     let server = json!({
         "type": "stdio",
         "command": path_text(ctx.executable()),
@@ -240,6 +241,7 @@ fn plugin_files(ctx: &AgentContext) -> Result<(String, Vec<FilePlan>), AppError>
         &piano,
         &single_staff,
         &guitar_tab,
+        &jianpu,
         &icon,
         &server,
     );
@@ -299,6 +301,11 @@ fn plugin_files(ctx: &AgentContext) -> Result<(String, Vec<FilePlan>), AppError>
             kind: "skill-reference",
         },
         FilePlan {
+            path: root.join("skills/ossia/references/jianpu.ly"),
+            bytes: jianpu,
+            kind: "skill-reference",
+        },
+        FilePlan {
             path: root.join("assets/ossia.svg"),
             bytes: icon,
             kind: "asset",
@@ -312,13 +319,14 @@ fn plugin_version(
     piano: &[u8],
     single_staff: &[u8],
     guitar_tab: &[u8],
+    jianpu: &[u8],
     icon: &[u8],
     server: &Value,
 ) -> String {
     let mut identity = Vec::new();
     identity.extend_from_slice(b"ossia-claude\0");
     identity.extend_from_slice(&TEMPLATE_VERSION.to_be_bytes());
-    for bytes in [skill, piano, single_staff, guitar_tab, icon] {
+    for bytes in [skill, piano, single_staff, guitar_tab, jianpu, icon] {
         identity.extend_from_slice(&(bytes.len() as u64).to_be_bytes());
         identity.extend_from_slice(bytes);
     }

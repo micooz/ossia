@@ -191,6 +191,9 @@ impl Library {
                     .then(|| AppError::unsupported("MIDI output is unavailable"))
             });
         if let Some(error) = &report.playback_error {
+            if ossia_score::is_jianpu_source(snapshot.source()) {
+                return Err(import_error(error.clone(), &report, Some(&render)));
+            }
             report.status = ImportStatus::NeedsConfirmation;
             report.confirmation = Some(ContentHash::of(
                 &serde_json::to_vec(&(

@@ -52,7 +52,7 @@ fn plugin_files_include_marketplace_skill_and_mcp() {
     };
     let (version, files) = plugin_files(&ctx).unwrap();
     assert!(version.starts_with(concat!(env!("CARGO_PKG_VERSION"), "+ossia.")));
-    assert_eq!(files.len(), 8);
+    assert_eq!(files.len(), 9);
     let marketplace = files
         .iter()
         .find(|file| file.kind == "marketplace")
@@ -98,7 +98,7 @@ fn plugin_files_include_marketplace_skill_and_mcp() {
             .iter()
             .filter(|file| file.kind == "skill-reference")
             .count(),
-        3
+        4
     );
     assert!(files
         .iter()
@@ -128,6 +128,7 @@ fn plugin_version_is_stable_and_binding_sensitive() {
         b"piano",
         b"single",
         b"guitar",
+        b"jianpu",
         b"icon",
         &json!({"command": "/different/ossia"}),
     );
@@ -136,6 +137,7 @@ fn plugin_version_is_stable_and_binding_sensitive() {
         b"piano",
         b"single",
         b"guitar",
+        b"jianpu",
         b"icon",
         &json!({"command": "/original/ossia"}),
     );

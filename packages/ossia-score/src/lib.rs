@@ -37,3 +37,12 @@ pub use playback::*;
 
 mod verification;
 pub use verification::*;
+
+/// Whether the first source line selects Ossia's numbered notation layout.
+pub fn is_jianpu_source(source: &str) -> bool {
+    source
+        .trim_start_matches('\u{feff}')
+        .lines()
+        .next()
+        .is_some_and(|line| line.trim_end() == "% ossia:notation=jianpu")
+}

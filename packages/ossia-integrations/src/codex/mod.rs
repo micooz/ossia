@@ -183,6 +183,11 @@ pub(super) fn plugin_files(ctx: &AgentContext) -> Result<Vec<FilePlan>, AppError
             kind: "skill-reference",
         },
         FilePlan {
+            path: root.join("skills/ossia/references/jianpu.ly"),
+            bytes: ctx.resource(Resource::SkillJianpu)?,
+            kind: "skill-reference",
+        },
+        FilePlan {
             path: root.join("assets/ossia.svg"),
             bytes: icon,
             kind: "asset",

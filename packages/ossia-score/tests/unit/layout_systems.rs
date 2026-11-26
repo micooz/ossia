@@ -33,7 +33,7 @@ fn ledger_line_notes_keep_their_system() {
         owners: Vec::new(),
         related: Vec::new(),
     };
-    let (staff_space, systems) = systems(&lines, &[note], &[StaffKind::Notation]).unwrap();
+    let (staff_space, systems) = systems(&lines, &[note], &[StaffKind::Notation], false).unwrap();
     assert_eq!(staff_space, 1.);
     assert_eq!(systems.len(), 1);
     assert_eq!(systems[0].staves.len(), 1);
@@ -76,7 +76,12 @@ fn staff_ids_outside_the_system_group_fall_back_to_geometry() {
         related: Vec::new(),
     };
     let notes = [note(2, 21.5), note(3, 51.5)];
-    let (_, systems) =
-        systems(&lines, &notes, &[StaffKind::Notation, StaffKind::Notation]).unwrap();
+    let (_, systems) = systems(
+        &lines,
+        &notes,
+        &[StaffKind::Notation, StaffKind::Notation],
+        false,
+    )
+    .unwrap();
     assert_eq!(systems.len(), 2);
 }

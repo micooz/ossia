@@ -1,6 +1,6 @@
 # Verification
 
-Run the playback, audition and selection suites without a library or server:
+Run the Jianpu, playback, audition and selection suites without a library or server.
 
 ```sh
 pnpm verify
@@ -34,6 +34,34 @@ guitar tablature, chord diagrams, mid-measure repeats, and alternative endings.
 
 Set `OSSIA_TEST_MUSICXML_XSD` to a local MusicXML 4.0 schema with its imports
 resolved locally to enable offline schema validation with `xmllint`.
+
+## Jianpu
+
+Run the fixed cases with the installed LilyPond engine. The suite checks PDF and
+SVG rendering, MIDI equality with the original, measure selection, playhead
+coverage, individual-note audition, and overlapping rhythmic symbols.
+
+```sh
+pnpm verify:jianpu
+pnpm verify:jianpu piano-prelude pickup
+pnpm audit:jianpu
+pnpm audit:jianpu DOCUMENT_ID
+pnpm audit:jianpu /absolute/path/to/score.ly
+```
+
+`audit:jianpu` reads the development library's current `score.ly` files, or the
+specified documents and files. It renders a temporary copy and reports each
+case as JSON, with source line and column when available. In audit mode, any
+unsupported input or failed check produces a nonzero exit status. Use
+`--base=` to select another HTTP endpoint for the same development library.
+
+Add reproducible cases to `tests/fixtures/jianpu/cases.json`. For supported scores,
+record independently verified measure and staff counts. For intentionally
+unsupported notation, record the expected diagnostic and source line when known.
+An expected rejection must fail both visual formats and produce no visual pages.
+
+Run `pnpm build:backend` and `pnpm test:ui:native --grep Jianpu` to check measure
+selection and cross-page playback in the browser.
 
 ## Playback fixtures
 
