@@ -1165,8 +1165,12 @@ test('version selection, restore order and export dialog use the viewed version'
     'WAV',
   ]);
   await expect(dialog.locator('.export-preview-stage img')).toHaveCount(2);
-  await expect(dialog.getByText('共 2 页')).toBeVisible();
+  await expect(dialog.getByText('第 1 页 / 共 2 页')).toBeVisible();
   await expect(dialog.locator('.export-page-count')).toHaveCSS('border-top-width', '0px');
+  await dialog.locator('.export-preview-stage').evaluate((stage) => {
+    stage.scrollTop = stage.scrollHeight;
+  });
+  await expect(dialog.getByText('第 2 页 / 共 2 页')).toBeVisible();
   const includeDrawing = dialog.getByRole('checkbox', { name: '包含绘画' });
   await expect(includeDrawing).toBeChecked();
   await expect
@@ -1175,7 +1179,7 @@ test('version selection, restore order and export dialog use the viewed version'
         const drawingRow = node.querySelector('label[for="export-include-drawing"]')!;
         const passwordLabel = node.querySelector('label[for="export-pdf-password"]')!;
         return (
-          passwordLabel.getBoundingClientRect().top - drawingRow.getBoundingClientRect().bottom
+          drawingRow.getBoundingClientRect().top - passwordLabel.getBoundingClientRect().bottom
         );
       }),
     )
@@ -1193,6 +1197,8 @@ test('version selection, restore order and export dialog use the viewed version'
   await expect(password).toHaveValue('secret');
   await dialog.getByRole('button', { name: '隐藏密码' }).click();
   await expect(password).toHaveAttribute('type', 'password');
+  await dialog.getByRole('checkbox', { name: '导出指定页面' }).check();
+  await dialog.getByLabel('起始页').fill('2');
   const pdfDownload = page.waitForEvent('download');
   await dialog.getByRole('button', { name: '导出', exact: true }).click();
   const pdf = await pdfDownload;
@@ -1201,13 +1207,14 @@ test('version selection, restore order and export dialog use the viewed version'
   expect(h.outputs).toHaveLength(1);
   expect(h.outputs[0]).toMatchObject({
     format: 'pdf',
-    pages: null,
+    pages: [2],
     width: null,
     pdfPassword: 'secret',
     pngQuality: null,
     pngTransparent: null,
     source: { kind: 'version', versionId: olderVersionId },
   });
+  await dialog.getByRole('checkbox', { name: '导出指定页面' }).uncheck();
   await expect(page.locator('.export-result')).toHaveCount(0);
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: /MIDI/ }).click();
@@ -1243,7 +1250,7 @@ test('version selection, restore order and export dialog use the viewed version'
   await expect(quality).toHaveAttribute('aria-valuenow', '72');
   await expect(dialog.getByText('图片质量 72%')).toBeVisible();
   await dialog.getByLabel('透明背景').check();
-  await expect(dialog.getByLabel('页码')).toHaveCount(0);
+  await expect(dialog.getByRole('checkbox', { name: '导出指定页面' })).not.toBeChecked();
   await expect(dialog.locator('.export-preview-stage img')).toHaveCount(2);
   const pngDownload = page.waitForEvent('download');
   await dialog.getByRole('button', { name: '导出', exact: true }).click();
@@ -1258,6 +1265,18 @@ test('version selection, restore order and export dialog use the viewed version'
     pngTransparent: true,
     source: { kind: 'version', versionId: olderVersionId },
   });
+  await dialog.getByRole('button', { name: /SVG/ }).click();
+  await dialog.getByRole('checkbox', { name: '导出指定页面' }).check();
+  await dialog.getByLabel('起始页').fill('2');
+  const svgDownload = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: '导出', exact: true }).click();
+  expect((await svgDownload).suggestedFilename()).toBe('版本导出.svg');
+  expect(h.outputs[3]).toMatchObject({ format: 'svg', pages: [2] });
+  await dialog.getByRole('button', { name: /PNG/ }).click();
+  const selectedPng = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: '导出', exact: true }).click();
+  expect((await selectedPng).suggestedFilename()).toBe('版本导出.png');
+  expect(h.outputs[4]).toMatchObject({ format: 'png', pages: [2] });
   await expect(page.locator('.export-result')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '打开位置' })).toHaveCount(0);
   await expect(dialog).toBeVisible();
@@ -1284,6 +1303,25 @@ test('version selection, restore order and export dialog use the viewed version'
     expectedSourceHash: h.states[0]!.sourceHash,
     discardCurrentEdit: true,
   });
+});
+
+test('export preview can recover from a page loading error', async ({ context, page }) => {
+  await mockScoreRuntime(context);
+  await page.goto(`/scores?documentId=${firstId}`);
+  await expect(page.locator('.score-image')).toHaveCount(2);
+  let fail = true;
+  await page.route('**/renders/*/pages/*', async (route) => {
+    if (fail) await route.fulfill({ status: 502, body: 'unavailable' });
+    else await route.fallback();
+  });
+  await page.getByRole('button', { name: '导出', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '导出' });
+  await expect(dialog.getByRole('alert')).toContainText('无法载入谱面');
+  await expect(dialog.locator('.export-page-count')).toHaveCount(0);
+  fail = false;
+  await dialog.getByRole('button', { name: '重试' }).click();
+  await expect(dialog.locator('.export-preview-stage img')).toHaveCount(2);
+  await expect(dialog.getByText('第 1 页 / 共 2 页')).toBeVisible();
 });
 
 test('dirty workspace switches the version menu label while an agent edits', async ({

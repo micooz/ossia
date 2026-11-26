@@ -2098,7 +2098,7 @@
   },
   {
     "name": "ossia_output",
-    "description": "Write SVG, PNG, MIDI, PDF, WAV or LilyPond output from a completed job snapshot or immutable version. WAV is a 44.1 kHz stereo PCM render of the score playback mix. MIDI and WAV accept audioRange {start,end} for inclusive one-based measures. Set includeDrawing to include the document's current freehand drawing in PDF, PNG or SVG; the job captures it at submission. For SVG/PNG, pages chooses which pages to write; one page may use outputPath, while multiple pages return OutputBatchOutcome. Crop writes one SVG/PNG per affected page; a one-item pages list filters it. Omitted outputPath or outputDirectory writes to the system temporary directory; set them for files to keep. Never overwrites.",
+    "description": "Write SVG, PNG, MIDI, PDF, WAV or LilyPond output from a completed job snapshot or immutable version. WAV is a 44.1 kHz stereo PCM render of the score playback mix. MIDI and WAV accept audioRange {start,end} for inclusive one-based measures. Set includeDrawing to include the document's current freehand drawing in PDF, PNG or SVG; the job captures it at submission. For PDF, pages selects pages in the single PDF (all by default). For SVG/PNG, pages chooses which pages to write; one page may use outputPath, while multiple pages return OutputBatchOutcome. Crop writes one SVG/PNG per affected page; a one-item pages list filters it. Omitted outputPath or outputDirectory writes to the system temporary directory; set them for files to keep. Never overwrites.",
     "inputSchema": {
       "$defs": {
         "MeasureRange": {
@@ -2294,7 +2294,7 @@
           ]
         },
         "pages": {
-          "description": "One-based SVG/PNG pages; None defaults to `[1]`.",
+          "description": "One-based PDF/SVG/PNG pages; None selects all PDF pages or page 1 for SVG/PNG.",
           "items": {
             "format": "uint32",
             "minimum": 0,

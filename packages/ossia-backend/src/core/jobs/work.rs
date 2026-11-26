@@ -107,8 +107,8 @@ pub(super) fn output_destination(
         ));
     }
     if !matches!(args.format, OutputFormat::Svg | OutputFormat::Png) {
-        if pages.is_some() {
-            return Err(invalid("pages is supported only for SVG and PNG"));
+        if pages.is_some() && args.format != OutputFormat::Pdf {
+            return Err(invalid("pages is supported only for PDF, SVG and PNG"));
         }
         if args.output_directory.is_some() {
             return Err(invalid("outputDirectory requires crop or multiple pages"));

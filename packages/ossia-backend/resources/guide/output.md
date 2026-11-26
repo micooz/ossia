@@ -48,8 +48,9 @@ output goes to the system temporary directory, so pass one for files to keep.
 `outputPath` must not already exist, and its parent directory must exist.
 
 SVG/PNG accept a one-based `pages` array (default `[1]`). One page may use
-`outputPath`; multiple pages use `outputDirectory` and return a batch. PDF, MIDI,
-WAV and LilyPond do not accept `pages`. PNG defaults to a white 1600-pixel-wide
+`outputPath`; multiple pages use `outputDirectory` and return a batch. PDF accepts
+`pages` to select pages in one PDF; omitted `pages` exports all pages. MIDI, WAV
+and LilyPond do not accept `pages`. PNG defaults to a white 1600-pixel-wide
 page; optional `width` is 1..4096 and output is limited to 16 million pixels. WAV
 always writes 44.1 kHz stereo 16-bit PCM and accepts no quality, rate or channel
 options. Generate missing formats with the same engine build or re-check first.

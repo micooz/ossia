@@ -132,6 +132,33 @@ pub fn overlay_pdf_drawing(bytes: &[u8], drawing: &Drawing) -> Result<Vec<u8>, A
     Ok(output)
 }
 
+/// Keep the requested one-based pages in their original order.
+pub fn select_pdf_pages(bytes: &[u8], pages: &[u32]) -> Result<Vec<u8>, AppError> {
+    let mut document =
+        Document::load_mem(bytes).map_err(|error| failure("pdf-pages", &error.to_string()))?;
+    let existing = document.get_pages();
+    let selected: std::collections::BTreeSet<_> = pages.iter().copied().collect();
+    if selected.is_empty()
+        || selected.len() != pages.len()
+        || selected.iter().any(|page| !existing.contains_key(page))
+    {
+        return Err(AppError::invalid(
+            "PDF pages must be unique and within the document",
+        ));
+    }
+    let removed: Vec<_> = existing
+        .keys()
+        .filter(|page| !selected.contains(page))
+        .copied()
+        .collect();
+    document.delete_pages(&removed);
+    let mut output = Vec::new();
+    document
+        .save_to(&mut output)
+        .map_err(|error| failure("pdf-pages", &error.to_string()))?;
+    Ok(output)
+}
+
 /// Encrypt a PDF with an open password while preserving normal viewing and printing.
 pub fn protect_pdf(bytes: &[u8], password: &str) -> Result<Vec<u8>, AppError> {
     let mut document = Document::load_mem(bytes).map_err(|error| {

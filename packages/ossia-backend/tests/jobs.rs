@@ -503,12 +503,13 @@ async fn page_outputs_validate_page_lists_and_batch_errors() {
         f.runtime.output(invalid).unwrap_err().code,
         ErrorCode::InvalidRequest
     );
-    let mut invalid = base.clone();
-    invalid.format = OutputFormat::Pdf;
-    invalid.pages = Some(vec![1]);
+    let mut pdf = base.clone();
+    pdf.format = OutputFormat::Pdf;
+    pdf.pages = Some(vec![1, 2]);
+    let job = f.runtime.output(pdf).unwrap();
     assert_eq!(
-        f.runtime.output(invalid).unwrap_err().code,
-        ErrorCode::InvalidRequest
+        wait_job(&f.runtime, job.job_id).await.state,
+        JobState::Error
     );
     let mut invalid = base.clone();
     invalid.format = OutputFormat::Wav;

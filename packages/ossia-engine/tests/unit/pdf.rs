@@ -163,3 +163,51 @@ fn pdf_drawing_is_applied_only_to_its_own_page() {
             .contains("6 w 75 300 m 225 150 l S")
     );
 }
+
+#[test]
+fn selected_pdf_pages_keep_original_drawing_and_password() {
+    use ossia_types::{Drawing, DrawingColor, DrawingPoint, DrawingStroke};
+    let mut doc = Document::load_mem(&minimal_pdf()).unwrap();
+    let first = doc.get_pages()[&1];
+    let parent = doc
+        .get_dictionary(first)
+        .unwrap()
+        .get(b"Parent")
+        .unwrap()
+        .as_reference()
+        .unwrap();
+    let second = doc.add_object(dictionary! { "Type" => "Page", "Parent" => parent, "MediaBox" => vec![0.into(), 0.into(), 300.into(), 600.into()] });
+    let tree = doc.get_object_mut(parent).unwrap().as_dict_mut().unwrap();
+    tree.set(
+        "Kids",
+        vec![Object::Reference(first), Object::Reference(second)],
+    );
+    tree.set("Count", 2);
+    let mut input = Vec::new();
+    doc.save_to(&mut input).unwrap();
+    let drawing = Drawing {
+        revision: 1,
+        strokes: vec![DrawingStroke {
+            page: 2,
+            width: 0.02,
+            color: DrawingColor::Black,
+            points: vec![
+                DrawingPoint { x: 0.25, y: 0.5 },
+                DrawingPoint { x: 0.75, y: 0.75 },
+            ],
+        }],
+    };
+    let annotated = overlay_pdf_drawing(&input, &drawing).unwrap();
+    let selected = select_pdf_pages(&annotated, &[2]).unwrap();
+    let encrypted = protect_pdf(&selected, "secret").unwrap();
+    let result =
+        Document::load_mem_with_options(&encrypted, LoadOptions::with_password("secret")).unwrap();
+    assert_eq!(result.get_pages().len(), 1);
+    assert!(
+        String::from_utf8_lossy(&result.get_page_content(result.get_pages()[&1]))
+            .contains("6 w 75 300 m 225 150 l S")
+    );
+    assert!(select_pdf_pages(&input, &[3]).is_err());
+    assert!(select_pdf_pages(&input, &[]).is_err());
+    assert!(select_pdf_pages(&input, &[1, 1]).is_err());
+}

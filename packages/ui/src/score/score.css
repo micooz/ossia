@@ -1754,13 +1754,16 @@ code {
   font-size: 0.84rem;
   cursor: pointer;
 }
-.export-settings > .export-check {
+.export-settings > .export-check:not([for='export-transparent']) {
   margin-block-end: 0.85rem;
 }
 .export-measure-range {
   display: grid;
   gap: 0.45rem;
   margin-block-end: 0.85rem;
+}
+.export-page-range-compact {
+  margin-block-end: 0;
 }
 .export-measure-hint {
   margin: 0;
@@ -2194,4 +2197,50 @@ dialog::backdrop {
     stroke: Highlight;
     fill: transparent;
   }
+}
+
+.export-error {
+  margin-block-end: 0.85rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.7rem;
+  border: 1px solid color-mix(in srgb, #c43b31 30%, var(--rule));
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, #c43b31 7%, var(--paper));
+  color: #b52e25;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+.export-error svg {
+  flex: none;
+}
+.export-error p {
+  margin: 0;
+}
+.export-error button {
+  margin-block-start: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.export-preview-error {
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  max-inline-size: 26rem;
+  margin: auto;
+  color: var(--ink-soft);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.export-preview-error svg {
+  color: #b52e25;
+}
+.export-preview-error p {
+  margin: 0;
 }

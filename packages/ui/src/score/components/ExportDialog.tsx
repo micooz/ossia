@@ -1,5 +1,15 @@
 import { zipSync } from 'fflate';
-import { AudioLines, Eye, EyeOff, FileText, Image, Music2, Shapes, X } from 'lucide-react';
+import {
+  AlertCircle,
+  AudioLines,
+  Eye,
+  EyeOff,
+  FileText,
+  Image,
+  Music2,
+  Shapes,
+  X,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '../../components/ui/button.tsx';
@@ -103,6 +113,11 @@ export function ExportDialog({
   const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
+  const [previewAttempt, setPreviewAttempt] = useState(0);
+  const [visiblePage, setVisiblePage] = useState(1);
+  const [pageRangeEnabled, setPageRangeEnabled] = useState(false);
+  const [pageStart, setPageStart] = useState(1);
+  const [pageEnd, setPageEnd] = useState(1);
   const [previewScrollEdges, setPreviewScrollEdges] = useState({
     start: false,
     end: false,
@@ -136,11 +151,20 @@ export function ExportDialog({
       measureStart >= 1 &&
       measureEnd >= measureStart &&
       measureEnd <= maxMeasure);
+  const validPageRange =
+    !pageRangeEnabled ||
+    (Number.isInteger(pageStart) &&
+      Number.isInteger(pageEnd) &&
+      pageStart >= 1 &&
+      pageEnd >= pageStart &&
+      pageEnd <= pageCount);
   const canExport =
     !!exportVersionId &&
     fileName.trim().length > 0 &&
     (format !== 'png' || (validWidth && validQuality)) &&
     (!['png', 'svg'].includes(format) || pageCount > 0) &&
+    (!(format === 'pdf' && pageRangeEnabled) || pageCount > 0) &&
+    (!['pdf', 'png', 'svg'].includes(format) || validPageRange) &&
     validMeasureRange &&
     (!includeDrawing ||
       !['pdf', 'png', 'svg'].includes(format) ||
@@ -153,6 +177,10 @@ export function ExportDialog({
     }
     setFormat('pdf');
     setIncludeDrawing(true);
+    setPageRangeEnabled(false);
+    setPageStart(1);
+    setPageEnd(1);
+    setVisiblePage(1);
     setPdfPassword('');
     setPasswordVisible(false);
     setWidth(1600);
@@ -194,7 +222,7 @@ export function ExportDialog({
     return () => {
       live = false;
     };
-  }, [api, open, versionDocumentId, versionId]);
+  }, [api, open, versionDocumentId, versionId, previewAttempt]);
 
   useEffect(() => {
     if (!open || !previewKey || !pageKey) return;
@@ -235,6 +263,16 @@ export function ExportDialog({
         start: stage.scrollTop > 1,
         end: stage.scrollTop + stage.clientHeight < stage.scrollHeight - 1,
       };
+      const pages = Array.from(stage.querySelectorAll<HTMLElement>('[data-preview-page]'));
+      const center = stage.getBoundingClientRect().top + stage.clientHeight / 2;
+      const closest = pages.reduce<HTMLElement | null>((best, page) => {
+        const distance = (node: HTMLElement) =>
+          Math.abs(
+            (node.getBoundingClientRect().top + node.getBoundingClientRect().bottom) / 2 - center,
+          );
+        return !best || distance(page) < distance(best) ? page : best;
+      }, null);
+      if (closest) setVisiblePage(Number(closest.dataset.previewPage));
       setPreviewScrollEdges((current) =>
         current.start === next.start && current.end === next.end ? current : next,
       );
@@ -299,7 +337,12 @@ export function ExportDialog({
         .replace(/[\\/:*?"<>|]+/g, '-')
         .replace(/[. ]+$/g, '');
       const safeBase = base || 'score';
-      const visualPages = ['png', 'svg'].includes(format) ? pageNumbers : null;
+      const visualPages =
+        ['png', 'svg'].includes(format) || (format === 'pdf' && pageRangeEnabled)
+          ? pageNumbers.filter(
+              (page) => !pageRangeEnabled || (page >= pageStart && page <= pageEnd),
+            )
+          : null;
       const job = await api.output({
         source: { kind: 'version', versionId: exportVersionId },
         format,
@@ -351,6 +394,78 @@ export function ExportDialog({
       setExporting(false);
     }
   }
+
+  const pageControls = (
+    <div className={`export-measure-range${!pageRangeEnabled ? ' export-page-range-compact' : ''}`}>
+      <label className="export-check" htmlFor="export-page-range">
+        <Checkbox
+          id="export-page-range"
+          checked={pageRangeEnabled}
+          disabled={!pageCount}
+          onCheckedChange={(checked) => {
+            setPageRangeEnabled(checked === true);
+            if (checked) {
+              setPageStart(1);
+              setPageEnd(pageCount);
+            }
+          }}
+        />
+        <span>{t('exportPageRange')}</span>
+      </label>
+      {pageRangeEnabled && (
+        <div className="export-measure-fields">
+          <label className="export-field" htmlFor="export-page-start">
+            <span>{t('startPage')}</span>
+            <Input
+              id="export-page-start"
+              type="number"
+              min={1}
+              max={pageCount}
+              step={1}
+              value={pageStart}
+              onChange={(event) => setPageStart(Number(event.target.value))}
+            />
+          </label>
+          <label className="export-field" htmlFor="export-page-end">
+            <span>{t('endPage')}</span>
+            <Input
+              id="export-page-end"
+              type="number"
+              min={pageStart}
+              max={pageCount}
+              step={1}
+              value={pageEnd}
+              onChange={(event) => setPageEnd(Number(event.target.value))}
+            />
+          </label>
+        </div>
+      )}
+    </div>
+  );
+
+  const drawingControls = (
+    <div className="export-drawing">
+      <label className="export-check" htmlFor="export-include-drawing">
+        <Checkbox
+          id="export-include-drawing"
+          checked={includeDrawing}
+          onCheckedChange={(checked) => setIncludeDrawing(checked === true)}
+        />
+        <span>{t('includeDrawing')}</span>
+      </label>
+      {includeDrawing && drawing.error && (
+        <div className="export-error" role="alert">
+          <AlertCircle aria-hidden="true" size={18} />
+          <div>
+            <p>{t('drawingSaveFailed')}</p>
+            <button type="button" onClick={drawing.retry}>
+              {t('retry')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <dialog
@@ -410,21 +525,6 @@ export function ExportDialog({
               onChange={(event) => setFileName(event.target.value)}
             />
           </label>
-          {['pdf', 'png', 'svg'].includes(format) && (
-            <label className="export-check" htmlFor="export-include-drawing">
-              <Checkbox
-                id="export-include-drawing"
-                checked={includeDrawing}
-                onCheckedChange={(checked) => setIncludeDrawing(checked === true)}
-              />
-              <span>{t('includeDrawing')}</span>
-            </label>
-          )}
-          {includeDrawing && ['pdf', 'png', 'svg'].includes(format) && drawing.error && (
-            <button type="button" className="error" onClick={drawing.retry}>
-              {t('drawingSaveFailed')}
-            </button>
-          )}
           {['midi', 'wav'].includes(format) && (
             <div className="export-measure-range">
               <label className="export-check" htmlFor="export-measure-range">
@@ -499,6 +599,12 @@ export function ExportDialog({
               </div>
             </div>
           )}
+          {format === 'pdf' && (
+            <>
+              {pageControls}
+              {drawingControls}
+            </>
+          )}
           {format === 'png' && (
             <>
               <label className="export-field" htmlFor="export-width">
@@ -530,6 +636,8 @@ export function ExportDialog({
                   />
                 </div>
               </div>
+              {pageControls}
+              {drawingControls}
               <label className="export-check" htmlFor="export-transparent">
                 <Checkbox
                   id="export-transparent"
@@ -538,6 +646,12 @@ export function ExportDialog({
                 />
                 <span>{t('pngTransparent')}</span>
               </label>
+            </>
+          )}
+          {format === 'svg' && (
+            <>
+              {pageControls}
+              {drawingControls}
             </>
           )}
           {exportError && (
@@ -560,14 +674,22 @@ export function ExportDialog({
             {previewLoading ? (
               <p className="score-loading">{t('loadingScore')}</p>
             ) : previewError ? (
-              <p className="error" role="alert">
-                {t('scoreLoadFailed', { error: previewError })}
-              </p>
+              <div className="export-preview-error" role="alert">
+                <AlertCircle aria-hidden="true" size={24} />
+                <p>{t('scoreLoadFailed', { error: previewError })}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPreviewAttempt((value) => value + 1)}
+                >
+                  {t('retry')}
+                </Button>
+              </div>
             ) : Object.keys(previewUrls).length ? (
               <div className="export-preview-pages">
                 {pageNumbers.map((page) =>
                   previewUrls[page] ? (
-                    <div className="export-preview-page" key={page}>
+                    <div className="export-preview-page" key={page} data-preview-page={page}>
                       <img
                         src={previewUrls[page]}
                         alt={t('scoreAlt', { page })}
@@ -597,9 +719,14 @@ export function ExportDialog({
               <p className="hint">{t('noRenderTitle')}</p>
             )}
           </div>
-          {pageCount > 0 && (
-            <span className="export-page-count">{t('totalPages', { count: pageCount })}</span>
-          )}
+          {pageCount > 0 &&
+            !previewLoading &&
+            !previewError &&
+            Object.keys(previewUrls).length > 0 && (
+              <span className="export-page-count">
+                {t('currentPageCount', { page: visiblePage, count: pageCount })}
+              </span>
+            )}
         </section>
       </div>
       <div className="export-dialog-footer">

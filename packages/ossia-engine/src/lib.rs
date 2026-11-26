@@ -14,7 +14,7 @@ mod source;
 mod verify;
 
 pub use ossia_types::*;
-pub use pdf::{overlay_pdf_drawing, protect_pdf};
+pub use pdf::{overlay_pdf_drawing, protect_pdf, select_pdf_pages};
 use process::{executable_path, run, tool_path, Scratch};
 pub use process::{Cancellation, RunContext};
 use resources::{resource_files, Inventory, Target};

@@ -230,7 +230,9 @@ impl Library {
         let page = pages.and_then(|pages| pages.first().copied()).unwrap_or(1);
         let paged = matches!(request.format, OutputFormat::Svg | OutputFormat::Png);
         if page == 0
-            || (pages.is_some() && (!paged || pages.is_some_and(|pages| pages.len() != 1)))
+            || (pages.is_some()
+                && request.format != OutputFormat::Pdf
+                && (!paged || pages.is_some_and(|pages| pages.len() != 1)))
             || (request.width.is_some() && request.format != OutputFormat::Png)
             || (request.pdf_password.is_some() && request.format != OutputFormat::Pdf)
             || ((request.png_quality.is_some() || request.png_transparent.is_some())
@@ -359,6 +361,9 @@ impl Library {
                 if request.format == OutputFormat::Pdf {
                     if let Some(drawing) = drawing {
                         bytes = ossia_engine::overlay_pdf_drawing(&bytes, drawing)?;
+                    }
+                    if let Some(pages) = pages {
+                        bytes = ossia_engine::select_pdf_pages(&bytes, pages)?;
                     }
                     if let Some(password) = request.pdf_password.as_deref() {
                         ossia_engine::protect_pdf(&bytes, password)?

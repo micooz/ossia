@@ -93,11 +93,7 @@ fn native_visual_outputs_include_the_same_page_drawing() {
                 version_id: document.head_version_id.unwrap(),
             },
             format,
-            pages: if format == OutputFormat::Pdf {
-                None
-            } else {
-                Some(vec![1])
-            },
+            pages: Some(vec![1]),
             width: (format == OutputFormat::Png).then_some(800),
             pdf_password: None,
             png_quality: None,
@@ -161,6 +157,33 @@ fn native_visual_outputs_include_the_same_page_drawing() {
         }
         if format == OutputFormat::Pdf {
             assert!(marked.windows(5).any(|part| part == b"1 J 1"));
+            let mut protected = base.clone();
+            protected.pdf_password = Some("secret".into());
+            let protected_path = work.path().join("protected.pdf");
+            library
+                .output_with_drawing(
+                    &engine,
+                    &protected,
+                    &protected_path,
+                    &RunContext::default(),
+                    Some(&drawing),
+                )
+                .unwrap();
+            assert!(fs::read(protected_path)
+                .unwrap()
+                .windows(8)
+                .any(|part| part == b"/Encrypt"));
+            let mut invalid = base.clone();
+            invalid.pages = Some(vec![2]);
+            assert!(library
+                .output_with_drawing(
+                    &engine,
+                    &invalid,
+                    &work.path().join("missing.pdf"),
+                    &RunContext::default(),
+                    None
+                )
+                .is_err());
         }
     }
 }

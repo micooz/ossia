@@ -54,7 +54,7 @@ pub enum OutputCrop {
 pub struct OutputArgs {
     pub source: OutputSource,
     pub format: OutputFormat,
-    /// One-based SVG/PNG pages; None defaults to `[1]`.
+    /// One-based PDF/SVG/PNG pages; None selects all PDF pages or page 1 for SVG/PNG.
     pub pages: Option<Vec<u32>>,
     pub width: Option<u32>,
     pub pdf_password: Option<String>,
