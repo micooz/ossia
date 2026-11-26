@@ -1737,14 +1737,33 @@ code {
 .export-format > svg {
   margin-block-start: 0.08rem;
 }
-.export-format span {
+.export-format > span {
   display: grid;
   gap: 0.08rem;
+  justify-self: stretch;
   min-inline-size: 0;
+}
+.export-format-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.16rem 0.3rem;
 }
 .export-format strong {
   font-size: 0.92rem;
   line-height: 1.3;
+}
+.export-format-badge {
+  margin-inline-start: auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--rule));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--paper));
+  color: var(--ink);
+  padding-inline: 0.32rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: nowrap;
 }
 .export-format small {
   color: var(--ink-soft);
@@ -1759,6 +1778,27 @@ code {
   min-inline-size: 0;
   padding: 1.1rem 1.2rem;
   overflow: auto;
+}
+.export-settings[data-format='musicxml'] {
+  display: flex;
+  flex-direction: column;
+}
+.export-musicxml-warning:not(:empty) {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-block-start: auto;
+  padding: 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--warn) 32%, var(--rule));
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--warn) 8%, var(--paper));
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+.export-musicxml-warning > svg {
+  flex: none;
+  margin-block-start: 0.05rem;
+  color: var(--warn);
 }
 .export-field {
   display: grid;

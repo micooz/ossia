@@ -26,7 +26,7 @@ Ossia connects to popular AI agents (see [Connect an agent](#2-connect-an-agent)
 
 - Create scores for piano, guitar, ukulele, violin, ensembles, and more.
 - Import MusicXML, MIDI, PDF, and images of scores, with help from an Ossia OMR service where appropriate.
-- Export scores or audio as PDF, PNG, SVG, MIDI, and WAV.
+- Export scores or audio as PDF, PNG, SVG, MusicXML, MIDI, and WAV.
 - Annotate individual score elements and draw freely.
 - Browse scores on touchscreens.
 - Share scores on your local network.

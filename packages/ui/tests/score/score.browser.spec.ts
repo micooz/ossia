@@ -153,6 +153,39 @@ test('language settings synchronize across score tabs and survive reload', async
   await expect(other.getByRole('button', { name: '乐谱设置' })).toBeVisible();
 });
 
+test('downloads the selected saved version as editable MusicXML', async ({ context, page }) => {
+  const runtime = await mockScoreRuntime(context);
+  await page.goto(`/scores?documentId=${firstId}`);
+  await page.getByRole('button', { name: /版本 2/ }).click();
+  await page.getByRole('menuitemradio', { name: /版本 1/ }).click();
+  await page.getByRole('button', { name: '导出' }).click();
+  const dialog = page.getByRole('dialog', { name: '导出' });
+  const musicXml = dialog.getByRole('button', { name: /MusicXML/ });
+  const warning = dialog.getByRole('status').filter({ hasText: 'MusicXML 导出尚不稳定' });
+  await expect(musicXml.getByText('测试', { exact: true })).toBeVisible();
+  await expect(warning).toBeHidden();
+  await musicXml.focus();
+  await page.keyboard.press('Space');
+  await expect(musicXml).toHaveAttribute('aria-pressed', 'true');
+  await expect(warning).toBeVisible();
+  await dialog.getByRole('button', { name: /^PDF/ }).click();
+  await expect(warning).toBeHidden();
+  await musicXml.click();
+  await expect(dialog.getByRole('checkbox', { name: '包含绘画' })).toHaveCount(0);
+  await expect(dialog.getByLabel('PDF 密码')).toHaveCount(0);
+  const download = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: '导出', exact: true }).click();
+  expect((await download).suggestedFilename()).toBe('合成钢琴练习 - v1.musicxml');
+  expect(runtime.outputs).toHaveLength(1);
+  expect(runtime.outputs[0]).toMatchObject({
+    source: { kind: 'version', versionId: olderVersionId },
+    format: 'musicxml',
+    pages: null,
+    audioRange: null,
+    includeDrawing: false,
+  });
+});
+
 test('score page loads without crypto.randomUUID on a LAN origin', async ({ context, page }) => {
   await mockScoreRuntime(context);
   await page.addInitScript(() => {
@@ -1206,6 +1239,7 @@ test('version selection, restore order and export dialog use the viewed version'
     'PNG',
     'SVG',
     'MIDI',
+    'MusicXML',
     'WAV',
   ]);
   await expect(dialog.locator('.export-preview-stage img')).toHaveCount(2);

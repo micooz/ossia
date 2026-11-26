@@ -1,4 +1,5 @@
 use crate::{db, *};
+use std::io::Write;
 
 /// Includes document ownership so identical sources in different documents cannot be confused.
 pub fn render_key(document: DocumentId, render: &RenderManifest) -> ContentHash {
@@ -293,6 +294,23 @@ impl Library {
             ));
         }
         let bytes = match request.format {
+            OutputFormat::MusicXml => {
+                if request.crop.is_some()
+                    || request.padding_staff_spaces.is_some()
+                    || request.output_directory.is_some()
+                    || request.include_drawing == Some(true)
+                    || drawing.is_some()
+                {
+                    return Err(AppError::invalid("MusicXML exports one complete score"));
+                }
+                if checked.is_some() && engine_build_id != engine.build_id() {
+                    return Err(AppError::new(
+                        ErrorCode::RuntimeIncompatible,
+                        "check again with the current engine before generating MusicXML",
+                    ));
+                }
+                engine.render_musicxml(&snapshot, context)?
+            }
             OutputFormat::Ly => snapshot.bytes().to_vec(),
             OutputFormat::Svg => {
                 let render =
@@ -389,7 +407,11 @@ impl Library {
                 engine.render_wav(&playback, context)?
             }
         };
-        crate::crop_output::write_new(destination, &bytes)?;
+        if request.format == OutputFormat::MusicXml {
+            publish_musicxml(destination, &bytes, context)?;
+        } else {
+            crate::crop_output::write_new(destination, &bytes)?;
+        }
         let media_type = match request.format {
             OutputFormat::Ly => "text/plain; charset=utf-8",
             OutputFormat::Svg => "image/svg+xml",
@@ -397,6 +419,7 @@ impl Library {
             OutputFormat::Pdf => "application/pdf",
             OutputFormat::Midi => "audio/midi",
             OutputFormat::Wav => "audio/wav",
+            OutputFormat::MusicXml => "application/vnd.recordare.musicxml+xml",
         };
         Ok(OutputOutcome {
             source: request.source.clone(),
@@ -452,6 +475,25 @@ impl Library {
         }
         Ok(render)
     }
+}
+
+fn publish_musicxml(path: &Path, bytes: &[u8], context: &RunContext) -> Result<()> {
+    context.check()?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| AppError::invalid("output path requires a parent"))?;
+    let mut file = tempfile::NamedTempFile::new_in(parent).map_err(storage_error)?;
+    file.write_all(bytes).map_err(storage_error)?;
+    file.as_file().sync_all().map_err(storage_error)?;
+    context.check()?;
+    file.persist_noclobber(path).map_err(|error| {
+        if error.error.kind() == std::io::ErrorKind::AlreadyExists {
+            conflict("output destination already exists")
+        } else {
+            storage_error(error.error)
+        }
+    })?;
+    Ok(())
 }
 
 #[cfg(test)]

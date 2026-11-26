@@ -335,7 +335,7 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
                     assert_eq!(&bytes[8..12], b"WAVE");
                     assert_eq!(exported.media_type, "audio/wav");
                 }
-                OutputFormat::Svg | OutputFormat::Png => unreachable!(),
+                OutputFormat::Svg | OutputFormat::Png | OutputFormat::MusicXml => unreachable!(),
             }
         }
         if format == InputFormat::Ly {
@@ -451,6 +451,129 @@ async fn real_mcp_cli_http_native_loop_and_runtime_lifecycle() {
     if let Some(path) = std::env::var_os("OSSIA_NATIVE_EVIDENCE") {
         std::fs::write(path,serde_json::to_vec_pretty(&json!({"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"protocolVersion":PROTOCOL_VERSION,"tools":mcp::tools().len(),"concurrentStartup":true,"mcpDisconnectKeepsServe":true,"restart":true,"automaticPreview":true,"engineBuildId":doctor["engine"]["buildId"],"cases":cases})).unwrap()).unwrap();
     }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[ignore = "requires OSSIA_TEST_EXECUTABLE and OSSIA_TEST_LILYPOND_ROOT"]
+async fn native_musicxml_cli_mcp_http() {
+    let executable = PathBuf::from(std::env::var_os("OSSIA_TEST_EXECUTABLE").unwrap());
+    let engine = PathBuf::from(std::env::var_os("OSSIA_TEST_LILYPOND_ROOT").unwrap());
+    let work = tempfile::tempdir().unwrap();
+    let home = work.path().join("MusicXML library 中文");
+    let mut mcp = command(&executable, &home, &engine);
+    mcp.arg("mcp");
+    let client = ClientConfig::default()
+        .serve(TokioChildProcess::new(mcp).unwrap())
+        .await
+        .unwrap();
+
+    let input = work.path().join("seed.ly");
+    let source = r#"\version "2.26.0"
+\score { \new Staff { c'1 } \layout {} }"#;
+    std::fs::write(&input, source).unwrap();
+    let imported: Job = serde_json::from_value(
+        call(
+            &client,
+            "ossia_import",
+            json!({
+                "path": input, "title": "Versioned MusicXML"
+            }),
+        )
+        .await,
+    )
+    .unwrap();
+    let imported: ImportOutcome =
+        serde_json::from_value(job(&client, imported.job_id).await.result.unwrap()).unwrap();
+    let doc = imported.document.unwrap();
+    let initial = doc.head_version_id.unwrap();
+    let discovery = ipc::connect(&home.canonicalize().unwrap()).await.unwrap();
+    let _cleanup = Cleanup {
+        endpoint: discovery.endpoint.clone(),
+    };
+    let edit: EditSession = serde_json::from_value(
+        call(
+            &client,
+            "ossia_edit",
+            json!({
+                "action": "begin", "documentId": doc.document_id, "baseVersionId": initial,
+                "expectedSourceHash": doc.source_hash, "author": "native-agent"
+            }),
+        )
+        .await,
+    )
+    .unwrap();
+    let changed = source.replace("c'1", "e'1");
+    std::fs::write(&doc.source_path, &changed).unwrap();
+    let hash = ContentHash::of(changed.as_bytes());
+    let checked: Job = serde_json::from_value(
+        call(
+            &client,
+            "ossia_check",
+            json!({
+                "editId": edit.edit_id, "expectedSourceHash": hash
+            }),
+        )
+        .await,
+    )
+    .unwrap();
+    job(&client, checked.job_id).await;
+
+    let drafted: Job = serde_json::from_value(
+        call(
+            &client,
+            "ossia_output",
+            json!({
+                "source": {"kind":"job", "jobId": checked.job_id},
+                "format": "musicxml", "outputPath": work.path().join("draft.musicxml")
+            }),
+        )
+        .await,
+    )
+    .unwrap();
+    let drafted_id = drafted.job_id;
+    let drafted: OutputOutcome =
+        serde_json::from_value(job(&client, drafted_id).await.result.unwrap()).unwrap();
+    assert_eq!(drafted.source_hash, hash);
+    assert_eq!(drafted.media_type, "application/vnd.recordare.musicxml+xml");
+    let xml = std::fs::read_to_string(&drafted.path).unwrap();
+    assert!(xml.contains("<step>E</step>"));
+
+    let response = reqwest::Client::new()
+        .get(format!(
+            "{}/api/v1/jobs/{drafted_id}/output?filename=export.musicxml",
+            discovery.runtime.web_base_url
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.headers()["content-type"], drafted.media_type);
+    assert_eq!(response.text().await.unwrap(), xml);
+
+    let (exit, old) = cli(
+        &executable,
+        &home,
+        &engine,
+        "output",
+        Some(json!({
+            "source": {"kind":"version", "versionId": initial},
+            "format": "musicxml", "outputPath": work.path().join("historical.musicxml")
+        })),
+    )
+    .await;
+    assert_eq!(exit, 0, "{old:?}");
+    let old: Job = serde_json::from_value(old).unwrap();
+    let old: OutputOutcome =
+        serde_json::from_value(job(&client, old.job_id).await.result.unwrap()).unwrap();
+    assert_eq!(old.source_hash, doc.source_hash);
+    let old_xml = std::fs::read_to_string(old.path).unwrap();
+    assert!(old_xml.contains("<step>C</step>"));
+    assert!(!old_xml.contains("<step>E</step>"));
+
+    client.cancel().await.unwrap();
+    ipc::call(&discovery.endpoint, "stop", json!({}))
+        .await
+        .unwrap();
 }
 
 async fn wait_runtime(home: &Path, child: &mut tokio::process::Child) -> ipc::Discovery {

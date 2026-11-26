@@ -126,6 +126,10 @@ export const zhCN: Record<MessageKey, string> = {
   midiDescription: '用于音乐软件',
   pngDescription: '有损压缩图',
   svgDescription: '无损矢量图',
+  musicXmlDescription: '可编辑乐谱',
+  musicXmlBeta: '测试',
+  musicXmlWarning:
+    'MusicXML 导出尚不稳定，部分记谱可能无法完整转换，建议在导入其他软件后核对乐谱。',
   wavDescription: '无损音频',
   exportFailed: '无法导出：{error}',
   viewControls: '谱面视图控件',

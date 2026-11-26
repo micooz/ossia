@@ -26,7 +26,7 @@ Ossia 可以一键接入常见 AI Agent（完整列表见[接入 Agent](#2-接�
 
 - 支持但不限于制作钢琴、吉他、尤克里里、小提琴，以及它们的多重奏乐谱。
 - 支持导入 MusicXML/MIDI/PDF 以及图片乐谱（借助 Ossia OMR 服务）。
-- 支持导出 PDF/PNG/SVG/MIDI/WAV 格式的乐谱或音频文件。
+- 支持导出 PDF、PNG、SVG、MusicXML、MIDI 和 WAV 格式的乐谱或音频文件。
 - 支持细粒度乐谱元素标注和自由绘画。
 - 支持在触控屏幕上浏览乐谱。
 - 支持局域网共享乐谱。

@@ -22,6 +22,7 @@
     "test:ui:native": "pnpm --filter @ossia/ui test:native",
     "verify": "node scripts/verify/verify.mjs",
     "verify:audition": "node scripts/verify/audition-cases.mjs",
+    "verify:musicxml": "node scripts/verify/musicxml-cases.mjs",
     "verify:playback": "node scripts/verify/playback-cases.mjs",
     "verify:selection": "node scripts/verify/selection-cases.mjs",
     "audit:audition": "node scripts/verify/audition-audit.mjs",

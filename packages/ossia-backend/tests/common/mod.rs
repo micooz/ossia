@@ -64,6 +64,21 @@ impl Drop for Active<'_> {
 }
 
 impl EngineBackend for Engine {
+    fn render_musicxml(&self, snapshot: &SourceSnapshot, context: &RunContext) -> Result<Vec<u8>> {
+        self.active.fetch_add(1, Ordering::SeqCst);
+        let _active = Active(self, snapshot.document_id());
+        while self.hold.load(Ordering::Acquire) {
+            context.check()?;
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        context.check()?;
+        Ok(format!(
+            "<score-partwise version=\"4.0\"><work><work-title>{}</work-title></work></score-partwise>",
+            snapshot.source_hash()
+        )
+        .into_bytes())
+    }
+
     fn migrate_lilypond(&self, input: &[u8], context: &RunContext) -> Result<ImportReport> {
         let mut report = self.convert(input, InputFormat::Ly, None, context)?;
         let candidate = "\\version \"2.26.0\"\n{ c'1 }";

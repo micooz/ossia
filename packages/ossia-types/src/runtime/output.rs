@@ -24,6 +24,7 @@ pub enum OutputFormat {
     Pdf,
     Midi,
     Wav,
+    MusicXml,
 }
 
 /// A visual region selected from an immutable rendered score.
@@ -48,6 +49,7 @@ pub enum OutputCrop {
 
 /// Write one output file or a page batch from a completed job snapshot or an immutable version.
 /// PDF may use an open password; PNG may use lossy quality and transparency options.
+/// MusicXML exports editable notation for the whole snapshot.
 /// MIDI and WAV may select an inclusive one-based measure range; WAV contains the playback mix.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

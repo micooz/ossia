@@ -22,11 +22,25 @@ identify clefs, keys or time signatures; read the source and docs for those.
 
 Call `ossia_output` with a `source` of `{"kind":"job","jobId":…}` or
 `{"kind":"version","versionId":…}` and a `format` of `ly`, `svg`, `png`, `midi`,
-`pdf` or `wav`, then poll its returned job. The result includes absolute file
-paths, format, size and source provenance. Use `ossia_job` with `detail:"full"`
+`pdf`, `wav` or `musicxml`, then poll the job. The result includes absolute
+file paths, format, size and source provenance. Use `ossia_job` with `detail:"full"`
 to inspect file hashes and media types. Read output files with the host's
 file/image tool. Job outputs use the captured import/check snapshot; version
 outputs use the immutable version snapshot.
+
+MusicXML writes one uncompressed `.musicxml` file for a complete layout score.
+It preserves standard pitched staves and voices, notes, rests, common phrasing,
+repeats, lyrics and chord symbols for editing in notation software. Grace notes
+before their principal note retain their written value, slash, beam and slur.
+A tablature staff preserves its tuning and each note's string and fret. A
+FretBoards track with matching chord symbols supplies editable chord diagrams.
+A voice can move between staves within a piano or grand staff part, including
+across a beam.
+Repeat boundaries inside a measure are represented as consecutive partial
+measures when no written note or rest crosses the boundary.
+The receiving editor reflows the score. Unsupported notation returns an error
+naming the feature, such as a second movement, after-grace notes or a
+voice moving between separate parts.
 
 For PDF, PNG and SVG, `includeDrawing: true` includes the document's shared
 freehand drawing as it existed when the output job was submitted. It defaults to
@@ -48,12 +62,13 @@ output goes to the system temporary directory, so pass one for files to keep.
 `outputPath` must not already exist, and its parent directory must exist.
 
 SVG/PNG accept a one-based `pages` array (default `[1]`). One page may use
-`outputPath`; multiple pages use `outputDirectory` and return a batch. PDF accepts
-`pages` to select pages in one PDF; omitted `pages` exports all pages. MIDI, WAV
-and LilyPond do not accept `pages`. PNG defaults to a white 1600-pixel-wide
-page; optional `width` is 1..4096 and output is limited to 16 million pixels. WAV
-always writes 44.1 kHz stereo 16-bit PCM and accepts no quality, rate or channel
-options. Generate missing formats with the same engine build or re-check first.
+`outputPath`. Multiple pages use `outputDirectory` and return a batch. PDF
+exports the selected pages in one file and defaults to all pages. MIDI, WAV,
+MusicXML and LilyPond export without a page selection. PNG defaults to a white
+1600-pixel-wide page. Optional `width` is 1..4096, and output is limited to
+16 million pixels. WAV writes 44.1 kHz stereo 16-bit PCM with a fixed sample
+rate, channel count and bit depth. Generate missing formats with the same
+engine build or re-check first.
 
 `crop` selects a visual region and supports SVG/PNG. Use
 `{"kind":"measures","range":{"start":1,"end":4}}` or

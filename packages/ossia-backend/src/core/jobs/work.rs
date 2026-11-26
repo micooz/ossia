@@ -128,6 +128,7 @@ pub(super) fn output_destination(
             OutputFormat::Pdf => "pdf",
             OutputFormat::Midi => "mid",
             OutputFormat::Wav => "wav",
+            OutputFormat::MusicXml => "musicxml",
         };
         return Ok(OutputDestination::File(folder.join(format!(
             "{}-{}.{}",

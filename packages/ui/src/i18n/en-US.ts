@@ -133,6 +133,10 @@ export const enUS = {
   midiDescription: 'For music software',
   pngDescription: 'Lossy compressed image',
   svgDescription: 'Lossless vector image',
+  musicXmlDescription: 'Editable sheet music',
+  musicXmlBeta: 'Beta',
+  musicXmlWarning:
+    'MusicXML export is still in beta. Some notation may not convert correctly. Check the score after importing it.',
   wavDescription: 'Lossless audio',
   exportFailed: 'Could not export: {error}',
   viewControls: 'Score view controls',

@@ -5,6 +5,7 @@ mod cache;
 mod compile;
 pub use compile::render_options_hash;
 mod diagnostics;
+mod musicxml;
 mod mxl;
 mod pdf;
 mod process;

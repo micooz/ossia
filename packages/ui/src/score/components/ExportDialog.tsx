@@ -4,10 +4,12 @@ import {
   AudioLines,
   Eye,
   EyeOff,
+  FileMusic,
   FileText,
   Image,
   Music2,
   Shapes,
+  TriangleAlert,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -34,12 +36,14 @@ const FORMATS = [
   { value: 'png', label: 'PNG', icon: Image, description: 'pngDescription' },
   { value: 'svg', label: 'SVG', icon: Shapes, description: 'svgDescription' },
   { value: 'midi', label: 'MIDI', icon: Music2, description: 'midiDescription' },
+  { value: 'musicxml', label: 'MusicXML', icon: FileMusic, description: 'musicXmlDescription' },
   { value: 'wav', label: 'WAV', icon: AudioLines, description: 'wavDescription' },
 ] as const;
 
 const FORMAT_EXTENSIONS: Record<ExportFormat, string> = {
   pdf: 'pdf',
   midi: 'mid',
+  musicxml: 'musicxml',
   png: 'png',
   svg: 'svg',
   wav: 'wav',
@@ -354,7 +358,7 @@ export function ExportDialog({
         waitMs: null,
       });
       const result = await api.waitJob<OutputBatchOutcome>(job);
-      if (format === 'pdf' || format === 'wav') {
+      if (format === 'pdf' || format === 'wav' || format === 'musicxml') {
         const downloadName = `${safeBase}.${FORMAT_EXTENSIONS[format]}`;
         triggerUrlDownload(api.outputDownloadUrl(job.jobId, downloadName), downloadName);
         return;
@@ -495,7 +499,12 @@ export function ExportDialog({
               >
                 <Icon aria-hidden="true" size={19} />
                 <span>
-                  <strong>{option.label}</strong>
+                  <span className="export-format-heading">
+                    <strong>{option.label}</strong>
+                    {option.value === 'musicxml' && (
+                      <span className="export-format-badge">{t('musicXmlBeta')}</span>
+                    )}
+                  </span>
                   <small>{t(option.description)}</small>
                 </span>
               </button>
@@ -505,6 +514,7 @@ export function ExportDialog({
         <form
           id="export-settings-form"
           className="export-settings"
+          data-format={format}
           aria-label={t('exportSettings')}
           onSubmit={(event) => {
             event.preventDefault();
@@ -661,6 +671,14 @@ export function ExportDialog({
               {t('exportFailed', { error: exportError })}
             </p>
           )}
+          <div className="export-musicxml-warning" role="status">
+            {format === 'musicxml' && (
+              <>
+                <TriangleAlert aria-hidden="true" size={18} />
+                <span>{t('musicXmlWarning')}</span>
+              </>
+            )}
+          </div>
         </form>
         <section className="export-preview" aria-label={t('exportPreview')}>
           <div

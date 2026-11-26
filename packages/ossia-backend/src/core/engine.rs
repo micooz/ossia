@@ -93,6 +93,10 @@ impl RuntimeEngine {
 }
 
 impl EngineBackend for RuntimeEngine {
+    fn render_musicxml(&self, snapshot: &SourceSnapshot, context: &RunContext) -> Result<Vec<u8>> {
+        self.engine.export_musicxml(snapshot, context)
+    }
+
     fn migrate_lilypond(&self, input: &[u8], context: &RunContext) -> Result<ImportReport> {
         let report = self.engine.migrate_lilypond(input, context)?;
         self.report(report, input, None, Vec::new())

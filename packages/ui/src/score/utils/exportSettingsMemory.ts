@@ -32,7 +32,7 @@ const defaults: ExportSettings = {
   measureEnd: 1,
 };
 
-const formats: ExportFormat[] = ['pdf', 'png', 'svg', 'midi', 'wav'];
+const formats: ExportFormat[] = ['pdf', 'png', 'svg', 'midi', 'musicxml', 'wav'];
 const storageKey = (documentId: string) => `ossia:export-settings:v1:${documentId}`;
 
 /** Reads optional export preferences stored for one score. */

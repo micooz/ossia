@@ -3245,6 +3245,7 @@ dependencies = [
  "quick-xml",
  "regex",
  "resvg",
+ "roxmltree 0.21.2",
  "serde",
  "serde_json",
  "tempfile",

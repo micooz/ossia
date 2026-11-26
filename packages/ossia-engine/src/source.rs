@@ -127,6 +127,14 @@ impl Derived {
     }
 }
 
+/// Preserve direct source coordinates for compiler passes using an include wrapper.
+pub(crate) fn unchanged(source: &str) -> Derived {
+    Derived {
+        text: source.into(),
+        segments: vec![(0..source.len(), Some(0..source.len()))],
+    }
+}
+
 pub(crate) fn derive(
     source: &str,
     format: RenderFormat,

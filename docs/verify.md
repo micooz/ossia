@@ -1,6 +1,6 @@
 # Verification
 
-Run all verification suites without a library or server:
+Run the playback, audition and selection suites without a library or server:
 
 ```sh
 pnpm verify
@@ -25,6 +25,15 @@ pnpm verify:audition sor-original-locations
 pnpm verify:selection
 pnpm verify:selection doraemon-original bach-sheep-four-hands sor-original-locations
 ```
+
+## MusicXML export
+
+Run `pnpm verify:musicxml` with the installed LilyPond engine. The suite checks
+complete scores and focused notation excerpts, including the Goldberg Variations
+Aria, grace notes, cross-staff voices, guitar tablature with chord diagrams,
+and Sor's Etude Op. 35 No. 14 with a mid-measure repeat.
+Set `OSSIA_TEST_MUSICXML_XSD` to a local MusicXML 4.0 schema with its imports
+resolved locally to enable offline schema validation with `xmllint`.
 
 ## Playback fixtures
 

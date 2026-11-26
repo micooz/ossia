@@ -728,6 +728,89 @@ async fn running_import_restore_output_cancellation_finishes_before_publishing()
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn musicxml_output_publishes_the_checked_snapshot_once() {
+    let f = Fixture::new(true).await;
+    let version_id = f.doc.head_version_id.unwrap();
+    let draft = std::str::from_utf8(SOURCE).unwrap().replace("c'1", "e'1");
+    let draft_hash = f.save(draft.as_bytes());
+    let check = f.check(draft_hash.clone());
+    assert_eq!(
+        wait_job(&f.runtime, check.job_id).await.state,
+        JobState::Done
+    );
+    f.save(SOURCE);
+
+    for (source, expected) in [
+        (
+            OutputSource::Job {
+                job_id: check.job_id,
+            },
+            draft_hash,
+        ),
+        (
+            OutputSource::Version { version_id },
+            f.doc.source_hash.clone(),
+        ),
+    ] {
+        let request: OutputArgs = serde_json::from_value(json!({
+            "source": source, "format": "musicxml"
+        }))
+        .unwrap();
+        let job = f.runtime.output(request).unwrap();
+        let export = wait_job(&f.runtime, job.job_id).await;
+        let result: OutputOutcome = serde_json::from_value(export.result.unwrap()).unwrap();
+        let path = Path::new(&result.path);
+        let bytes = std::fs::read(path).unwrap();
+        assert_eq!(path.extension().unwrap(), "musicxml");
+        assert_eq!(result.source_hash, expected);
+        assert_eq!(result.sha256, ContentHash::of(&bytes));
+        assert_eq!(result.media_type, "application/vnd.recordare.musicxml+xml");
+        assert!(std::str::from_utf8(&bytes)
+            .unwrap()
+            .contains(&expected.to_string()));
+
+        let request: OutputArgs = serde_json::from_value(json!({
+            "source": source, "format": "musicxml", "outputPath": result.path
+        }))
+        .unwrap();
+        let retry = f.runtime.output(request).unwrap();
+        assert_eq!(
+            wait_job(&f.runtime, retry.job_id).await.error.unwrap().code,
+            ErrorCode::Conflict
+        );
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
+        std::fs::remove_file(path).unwrap();
+    }
+    let request: OutputArgs = serde_json::from_value(json!({
+        "source": {"kind": "version", "versionId": version_id}, "format": "musicxml", "pages": [1]
+    }))
+    .unwrap();
+    assert!(f.runtime.output(request).is_err());
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn musicxml_cancellation_leaves_no_output() {
+    let f = Fixture::new(true).await;
+    let path = f.root.path().join("cancelled.musicxml");
+    let request: OutputArgs = serde_json::from_value(json!({
+        "source": {"kind": "version", "versionId": f.doc.head_version_id.unwrap()},
+        "format": "musicxml", "outputPath": path
+    }))
+    .unwrap();
+    f.engine.hold.store(true, Ordering::Release);
+    let job = f.runtime.output(request).unwrap();
+    until(|| f.engine.active.load(Ordering::SeqCst) == 1).await;
+    f.runtime.cancel(job.job_id).unwrap();
+    assert_eq!(
+        wait_job(&f.runtime, job.job_id).await.state,
+        JobState::Cancelled
+    );
+    assert!(!path.exists());
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn reveal_only_resolves_intact_completed_output_results() {
     let f = Fixture::new(true).await;
     let target = f.root.path().join("result.ly");

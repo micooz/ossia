@@ -196,7 +196,7 @@ pub fn tools() -> Vec<Tool> {
         ),
         write_tool::<OutputArgs>(
             "ossia_output",
-            "Write SVG, PNG, MIDI, PDF, WAV or LilyPond output from a completed job snapshot or immutable version. WAV is a 44.1 kHz stereo PCM render of the score playback mix. MIDI and WAV accept audioRange {start,end} for inclusive one-based measures. Set includeDrawing to include the document's current freehand drawing in PDF, PNG or SVG; the job captures it at submission. For PDF, pages selects pages in the single PDF (all by default). For SVG/PNG, pages chooses which pages to write; one page may use outputPath, while multiple pages return OutputBatchOutcome. Crop writes one SVG/PNG per affected page; a one-item pages list filters it. Omitted outputPath or outputDirectory writes to the system temporary directory; set them for files to keep. Never overwrites.",
+            "Write SVG, PNG, MIDI, PDF, WAV, MusicXML or LilyPond output from a completed job snapshot or immutable version. MusicXML writes one complete editable .musicxml file. WAV is a 44.1 kHz stereo PCM render of the score playback mix. MIDI and WAV accept audioRange {start,end} for inclusive one-based measures. Set includeDrawing to include the document's current freehand drawing in PDF, PNG or SVG; the job captures it at submission. For PDF, pages selects pages in the single PDF (all by default). For SVG/PNG, pages chooses which pages to write; one page may use outputPath, while multiple pages return OutputBatchOutcome. Crop writes one SVG/PNG per affected page; a one-item pages list filters it. Omitted outputPath or outputDirectory writes to the system temporary directory; set them for files to keep. Never overwrites.",
             false,
         ),
     ]

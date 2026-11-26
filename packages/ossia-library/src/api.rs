@@ -5,6 +5,17 @@ use std::path::Path;
 
 /// Native Engine is the production adapter; deterministic adapters exercise failure/race paths.
 pub trait EngineBackend: Send + Sync {
+    /// Export one complete layout score with its editable notation.
+    fn render_musicxml(
+        &self,
+        _snapshot: &SourceSnapshot,
+        _context: &RunContext,
+    ) -> Result<Vec<u8>> {
+        Err(AppError::unsupported(
+            "MusicXML unavailable in this engine backend",
+        ))
+    }
+
     /// Render the score playback timeline as a WAV file when supported.
     fn render_wav(&self, _playback: &ScorePlayback, _context: &RunContext) -> Result<Vec<u8>> {
         Err(AppError::unsupported(
@@ -62,6 +73,10 @@ pub trait EngineBackend: Send + Sync {
 }
 
 impl EngineBackend for Engine {
+    fn render_musicxml(&self, snapshot: &SourceSnapshot, context: &RunContext) -> Result<Vec<u8>> {
+        self.export_musicxml(snapshot, context)
+    }
+
     fn migrate_lilypond(&self, input: &[u8], context: &RunContext) -> Result<ImportReport> {
         self.migrate_lilypond(input, context)
     }
