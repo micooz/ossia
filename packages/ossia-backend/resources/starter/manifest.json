@@ -24,6 +24,12 @@
       "title": "Violin: Bach — Partita No. 1, Allemanda (BWV 1002)",
       "file": "bach-bwv1002-01-allemanda.ly",
       "format": "ly"
+    },
+    {
+      "id": "jianpu-juebieshu",
+      "title": "Jianpu: 诀别书",
+      "file": "jianpu-juebieshu.ly",
+      "format": "ly"
     }
   ]
 }

@@ -122,10 +122,14 @@ async fn finish(runtime: Arc<Runtime>, scheduler: tokio::task::JoinHandle<()>) {
 #[test]
 fn embedded_manifest_and_resources_are_valid() {
     let scores = manifest().unwrap();
-    assert_eq!(scores.len(), 4);
+    assert_eq!(scores.len(), 5);
     assert_eq!(scores[0].id, "praeludium-i");
     assert_eq!(scores[0].title, "Piano: Praeludium I (BWV 846)");
     assert!(scores[0].input.starts_with(b"\\version \"2.26.0\""));
+    assert_eq!(
+        scores[4].input,
+        include_bytes!("../../../ossia-integrations/resources/skill/ossia/references/jianpu.ly")
+    );
 }
 
 #[tokio::test]
@@ -143,6 +147,19 @@ async fn embedded_starters_populate_a_new_library() {
             .iter()
             .any(|document| document.title == score.title));
     }
+    let mut documents = runtime
+        .library
+        .management_score_page(false, 100, 0)
+        .unwrap()
+        .items;
+    documents.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+    assert_eq!(
+        documents
+            .iter()
+            .map(|document| &document.title)
+            .collect::<Vec<_>>(),
+        scores.iter().map(|score| &score.title).collect::<Vec<_>>()
+    );
     assert!(!runtime.library.initial_documents_pending().unwrap());
     finish(runtime, scheduler).await;
 }

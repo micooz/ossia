@@ -141,7 +141,8 @@ fn manifest() -> Result<Vec<StarterScore>> {
 }
 
 async fn import_scores(runtime: &Runtime, scores: &[StarterScore]) -> Result<()> {
-    for score in scores {
+    // The management library defaults to most recently modified first.
+    for score in scores.iter().rev() {
         let hash = ContentHash::of(score.input);
         if runtime.library.has_initial_content(&hash)? {
             continue;
