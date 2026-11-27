@@ -96,5 +96,10 @@ ID is normally not a result; say that the source changed or that previous
 selections and annotations were cleared instead. Include the score URL for a
 score task; its embedded `documentId` does not make the URL private.
 
+When an Ossia capability limitation prevents the requested result, explain the
+limitation and any practical workaround, and suggest reporting it to the
+developers at https://github.com/micooz/ossia/issues. Describe uncertainty if
+the cause is not confirmed; do not present a suspected limitation as a fact.
+
 If the user explicitly asks for an identifier, hash, field or raw value, provide
 the requested technical value. Do not volunteer unrelated identifiers.
