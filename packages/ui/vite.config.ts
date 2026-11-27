@@ -1,8 +1,12 @@
 import type { ServerResponse } from 'node:http';
 
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { createLogger, defineConfig } from 'vite';
 import type { Connect, Plugin } from 'vite';
+
+import { createDevProxyLogging } from './dev-proxy.ts';
+
+const devProxyLogging = createDevProxyLogging(createLogger());
 
 function scoresRoute(): Plugin {
   const pathname = (url: string | undefined) => {
@@ -42,6 +46,7 @@ function scoresRoute(): Plugin {
 
 export default defineConfig({
   base: './',
+  customLogger: devProxyLogging.logger,
   plugins: [react(), scoresRoute()],
   build: {
     target: 'es2022',
@@ -53,6 +58,12 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
-    proxy: { '/api': { target: 'http://127.0.0.1:3211', changeOrigin: true } },
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3211',
+        changeOrigin: true,
+        configure: devProxyLogging.configure,
+      },
+    },
   },
 });
