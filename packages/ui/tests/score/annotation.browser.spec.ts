@@ -536,6 +536,33 @@ test('the bottom badge summarizes annotations and clears them', async ({ context
   expect(viewport.height - (badgeBox.y + badgeBox.height)).toBeCloseTo(16, 0);
   await expect(page.getByRole('button', { name: '1. 底部回显' })).toHaveCount(1);
 
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: (text: string) => {
+          (window as Window & { copiedText?: string }).copiedText = text;
+          return Promise.resolve();
+        },
+      },
+    });
+  });
+  const copy = page.getByRole('button', { name: '复制指令' });
+  await copy.click();
+  expect(await page.evaluate(() => (window as Window & { copiedText?: string }).copiedText)).toBe(
+    '/ossia 查看我的标注',
+  );
+  await expect(page.getByRole('status').filter({ hasText: '指令已复制' }).last()).toBeVisible();
+  await expect(badge).toContainText('已添加 1 个标注');
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new Error('Denied')) },
+    });
+  });
+  await copy.click();
+  await expect(page.getByRole('status').filter({ hasText: '无法复制指令' }).last()).toBeVisible();
+
   const clear = page.getByRole('button', { name: '清除标注' });
   await expect(clear).toHaveAttribute('data-tooltip', '清除标注');
   await clear.hover();
@@ -547,6 +574,32 @@ test('the bottom badge summarizes annotations and clears them', async ({ context
   await expect(page.locator('.annotation-box')).toHaveCount(0);
   await expect(page.locator('.score-annotation-pin')).toHaveCount(0);
   await expect.poll(() => runtime.selections.get(firstId)).toBeNull();
+});
+
+test('copies the annotation command in the interface language', async ({ context, page }) => {
+  await mockScoreRuntime(context, { language: 'en-US' });
+  await page.goto(`/scores?documentId=${firstId}`);
+  await expect(page.locator('.score-image')).toHaveCount(2);
+  await page.keyboard.press('e');
+  await clickScore(page, 0.4, 55);
+  await page.getByRole('textbox', { name: 'Annotation' }).fill('Check this');
+  await page.getByRole('button', { name: 'Submit annotation' }).click();
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: (text: string) => {
+          (window as Window & { copiedText?: string }).copiedText = text;
+          return Promise.resolve();
+        },
+      },
+    });
+  });
+  await page.getByRole('button', { name: 'Copy command' }).click();
+  expect(await page.evaluate(() => (window as Window & { copiedText?: string }).copiedText)).toBe(
+    '/ossia Review my annotations',
+  );
+  await expect(page.getByRole('status').filter({ hasText: 'Command copied' }).last()).toBeVisible();
 });
 
 test('annotation groups use distinct colors for pins, measures and source graphics', async ({

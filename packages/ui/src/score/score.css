@@ -798,7 +798,6 @@ code {
   max-inline-size: calc(100vw - 2rem);
   display: flex;
   align-items: center;
-  gap: 0.35rem;
   padding: 3px 4px 3px 0.75rem;
   border: 0;
   border-radius: 999px;
@@ -813,10 +812,16 @@ code {
 }
 .score-annotation-badge-text {
   min-inline-size: 0;
+  margin-inline-end: 0.35rem;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.score-annotation-badge-clear {
+.score-annotation-badge-copy-wrap {
+  position: relative;
+  flex: none;
+  display: flex;
+}
+.score-annotation-badge-action {
   position: relative;
   flex: none;
   inline-size: 26px;
@@ -828,12 +833,13 @@ code {
   background: transparent;
   color: rgb(255 255 255 / 70%);
 }
-.score-annotation-badge-clear:hover:not(:disabled) {
+.score-annotation-badge-action:hover:not(:disabled) {
   border-color: transparent;
   background: rgb(255 255 255 / 12%);
   color: #fff;
 }
-.score-annotation-badge-clear::after {
+.score-annotation-badge-action::after,
+.score-annotation-copy-status {
   content: attr(data-tooltip);
   position: absolute;
   inset-inline-start: 50%;
@@ -853,10 +859,15 @@ code {
     opacity 120ms ease,
     transform 120ms ease;
 }
-.score-annotation-badge-clear:hover::after,
-.score-annotation-badge-clear:focus-visible::after {
+.score-annotation-badge-action:hover::after,
+.score-annotation-badge-action:focus-visible::after,
+.score-annotation-copy-status:not(:empty) {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+.score-annotation-badge-copy-wrap:has(.score-annotation-copy-status:not(:empty))
+  .score-annotation-badge-action::after {
+  opacity: 0;
 }
 .score-feature-toggle {
   position: relative;
@@ -2335,7 +2346,7 @@ dialog::backdrop {
 }
 @media (hover: none), (pointer: coarse) {
   .score-topbar .topbar-action[data-tooltip]::after,
-  .score-annotation-badge-clear[data-tooltip]::after,
+  .score-annotation-badge-action[data-tooltip]::after,
   .score-feature-toggle[data-tooltip]::after,
   .score-annotation-pin-tooltip {
     display: none;

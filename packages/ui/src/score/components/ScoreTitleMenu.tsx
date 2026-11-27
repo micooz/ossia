@@ -15,6 +15,7 @@ import { describe } from '../../errors.ts';
 import type { DocumentSummary } from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
 import type { Api } from '../utils/api.ts';
+import { copyText } from '../utils/clipboard.ts';
 
 function byUpdatedAtDescending(left: DocumentSummary, right: DocumentSummary) {
   return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
@@ -193,24 +194,7 @@ export function ScoreTitleMenu({
         aria-label={t('copyScoreName')}
         onClick={async () => {
           try {
-            if (navigator.clipboard) {
-              await navigator.clipboard.writeText(title);
-            } else {
-              const previousFocus = document.activeElement;
-              const field = document.createElement('textarea');
-              field.value = title;
-              field.setAttribute('readonly', '');
-              field.style.cssText = 'position:fixed;inset-block-start:0;opacity:0';
-              document.body.append(field);
-              field.select();
-              try {
-                if (!document.execCommand('copy')) throw new Error('Copy failed');
-              } finally {
-                field.remove();
-                if (previousFocus instanceof HTMLElement)
-                  previousFocus.focus({ preventScroll: true });
-              }
-            }
+            await copyText(title);
             setCopyStatus({ kind: 'success' });
           } catch {
             setCopyStatus({ kind: 'error' });
