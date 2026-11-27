@@ -1,10 +1,28 @@
 use ossia_types::{path_text, AppError, ErrorCode};
 use std::{
+    cell::Cell,
     collections::BTreeMap,
     ffi::OsStr,
+    io::{Read, Seek, SeekFrom},
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Output, Stdio},
+    time::{Duration, Instant},
 };
+
+thread_local! { static SCANNING: Cell<bool> = const { Cell::new(false) }; }
+
+pub(crate) fn scanning<T>(f: impl FnOnce() -> T) -> T {
+    SCANNING.with(|scanning| {
+        struct Reset<'a>(&'a Cell<bool>, bool);
+        impl Drop for Reset<'_> {
+            fn drop(&mut self) {
+                self.0.set(self.1);
+            }
+        }
+        let _reset = Reset(scanning, scanning.replace(true));
+        f()
+    })
+}
 
 pub fn run(
     program: &Path,
@@ -21,15 +39,23 @@ pub fn run_with_prefix(
     env: &BTreeMap<String, String>,
 ) -> Result<String, AppError> {
     let args = prefix.iter().chain(args).cloned().collect::<Vec<_>>();
-    let output = host_command(program, &args)
-        .envs(env)
-        .output()
-        .map_err(|error| {
-            AppError::new(
-                ErrorCode::RuntimeUnavailable,
-                format!("cannot execute {}: {error}", program.display()),
-            )
-        })?;
+    let output = if SCANNING.get() {
+        output_with_timeout(program, &args, env, Duration::from_secs(10))?
+    } else {
+        host_command(program, &args)
+            .envs(env)
+            .output()
+            .map_err(|error| {
+                AppError::new(
+                    ErrorCode::RuntimeUnavailable,
+                    format!("cannot execute {}: {error}", program.display()),
+                )
+            })?
+    };
+    interpret_output(program, output)
+}
+
+fn interpret_output(program: &Path, output: Output) -> Result<String, AppError> {
     if output.status.success() {
         return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
     }
@@ -58,6 +84,78 @@ pub fn run_with_prefix(
             }
         ),
     ))
+}
+
+fn output_with_timeout(
+    program: &Path,
+    args: &[String],
+    env: &BTreeMap<String, String>,
+    timeout: Duration,
+) -> Result<Output, AppError> {
+    let failure = |error: std::io::Error| {
+        AppError::new(
+            ErrorCode::RuntimeUnavailable,
+            format!("cannot execute {}: {error}", program.display()),
+        )
+    };
+    let mut stdout = tempfile::tempfile().map_err(failure)?;
+    let mut stderr = tempfile::tempfile().map_err(failure)?;
+    let mut child = host_command(program, args)
+        .envs(env)
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(stdout.try_clone().map_err(failure)?))
+        .stderr(Stdio::from(stderr.try_clone().map_err(failure)?))
+        .spawn()
+        .map_err(failure)?;
+    let start = Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if start.elapsed() < timeout => std::thread::sleep(Duration::from_millis(10)),
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(AppError::new(
+                    ErrorCode::RuntimeUnavailable,
+                    format!(
+                        "{} timed out after {} seconds",
+                        program.display(),
+                        timeout.as_secs_f64()
+                    ),
+                ));
+            }
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(failure(error));
+            }
+        }
+    };
+    let mut out = Vec::new();
+    let mut err = Vec::new();
+    stdout
+        .seek(SeekFrom::Start(0))
+        .and_then(|_| stdout.read_to_end(&mut out))
+        .map_err(failure)?;
+    stderr
+        .seek(SeekFrom::Start(0))
+        .and_then(|_| stderr.read_to_end(&mut err))
+        .map_err(failure)?;
+    Ok(Output {
+        status,
+        stdout: out,
+        stderr: err,
+    })
+}
+
+#[cfg(test)]
+fn run_with_timeout(
+    program: &Path,
+    args: &[String],
+    env: &BTreeMap<String, String>,
+    timeout: Duration,
+) -> Result<String, AppError> {
+    interpret_output(program, output_with_timeout(program, args, env, timeout)?)
 }
 
 fn host_command(program: &Path, args: &[String]) -> Command {

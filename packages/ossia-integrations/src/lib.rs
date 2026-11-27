@@ -165,140 +165,161 @@ impl Integrator {
 
     pub fn agents(&self) -> Result<AgentsSnapshot, AppError> {
         let loaded = record::load(&self.home)?;
-        let mut agents = Vec::new();
         let adapters = registry::adapters(&self.paths);
-        for adapter in &adapters {
-            let management_id = record::management_id(adapter.id(), adapter.profile());
-            let record = loaded.store.records.get(&management_id);
-            let legacy = loaded
-                .legacy
+        let mut agents = std::thread::scope(|scope| {
+            let handles: Vec<_> = adapters
                 .iter()
-                .find(|value| value.agent_id == adapter.id() && value.profile == adapter.profile());
-            let detected = adapter.detect(&self.paths);
-            if detected.is_none() && record.is_none() && legacy.is_none() {
-                continue;
-            }
-            let mut inspection_error = None;
-            let inspection = match (&detected, record, legacy) {
-                (Some(detected), Some(record), _) => {
-                    let ctx = AgentContext {
-                        integrator: self,
-                        detected,
-                    };
-                    adapter.status(&ctx, Some(record))
-                }
-                (Some(_), None, Some(_)) => Ok(AgentInspection {
-                    state: AgentState::UpdateRequired,
-                    installed: false,
-                    enabled: true,
-                    managed: true,
-                    path: None,
-                    message: Some(AgentNotice::LegacyReinstall),
-                    conflicts: Vec::new(),
-                }),
-                (Some(detected), None, None) => {
-                    let ctx = AgentContext {
-                        integrator: self,
-                        detected,
-                    };
-                    adapter.status(&ctx, None)
-                }
-                (None, Some(record), _) => Ok(AgentInspection {
-                    state: AgentState::Unavailable,
-                    installed: false,
-                    enabled: false,
-                    managed: true,
-                    path: Some(record.shared_root.clone()),
-                    message: Some(AgentNotice::HostUnavailable),
-                    conflicts: Vec::new(),
-                }),
-                (None, None, Some(_)) => Ok(AgentInspection {
-                    state: AgentState::UpdateRequired,
-                    installed: false,
-                    enabled: false,
-                    managed: true,
-                    path: None,
-                    message: Some(AgentNotice::LegacyHostUnavailable),
-                    conflicts: Vec::new(),
-                }),
-                (None, None, None) => unreachable!(),
-            }
-            .unwrap_or_else(|error| {
-                let detected = detected
-                    .as_ref()
-                    .expect("inspection requires a detected host");
-                let ctx = AgentContext {
-                    integrator: self,
-                    detected,
-                };
-                inspection_error = Some(format!(
-                    "{}: {}",
-                    path_text(adapter.config_path(&ctx)),
-                    error.message
-                ));
-                AgentInspection {
-                    state: AgentState::Unavailable,
-                    installed: false,
-                    enabled: false,
-                    managed: record.is_some(),
-                    path: None,
-                    message: None,
-                    conflicts: Vec::new(),
-                }
-            });
-            let config_root = detected
-                .as_ref()
-                .map(|value| path_text(&value.config_root))
-                .unwrap_or_else(|| default_config_root(adapter.id(), &self.paths));
-            let config_path = detected
-                .as_ref()
-                .map(|value| {
-                    let ctx = AgentContext {
-                        integrator: self,
-                        detected: value,
-                    };
-                    path_text(adapter.config_path(&ctx))
-                })
-                .or_else(|| {
-                    record
-                        .and_then(|record| record.entries.first())
-                        .map(|entry| normalize_path(&entry.path))
-                })
-                .unwrap_or_default();
-            agents.push(AgentIntegration {
-                id: adapter.id().into(),
-                name: adapter.name().into(),
-                icon: adapter.icon().into(),
-                method: adapter.method(),
-                state: inspection.state,
-                error: inspection_error,
-                installed: inspection.installed,
-                enabled: inspection.enabled,
-                managed: inspection.managed,
-                version: detected
-                    .as_ref()
-                    .and_then(|value| (!value.version.is_empty()).then(|| value.version.clone())),
-                executable: detected.as_ref().map(|value| path_text(&value.executable)),
-                config_root,
-                config_path,
-                profile: adapter.visible_profile().map(Into::into),
-                path: inspection.path.map(|value| normalize_path(&value)),
-                reload_hint: Some(adapter.reload_hint()),
-                message: inspection.message,
-                hosts: Vec::new(),
-                conflicts: inspection
-                    .conflicts
-                    .into_iter()
-                    .map(|mut conflict| {
-                        conflict.target = normalize_path(&conflict.target);
-                        conflict
+                .map(|adapter| {
+                    let loaded = &loaded;
+                    scope.spawn(move || {
+                        command::scanning(|| {
+                            let management_id =
+                                record::management_id(adapter.id(), adapter.profile());
+                            let record = loaded.store.records.get(&management_id);
+                            let legacy = loaded.legacy.iter().find(|value| {
+                                value.agent_id == adapter.id() && value.profile == adapter.profile()
+                            });
+                            let antigravity_hosts = (adapter.id() == "antigravity")
+                                .then(|| antigravity::hosts(&self.paths));
+                            let detected = match &antigravity_hosts {
+                                Some(hosts) => antigravity::detected(&self.paths, hosts),
+                                None => adapter.detect(&self.paths),
+                            };
+                            if detected.is_none() && record.is_none() && legacy.is_none() {
+                                return None;
+                            }
+                            let mut inspection_error = None;
+                            let inspection = match (&detected, record, legacy) {
+                                (Some(detected), Some(record), _) => {
+                                    let ctx = AgentContext {
+                                        integrator: self,
+                                        detected,
+                                    };
+                                    adapter.status(&ctx, Some(record))
+                                }
+                                (Some(_), None, Some(_)) => Ok(AgentInspection {
+                                    state: AgentState::UpdateRequired,
+                                    installed: false,
+                                    enabled: true,
+                                    managed: true,
+                                    path: None,
+                                    message: Some(AgentNotice::LegacyReinstall),
+                                    conflicts: Vec::new(),
+                                }),
+                                (Some(detected), None, None) => {
+                                    let ctx = AgentContext {
+                                        integrator: self,
+                                        detected,
+                                    };
+                                    adapter.status(&ctx, None)
+                                }
+                                (None, Some(record), _) => Ok(AgentInspection {
+                                    state: AgentState::Unavailable,
+                                    installed: false,
+                                    enabled: false,
+                                    managed: true,
+                                    path: Some(record.shared_root.clone()),
+                                    message: Some(AgentNotice::HostUnavailable),
+                                    conflicts: Vec::new(),
+                                }),
+                                (None, None, Some(_)) => Ok(AgentInspection {
+                                    state: AgentState::UpdateRequired,
+                                    installed: false,
+                                    enabled: false,
+                                    managed: true,
+                                    path: None,
+                                    message: Some(AgentNotice::LegacyHostUnavailable),
+                                    conflicts: Vec::new(),
+                                }),
+                                (None, None, None) => unreachable!(),
+                            }
+                            .unwrap_or_else(|error| {
+                                let detected = detected
+                                    .as_ref()
+                                    .expect("inspection requires a detected host");
+                                let ctx = AgentContext {
+                                    integrator: self,
+                                    detected,
+                                };
+                                inspection_error = Some(format!(
+                                    "{}: {}",
+                                    path_text(adapter.config_path(&ctx)),
+                                    error.message
+                                ));
+                                AgentInspection {
+                                    state: AgentState::Unavailable,
+                                    installed: false,
+                                    enabled: false,
+                                    managed: record.is_some(),
+                                    path: None,
+                                    message: None,
+                                    conflicts: Vec::new(),
+                                }
+                            });
+                            let config_root = detected
+                                .as_ref()
+                                .map(|value| path_text(&value.config_root))
+                                .unwrap_or_else(|| default_config_root(adapter.id(), &self.paths));
+                            let config_path = detected
+                                .as_ref()
+                                .map(|value| {
+                                    let ctx = AgentContext {
+                                        integrator: self,
+                                        detected: value,
+                                    };
+                                    path_text(adapter.config_path(&ctx))
+                                })
+                                .or_else(|| {
+                                    record
+                                        .and_then(|record| record.entries.first())
+                                        .map(|entry| normalize_path(&entry.path))
+                                })
+                                .unwrap_or_default();
+                            let mut agent = AgentIntegration {
+                                id: adapter.id().into(),
+                                name: adapter.name().into(),
+                                icon: adapter.icon().into(),
+                                method: adapter.method(),
+                                state: inspection.state,
+                                error: inspection_error,
+                                installed: inspection.installed,
+                                enabled: inspection.enabled,
+                                managed: inspection.managed,
+                                version: detected.as_ref().and_then(|value| {
+                                    (!value.version.is_empty()).then(|| value.version.clone())
+                                }),
+                                executable: detected
+                                    .as_ref()
+                                    .map(|value| path_text(&value.executable)),
+                                config_root,
+                                config_path,
+                                profile: adapter.visible_profile().map(Into::into),
+                                path: inspection.path.map(|value| normalize_path(&value)),
+                                reload_hint: Some(adapter.reload_hint()),
+                                message: inspection.message,
+                                hosts: Vec::new(),
+                                conflicts: inspection
+                                    .conflicts
+                                    .into_iter()
+                                    .map(|mut conflict| {
+                                        conflict.target = normalize_path(&conflict.target);
+                                        conflict
+                                    })
+                                    .collect(),
+                            };
+                            if let Some(hosts) = &antigravity_hosts {
+                                antigravity::present_hosts(&mut agent, hosts);
+                            }
+                            Some(agent)
+                        })
                     })
-                    .collect(),
-            });
-        }
-        if let Some(agent) = agents.iter_mut().find(|agent| agent.id == "antigravity") {
-            antigravity::present_hosts(agent, &antigravity::hosts(&self.paths));
-        }
+                })
+                .collect();
+            handles
+                .into_iter()
+                .filter_map(|handle| handle.join().expect("Agent scan panicked"))
+                .collect::<Vec<_>>()
+        });
         let claude: Vec<_> = agents
             .iter()
             .filter(|agent| agent.id == "claude")

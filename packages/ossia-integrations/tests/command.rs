@@ -1,5 +1,33 @@
 use super::*;
 
+#[cfg(unix)]
+#[test]
+fn scan_command_times_out_without_blocking_on_output() {
+    let start = std::time::Instant::now();
+    let error = run_with_timeout(
+        Path::new("/bin/sh"),
+        &["-c".into(), "exec sleep 5".into()],
+        &BTreeMap::new(),
+        std::time::Duration::from_millis(100),
+    )
+    .unwrap_err();
+    assert!(error.message.contains("timed out"));
+    assert!(start.elapsed() < std::time::Duration::from_secs(3));
+}
+
+#[cfg(unix)]
+#[test]
+fn scan_command_reads_large_output_without_deadlocking() {
+    let output = run_with_timeout(
+        Path::new("/bin/sh"),
+        &["-c".into(), "yes x | head -c 200000".into()],
+        &BTreeMap::new(),
+        std::time::Duration::from_secs(5),
+    )
+    .unwrap();
+    assert_eq!(output.len(), 200000);
+}
+
 #[cfg(windows)]
 #[test]
 fn windows_command_scripts_run_through_the_command_interpreter() {

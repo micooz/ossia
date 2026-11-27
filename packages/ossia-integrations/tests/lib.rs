@@ -29,7 +29,8 @@ fn invalid_host_config_does_not_block_agent_list() {
         3211,
     )
     .unwrap();
-    for content in ["{"] {
+    {
+        let content = "{";
         std::fs::write(&config, content).unwrap();
         let snapshot = integrator.agents().unwrap();
         assert!(snapshot.agents.iter().any(|agent| agent.id == "codex"));
@@ -81,6 +82,48 @@ fn invalid_host_config_does_not_block_agent_list() {
     assert_eq!(std::fs::read_to_string(&config).unwrap(), "{");
     assert_eq!(std::fs::read(skill).unwrap(), skill_before);
     assert!(integrator.forget_agent("antigravity").is_err());
+}
+
+#[cfg(unix)]
+#[test]
+fn scans_agents_concurrently() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = tempfile::tempdir().unwrap();
+    let codex = root.path().join("codex-cli");
+    let dsh = root.path().join("dsh-cli");
+    for (program, own, other) in [
+        (&codex, "codex-ready", "dsh-ready"),
+        (&dsh, "dsh-ready", "codex-ready"),
+    ] {
+        let script = format!(
+            "#!/bin/sh\nif [ \"$1\" = --version ]; then\n  touch '{}'
+  i=0; while [ ! -f '{}' ]; do i=$((i+1)); [ \"$i\" -lt 100 ] || exit 1; sleep 0.05; done
+  echo 1.0\nelse echo '{{\"installed\":[],\"marketplaces\":[],\"servers\":[]}}'; fi\n",
+            root.path().join(own).display(),
+            root.path().join(other).display()
+        );
+        std::fs::write(program, script).unwrap();
+        std::fs::set_permissions(program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let paths = HostPaths {
+        codex_home: root.path().join("codex"),
+        dsh_home: root.path().join("dsh"),
+        workbuddy_home: root.path().join("user"),
+        workbuddy_apps: Vec::new(),
+        codex_bin: Some(codex),
+        dsh_bin: Some(dsh),
+        launch_env: BTreeMap::new(),
+    };
+    let integrator = Integrator::with_paths(
+        root.path().join("ossia"),
+        root.path().join("bin"),
+        paths,
+        3211,
+    )
+    .unwrap();
+    let snapshot = integrator.agents().unwrap();
+    assert!(snapshot.agents.iter().any(|agent| agent.id == "codex"));
+    assert!(snapshot.agents.iter().any(|agent| agent.id == "dsh"));
 }
 
 #[test]

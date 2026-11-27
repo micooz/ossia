@@ -95,16 +95,7 @@ impl AgentAdapter for Antigravity {
         }
     }
     fn detect(&self, paths: &HostPaths) -> Option<DetectedAgent> {
-        let host = hosts(paths).into_iter().next()?;
-        Some(DetectedAgent {
-            command: host.executable.clone(),
-            executable: host.executable,
-            command_args: vec![],
-            version: host.version,
-            config_root: paths.workbuddy_home.join(".gemini/config"),
-            profile: "default",
-            env: Default::default(),
-        })
+        detected(paths, &hosts(paths))
     }
 
     fn config_path(&self, ctx: &AgentContext) -> PathBuf {
@@ -259,6 +250,19 @@ impl AgentAdapter for Antigravity {
     fn remove_legacy(&self, _: &AgentContext, _: &LegacyRecord) -> Result<(), AppError> {
         Ok(())
     }
+}
+
+pub(crate) fn detected(paths: &HostPaths, hosts: &[Host]) -> Option<DetectedAgent> {
+    let host = hosts.first()?;
+    Some(DetectedAgent {
+        command: host.executable.clone(),
+        executable: host.executable.clone(),
+        command_args: vec![],
+        version: host.version.clone(),
+        config_root: paths.workbuddy_home.join(".gemini/config"),
+        profile: "default",
+        env: Default::default(),
+    })
 }
 
 #[derive(Clone)]
