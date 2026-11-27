@@ -148,7 +148,7 @@ fn output_with_timeout(
     })
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 fn run_with_timeout(
     program: &Path,
     args: &[String],
