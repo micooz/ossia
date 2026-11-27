@@ -218,7 +218,7 @@ code {
   align-items: center;
   gap: 0.6rem 0.8rem;
   padding-block: 0.65rem;
-  padding-inline: 1.5rem;
+  padding-inline: 0.85rem;
   min-block-size: 64px;
   border-block-end-color: var(--topbar-border);
   background: linear-gradient(180deg, var(--topbar-bg-top), var(--topbar-bg-bottom));
@@ -233,9 +233,10 @@ code {
   align-items: center;
   flex: 0 0 auto;
   flex-wrap: nowrap;
-  gap: 0.55rem;
+  gap: 0.25rem;
   grid-column: 3;
-  justify-self: end;
+  justify-self: stretch;
+  justify-content: flex-end;
   min-block-size: 2rem;
   min-inline-size: 0;
 }
@@ -268,6 +269,8 @@ code {
   justify-self: start;
   min-inline-size: 0;
   max-inline-size: 100%;
+  inline-size: 100%;
+  container: score-title / inline-size;
 }
 .score-selector-trigger {
   flex: 0 1 auto;
@@ -280,11 +283,12 @@ code {
 }
 .score-title-selector {
   position: relative;
+  flex: 0 1 auto;
   min-inline-size: 0;
   max-inline-size: 100%;
 }
 .score-title-trigger {
-  max-inline-size: min(20rem, 100%);
+  max-inline-size: 100%;
 }
 .score-title-copy {
   position: absolute;
@@ -438,7 +442,21 @@ code {
 .score-version-control {
   display: inline-flex;
   align-items: center;
+  flex: 0 1 auto;
   min-inline-size: 0;
+}
+.topbar-right[data-compact-version-label='true'] .score-version-trigger .score-selector-label,
+.topbar-right[data-compact-version-label='true'] .score-version-trigger .score-selector-chevron {
+  display: none;
+}
+.topbar-right[data-compact-version-label='true'] .score-version-menu-icon {
+  margin-inline-end: 0;
+}
+@container score-title (max-width: 64px) {
+  .score-title-trigger .score-selector-label,
+  .score-title-trigger .score-selector-chevron {
+    display: none;
+  }
 }
 .score-version-control[data-viewing-version='true'] {
   border-radius: 9px;
@@ -452,6 +470,17 @@ code {
 .score-version-control[data-viewing-version='true'] .score-selector-trigger:hover:not(:disabled),
 .score-version-control[data-viewing-version='true'] .score-selector-trigger[data-state='open'] {
   background: color-mix(in srgb, var(--ink) 14%, var(--paper));
+}
+.score-header-actions-popover {
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: var(--topbar-shadow);
 }
 .topbar-action {
   min-block-size: 2rem;
@@ -2230,48 +2259,9 @@ dialog::backdrop {
   }
   .score-topbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     gap: 0.45rem 0.75rem;
     padding-block: 0.65rem;
     padding-inline: 0.85rem;
-  }
-  .topbar-right {
-    grid-column: 3;
-    grid-row: 1;
-    margin-inline-start: 0;
-  }
-  .score-feature-slot {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: center;
-  }
-  .score-title-trigger,
-  .topbar-title-static {
-    grid-column: 1;
-    grid-row: 1;
-    max-inline-size: min(20rem, 100%);
-    justify-self: start;
-  }
-  .score-document-controls {
-    grid-column: 1;
-    grid-row: 1;
-    gap: 0.2rem;
-    max-inline-size: 100%;
-  }
-  .score-selector-trigger {
-    inline-size: 2rem;
-    min-inline-size: 2rem;
-    max-inline-size: 2rem;
-    justify-content: center;
-    gap: 0;
-    padding-inline: 0;
-  }
-  .score-selector-menu-icon {
-    margin-inline-end: 0;
-  }
-  .score-selector-trigger .score-selector-label,
-  .score-selector-trigger .score-selector-chevron {
-    display: none;
   }
   .shared-dialog-header {
     padding: 0.9rem;
@@ -2306,32 +2296,6 @@ dialog::backdrop {
 @media (max-width: 560px) {
   .score-topbar {
     gap: 0.15rem;
-    padding-inline: 0.7rem;
-  }
-  .topbar-right {
-    gap: 1px;
-  }
-  .score-document-controls {
-    gap: 1px;
-  }
-  .score-selector-trigger {
-    inline-size: 1.75rem;
-    min-inline-size: 1.75rem;
-    max-inline-size: 1.75rem;
-  }
-  .score-topbar .topbar-help,
-  .score-topbar .topbar-export,
-  .score-topbar .topbar-qr {
-    inline-size: 1.75rem;
-    block-size: 1.75rem;
-    min-block-size: 1.75rem;
-    padding-inline: 0;
-  }
-}
-@media (max-width: 480px) {
-  .score-topbar:has(.score-feature-toolbar) .score-feature-slot {
-    grid-column: 1 / -1;
-    grid-row: 2;
   }
 }
 @media (hover: none) {

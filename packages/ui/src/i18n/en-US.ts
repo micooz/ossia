@@ -143,6 +143,7 @@ export const enUS = {
   exportFailed: 'Could not export: {error}',
   viewControls: 'Score view controls',
   helpAction: 'Help',
+  moreActions: 'More actions',
   helpTitle: 'Help',
   helpPlayback: 'Playback',
   helpAnnotation: 'Annotation',

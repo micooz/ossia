@@ -19,7 +19,7 @@ test('score page focuses on one document, all pages and its title', async ({ con
   await expect(page.locator('.score-image')).toHaveCount(2);
   await expect(page.locator('.topbar-right .score-actions')).toBeVisible();
   const documentControls = page.locator('.score-document-controls');
-  const versionButton = documentControls.getByRole('button', { name: /^Version 2/ });
+  const versionButton = page.locator('.topbar-right').getByRole('button', { name: /^Version 2/ });
   await expect(documentControls.locator('.score-title-menu-icon')).toBeVisible();
   await expect(versionButton.locator('.score-version-menu-icon')).toBeVisible();
   await expect(versionButton).toHaveText('Version 2 (current)');
@@ -508,6 +508,7 @@ test('QR panel opens the current score LAN link and remains scannable in dark mo
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.goto(`/scores?documentId=${firstId}`);
   const trigger = page.getByRole('button', { name: '二维码', exact: true });
+  await page.getByRole('button', { name: '更多操作' }).click();
   await expect(trigger).toBeEnabled();
   await trigger.click();
   const panel = page.getByRole('dialog', { name: '二维码' });
@@ -992,31 +993,114 @@ test('long score titles do not overlap the version selector', async ({ context, 
     const scoreBox = await score.boundingBox();
     const versionBox = await version.boundingBox();
     expect(scoreBox!.x + scoreBox!.width).toBeLessThanOrEqual(versionBox!.x);
+    const toolbar = (await page.locator('.score-feature-slot').boundingBox())!;
+    expect(toolbar.x + toolbar.width / 2).toBeCloseTo(width / 2, 0);
   }
+  await page.setViewportSize({ width: 1600, height: 800 });
+  expect((await score.boundingBox())!.width).toBeGreaterThan(400);
   await version.click();
   await expect(page.getByRole('menuitemradio', { name: /Version 2/ })).toBeVisible();
 });
 
-test('narrow topbar keeps one row and collapses the score selector to a menu icon', async ({
-  context,
-  page,
-}) => {
+test('topbar adapts without overlap and keeps the score icon fixed', async ({ context, page }) => {
   await mockScoreRuntime(context);
-  await page.setViewportSize({ width: 640, height: 800 });
+  await page.setViewportSize({ width: 1200, height: 800 });
   await page.goto(`/scores?documentId=${firstId}`);
-  await expect(page.locator('.topbar-brand, .topbar-brand-label')).toHaveCount(0);
-  const triggerElement = page.locator('.score-title-trigger');
-  await expect(triggerElement.locator('.score-title-label')).toBeHidden();
-  await expect(triggerElement.locator('.score-title-menu-icon')).toBeVisible();
-  const trigger = await triggerElement.boundingBox();
-  const toolbar = await page.locator('.score-feature-toolbar').boundingBox();
-  const right = await page.locator('.topbar-right').boundingBox();
-  expect(trigger!.x + trigger!.width).toBeLessThan(right!.x);
-  expect(toolbar!.y).toBeLessThan(trigger!.y + trigger!.height);
-  expect(trigger!.y).toBeLessThan(toolbar!.y + toolbar!.height);
-  expect(right!.y).toBeLessThan(toolbar!.y + toolbar!.height);
-  expect(toolbar!.x + toolbar!.width / 2).toBeCloseTo(
-    await page.evaluate(() => window.innerWidth / 2),
+  const score = page.locator('.score-title-trigger');
+  const icon = score.locator('.score-title-menu-icon');
+  const iconX = (await icon.boundingBox())!.x;
+  let previousCount = 0;
+  for (const width of [
+    320, 375, 420, 500, 560, 600, 640, 680, 700, 740, 760, 780, 800, 900, 1200,
+  ]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    const scoreBox = (await score.boundingBox())!;
+    const toolbarBox = (await page.locator('.score-feature-toolbar').boundingBox())!;
+    expect((await icon.boundingBox())!.x).toBeCloseTo(iconX, 0);
+    expect(toolbarBox.x + toolbarBox.width / 2).toBeCloseTo(width / 2, 0);
+    expect(scoreBox.x + scoreBox.width).toBeLessThanOrEqual(toolbarBox.x);
+    const buttons = page.locator('.topbar-right button:visible');
+    const count = await buttons.count();
+    expect(count).toBeGreaterThanOrEqual(previousCount);
+    previousCount = count;
+    for (const button of await buttons.all()) {
+      const box = (await button.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(toolbarBox.x + toolbarBox.width);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
+  }
+  await page.setViewportSize({ width: 640, height: 800 });
+  await expect(score.locator('.score-title-label')).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 800 });
+  await expect(page.getByRole('button', { name: '更多操作' })).toBeVisible();
+  await page.getByRole('button', { name: '更多操作' }).click();
+  await page.locator('.score-header-actions-popover .score-version-trigger').click();
+  await expect(page.getByRole('menuitemradio', { name: /版本 2/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '乐谱设置' }).click();
+  await expect(page.getByRole('dialog', { name: '乐谱设置' })).toBeVisible();
+});
+
+test('version label uses available space beside the toolbar', async ({ context, page }) => {
+  await mockScoreRuntime(context);
+  await page.setViewportSize({ width: 800, height: 800 });
+  await page.goto(`/scores?documentId=${firstId}`);
+  const version = page.locator('.topbar-right .score-version-trigger');
+  const label = version.locator('.score-selector-label');
+  await expect(page.locator('.score-feature-toolbar')).toBeVisible();
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  await expect(label).toBeVisible();
+  expect((await label.boundingBox())!.width).toBeGreaterThan(35);
+  const toolbar = (await page.locator('.score-feature-toolbar').boundingBox())!;
+  const versionBox = (await version.boundingBox())!;
+  expect(versionBox.x).toBeGreaterThanOrEqual(toolbar.x + toolbar.width);
+});
+
+test('version label stays visible as the window grows', async ({ context, page }) => {
+  await mockScoreRuntime(context);
+  await page.setViewportSize({ width: 400, height: 800 });
+  await page.goto(`/scores?documentId=${firstId}`);
+  await expect(page.locator('.score-feature-toolbar')).toBeVisible();
+  let wasVisible = false;
+  for (let width = 400; width <= 1000; width += 8) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    const visible = await page
+      .locator('.topbar-right .score-version-trigger .score-selector-label')
+      .isVisible();
+    expect(wasVisible && !visible, `version label disappeared at ${width}px`).toBe(false);
+    wasVisible ||= visible;
+  }
+  expect(wasVisible).toBe(true);
+});
+
+test('compact version selector centers its icon', async ({ context, page }) => {
+  await mockScoreRuntime(context);
+  await page.setViewportSize({ width: 440, height: 800 });
+  await page.goto(`/scores?documentId=${firstId}`);
+  const version = page.locator('.topbar-right .score-version-trigger');
+  await expect(version).toBeVisible();
+  await expect(version.locator('.score-selector-label')).toBeHidden();
+  const buttonBox = (await version.boundingBox())!;
+  const iconBox = (await version.locator('.score-version-menu-icon').boundingBox())!;
+  expect(iconBox.x - buttonBox.x).toBeCloseTo(
+    buttonBox.x + buttonBox.width - iconBox.x - iconBox.width,
     0,
   );
 });

@@ -136,6 +136,7 @@ export const zhCN: Record<MessageKey, string> = {
   exportFailed: '无法导出：{error}',
   viewControls: '谱面视图控件',
   helpAction: '帮助',
+  moreActions: '更多操作',
   helpTitle: '帮助',
   helpPlayback: '播放',
   helpAnnotation: '标注',

@@ -1,5 +1,6 @@
-import { FileMusic } from 'lucide-react';
-import { useLayoutEffect, useRef } from 'react';
+import * as Popover from '@radix-ui/react-popover';
+import { FileMusic, MoreHorizontal } from 'lucide-react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 
 import { Button } from '../../components/ui/button.tsx';
@@ -83,6 +84,78 @@ export function ScorePageHeader({
   onError,
 }: ScorePageHeaderProps) {
   const { t } = useI18n();
+  const rightRef = useRef<HTMLDivElement>(null);
+  const [rightWidth, setRightWidth] = useState(0);
+  useLayoutEffect(() => {
+    const element = rightRef.current;
+    if (!element) return;
+    const update = () => {
+      if (!document.querySelector('dialog[open]')) setRightWidth(element.clientWidth);
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    document.addEventListener('close', update, true);
+    update();
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('close', update, true);
+    };
+  }, []);
+  const compactVersion = rightWidth < 72;
+  const versionLabelWidth = 104;
+  const actionWidth = 36;
+  const visibleActions =
+    rightWidth >= versionLabelWidth + actionWidth * 4
+      ? 4
+      : Math.max(
+          0,
+          Math.min(3, Math.floor((rightWidth - versionLabelWidth - actionWidth) / actionWidth)),
+        );
+  const versionControl = doc && !notFound && (
+    <ScoreVersionMenu
+      versions={versions}
+      draftAvailable={draftAvailable}
+      editing={doc.editState === 'active'}
+      viewingVersionId={historyVersion}
+      onViewVersion={(versionId) => {
+        onViewVersion(versionId);
+        onCompare(null);
+        onClearNotice();
+      }}
+      documentHint={documentHint}
+    />
+  );
+  const actions =
+    doc && !notFound
+      ? [
+          <ScoreToolbar
+            key="export"
+            api={api}
+            versions={versions}
+            viewingVersionId={historyVersion}
+            compareVersionId={compareVersion}
+            onCompare={onCompare}
+            documentTitle={doc.title}
+            currentRender={render}
+            documentHint={documentHint}
+            exportVersionId={exportVersionId}
+            exportDisabled={!!compareVersion}
+            drawing={drawing}
+            documentId={doc.documentId}
+          />,
+          <ScoreQrCode key="qr" webBaseUrl={webBaseUrl} documentId={doc.documentId} />,
+          <ScoreSettingsDialog
+            key="settings"
+            api={api}
+            settings={scoreSettings}
+            parts={playbackParts}
+            onError={onError}
+          />,
+          <ScoreHelpDialog key="help" />,
+        ]
+      : [<ScoreHelpDialog key="help" />];
+  const hasOverflow = compactVersion || visibleActions < actions.length;
+  const versionWidth = rightWidth - visibleActions * actionWidth - (hasOverflow ? actionWidth : 0);
   return (
     <header className="bar score-topbar">
       <div className="score-document-controls">
@@ -101,49 +174,47 @@ export function ScorePageHeader({
             {notFound ? t('scoreNotFoundTitle') : (doc?.title ?? '')}
           </span>
         )}
-        {doc && !notFound && (
-          <ScoreVersionMenu
-            versions={versions}
-            draftAvailable={draftAvailable}
-            editing={doc.editState === 'active'}
-            viewingVersionId={historyVersion}
-            onViewVersion={(versionId) => {
-              onViewVersion(versionId);
-              onCompare(null);
-              onClearNotice();
-            }}
-            documentHint={documentHint}
-          />
-        )}
       </div>
       <div className="score-feature-slot">{featureToolbar}</div>
-      <div className="topbar-right">
-        {doc && !notFound && (
-          <ScoreToolbar
-            api={api}
-            versions={versions}
-            viewingVersionId={historyVersion}
-            compareVersionId={compareVersion}
-            onCompare={onCompare}
-            documentTitle={doc.title}
-            currentRender={render}
-            documentHint={documentHint}
-            exportVersionId={exportVersionId}
-            exportDisabled={!!compareVersion}
-            drawing={drawing}
-            documentId={doc.documentId}
-          />
+      <div
+        className="topbar-right"
+        ref={rightRef}
+        data-compact-version-label={versionWidth < versionLabelWidth ? 'true' : undefined}
+      >
+        {!compactVersion && versionControl}
+        {actions.slice(0, visibleActions)}
+        {hasOverflow && (
+          <Popover.Root>
+            <Popover.Trigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="topbar-action"
+                aria-label={t('moreActions')}
+              >
+                <MoreHorizontal aria-hidden="true" size={19} />
+              </Button>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                className="score-header-actions-popover"
+                align="end"
+                sideOffset={8}
+                onInteractOutside={(event) => {
+                  if (
+                    event.target instanceof Element &&
+                    event.target.closest('dialog, .score-qr-panel')
+                  )
+                    event.preventDefault();
+                }}
+              >
+                {compactVersion && versionControl}
+                {actions.slice(visibleActions)}
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
         )}
-        {doc && !notFound && <ScoreQrCode webBaseUrl={webBaseUrl} documentId={doc.documentId} />}
-        {doc && !notFound && (
-          <ScoreSettingsDialog
-            api={api}
-            settings={scoreSettings}
-            parts={playbackParts}
-            onError={onError}
-          />
-        )}
-        <ScoreHelpDialog />
       </div>
     </header>
   );
