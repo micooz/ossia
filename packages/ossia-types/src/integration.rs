@@ -82,6 +82,9 @@ pub struct AgentIntegration {
     pub icon: String,
     pub method: InstallMethod,
     pub state: AgentState,
+    /// Error encountered while inspecting this Agent's configuration.
+    #[serde(default)]
+    pub error: Option<String>,
     pub installed: bool,
     pub enabled: bool,
     pub managed: bool,

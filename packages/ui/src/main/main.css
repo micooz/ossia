@@ -1157,6 +1157,10 @@ button.score-card-title:hover {
   background: var(--hover-surface);
 }
 
+.agent-chip[aria-disabled='true'] {
+  cursor: default;
+}
+
 .agent-chip.is-on {
   border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
@@ -1252,9 +1256,23 @@ button.score-card-title:hover {
   gap: 16px;
 }
 
-.agent-detail-head span {
+.agent-detail-head > span,
+.agent-detail-status {
   color: var(--muted);
   font-size: 11px;
+}
+
+.agent-detail-status {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: help;
+}
+
+.agent-detail-status:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 2px;
 }
 
 .agent-detail dl {
@@ -1903,7 +1921,8 @@ button.service-badge:hover {
 }
 
 .agent-chip.is-installed .agent-chip-state,
-.agent-detail.is-installed .agent-detail-head span {
+.agent-detail.is-installed .agent-detail-head > span,
+.agent-detail.is-installed .agent-detail-status {
   color: var(--success);
 }
 

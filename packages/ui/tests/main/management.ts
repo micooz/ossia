@@ -21,9 +21,14 @@ export async function mockManagement(
   {
     empty = false,
     initializing = false,
+    agentLoadError = '',
+    agentConfigError = '',
+    agentConfigManaged = false,
     dshState = 'available',
     workbuddies = [],
     claude = false,
+    claudeHostError = '',
+    antigravityConflict = false,
     pi = false,
     initialRuntime = false,
     scores = [],
@@ -40,9 +45,14 @@ export async function mockManagement(
     agentPaths = {},
   }: {
     claude?: boolean | 'desktop' | 'code';
+    claudeHostError?: string;
+    antigravityConflict?: boolean;
     pi?: boolean;
     empty?: boolean;
     initializing?: boolean;
+    agentLoadError?: string;
+    agentConfigError?: string;
+    agentConfigManaged?: boolean;
     dshState?: AgentIntegration['state'];
     workbuddies?: Array<{
       id?: string;
@@ -115,6 +125,7 @@ export async function mockManagement(
     icon: 'codex',
     method: 'plugin',
     state: 'installed',
+    error: null,
     installed: true,
     enabled: true,
     managed: true,
@@ -155,6 +166,26 @@ export async function mockManagement(
           ]
         : [],
   };
+  if (agentConfigError)
+    Object.assign(available, {
+      state: 'unavailable',
+      error: agentConfigError,
+      managed: agentConfigManaged,
+      hosts: agentConfigManaged
+        ? [
+            {
+              name: 'DeepSeek Harness',
+              error: null,
+              method: 'mcp',
+              state: 'unavailable',
+              version: null,
+              configPath: available.configPath,
+              reloadHint: null,
+              conflicts: [],
+            },
+          ]
+        : [],
+    });
   const workbuddyAgents: AgentIntegration[] = workbuddies.map((item, index) => {
     const state = item.state ?? 'available';
     const installed = item.installed ?? (state === 'installed' || state === 'disabled');
@@ -228,6 +259,7 @@ export async function mockManagement(
       },
     ],
   };
+  if (claudeHostError) claudeAgent.hosts[1]!.error = claudeHostError;
   if (claude === 'desktop' || claude === 'code') {
     claudeAgent.hosts = claudeAgent.hosts.filter((host) =>
       claude === 'desktop' ? host.name === 'Claude Desktop' : host.name === 'Claude Code',
@@ -243,6 +275,34 @@ export async function mockManagement(
           ...workbuddyAgents,
           ...(claude ? [claudeAgent] : []),
           ...(pi ? [{ ...connected, id: 'pi', name: 'Pi', icon: 'pi' }] : []),
+          ...(antigravityConflict
+            ? [
+                {
+                  ...connected,
+                  id: 'antigravity',
+                  name: 'Antigravity',
+                  icon: 'antigravity',
+                  state: 'conflict' as const,
+                  hosts: ['Antigravity', 'Antigravity CLI'].map((name) => ({
+                    name,
+                    error: null,
+                    method: 'mcp' as const,
+                    state: 'conflict' as const,
+                    version: '1',
+                    configPath: '/example/mcp_config.json',
+                    reloadHint: null,
+                    conflicts: [
+                      { target: '/example/SKILL.md', kind: 'file', message: 'Skill was modified' },
+                      {
+                        target: '/example/mcp_config.json',
+                        kind: 'json-entry',
+                        message: 'MCP was modified',
+                      },
+                    ],
+                  })),
+                },
+              ]
+            : []),
         ],
     connectionOrder: empty ? [] : ['codex'],
     syncing: false,
@@ -285,6 +345,7 @@ export async function mockManagement(
     agents,
     storage,
     initializing,
+    agentLoadError,
     scores,
     archivedScores,
     previewStates,
@@ -298,6 +359,7 @@ export async function mockManagement(
       agents,
       storage,
       initializing,
+      agentLoadError,
       scores,
       archivedScores,
       previewStates,
@@ -309,6 +371,7 @@ export async function mockManagement(
       agents: AgentsSnapshot;
       storage: StorageStatus;
       initializing: boolean;
+      agentLoadError: string;
       scores: ManagementScoreSummary[];
       archivedScores: ManagementScoreSummary[];
       previewStates: Record<string, ManagementScorePreview>;
@@ -319,8 +382,12 @@ export async function mockManagement(
     const callbacks = new Map<number, (event: unknown) => void>();
     const eventHandlers = new Map<string, number>();
     let releaseAgentChange: (() => void) | null = null;
+    let agentStateError = agentLoadError;
+    let holdAgentState = false;
+    let releaseAgentState: (() => void) | null = null;
     const commands: string[] = [];
     const agentChanges: AgentsChange[] = [];
+    const forgottenAgents: string[] = [];
     const previewCalls: string[] = [];
     const openedScores: string[] = [];
     const openedLinks: string[] = [];
@@ -348,6 +415,7 @@ export async function mockManagement(
           token?: string | null;
           event?: string;
           handler?: number;
+          agentId?: string;
           change?: AgentsChange | ManagementPreferencesChange | OmrSettingsChange;
           args?: {
             limit?: number;
@@ -431,12 +499,28 @@ export async function mockManagement(
           return report;
         }
         if (command === 'management_agents_state') {
+          if (agentStateError) throw new Error(agentStateError);
           if (initializing) {
             await new Promise<void>((resolve) => {
               ownWindow.finishAgentDetection = resolve;
             });
           }
-          return agents;
+          const snapshot = structuredClone(agents);
+          if (holdAgentState) {
+            holdAgentState = false;
+            await new Promise<void>((resolve) => {
+              releaseAgentState = resolve;
+            });
+          }
+          return snapshot;
+        }
+        if (command === 'management_agents_forget') {
+          const id = String(args?.agentId);
+          forgottenAgents.push(id);
+          const agent = agents.agents.find((item) => item.id === id);
+          if (agent) agent.managed = false;
+          agents.connectionOrder = agents.connectionOrder.filter((item) => item !== id);
+          return structuredClone(agents);
         }
         if (command === 'management_agents_change' && args?.change && 'agentIds' in args.change) {
           agentChanges.push(args.change as AgentsChange);
@@ -555,6 +639,7 @@ export async function mockManagement(
       __TAURI_INTERNALS__?: typeof internals;
       managementCommands?: string[];
       managementAgentChanges?: AgentsChange[];
+      managementForgottenAgents?: string[];
       scorePreviewCalls?: string[];
       openedScores?: string[];
       openedLinks?: string[];
@@ -562,6 +647,10 @@ export async function mockManagement(
       setScores?: (scores: ManagementScoreSummary[]) => void;
       setScorePreview?: (documentId: string, outcome: ManagementScorePreview) => void;
       finishAgentDetection?: () => void;
+      setAgentState?: (id: string, enabled: boolean) => void;
+      setAgentStateError?: (message: string) => void;
+      holdAgentState?: () => void;
+      releaseAgentState?: () => void;
       releaseAgentChange?: () => boolean;
       __TAURI_EVENT_PLUGIN_INTERNALS__?: {
         unregisterListener: () => void;
@@ -575,6 +664,24 @@ export async function mockManagement(
     };
     ownWindow.managementCommands = commands;
     ownWindow.managementAgentChanges = agentChanges;
+    ownWindow.managementForgottenAgents = forgottenAgents;
+    ownWindow.setAgentState = (id, enabled) => {
+      const agent = agents.agents.find((item) => item.id === id);
+      if (!agent) return;
+      agent.installed = enabled;
+      agent.enabled = enabled;
+      agent.managed = enabled;
+      agent.state = enabled ? 'installed' : 'available';
+    };
+    ownWindow.setAgentStateError = (message) => {
+      agentStateError = message;
+    };
+    ownWindow.holdAgentState = () => {
+      holdAgentState = true;
+    };
+    ownWindow.releaseAgentState = () => {
+      releaseAgentState?.();
+    };
     ownWindow.scorePreviewCalls = previewCalls;
     ownWindow.openedScores = openedScores;
     ownWindow.openedLinks = openedLinks;

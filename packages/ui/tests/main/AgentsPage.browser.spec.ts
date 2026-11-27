@@ -2,6 +2,111 @@ import { expect, test } from '@playwright/test';
 
 import { mockManagement, releaseAgentChange } from './management.ts';
 
+test('refreshes silently on returning to Agent and on window focus', async ({ page }) => {
+  await mockManagement(page);
+  await page.goto('/main.html');
+  await expect(page.getByRole('button', { name: '移除 Codex 插件' })).toBeVisible();
+  await page.getByRole('button', { name: '常规', exact: true }).click();
+  await page.evaluate(() => {
+    (window as Window & { setAgentState?: (id: string, enabled: boolean) => void }).setAgentState?.(
+      'codex',
+      false,
+    );
+  });
+  await page.getByRole('button', { name: 'Agent', exact: true }).click();
+  await expect(page.getByRole('button', { name: '安装 Codex 插件' })).toBeVisible();
+  await page.evaluate(() => {
+    (window as Window & { setAgentState?: (id: string, enabled: boolean) => void }).setAgentState?.(
+      'codex',
+      true,
+    );
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect(page.getByRole('button', { name: '移除 Codex 插件' })).toBeVisible();
+  await page.evaluate(() => {
+    (window as Window & { setAgentStateError?: (message: string) => void }).setAgentStateError?.(
+      'refresh failed',
+    );
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as Window & { managementCommands?: string[] }).managementCommands?.filter(
+            (command) => command === 'management_agents_state',
+          ).length,
+      ),
+    )
+    .toBeGreaterThanOrEqual(4);
+  await expect(page.getByRole('button', { name: '移除 Codex 插件' })).toBeVisible();
+  await expect(page.getByText('refresh failed')).toHaveCount(0);
+});
+
+test('an older refresh cannot overwrite a completed Agent change', async ({ page }) => {
+  await mockManagement(page);
+  await page.goto('/main.html');
+  const codex = page.getByRole('button', { name: '移除 Codex 插件' });
+  await expect(codex).toBeVisible();
+  await page.evaluate(() => {
+    (window as Window & { holdAgentState?: () => void }).holdAgentState?.();
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as Window & { managementCommands?: string[] }).managementCommands?.filter(
+            (command) => command === 'management_agents_state',
+          ).length,
+      ),
+    )
+    .toBeGreaterThanOrEqual(2);
+  await codex.click();
+  await releaseAgentChange(page);
+  await expect(page.getByRole('button', { name: '安装 Codex 插件' })).toBeVisible();
+  await page.evaluate(() =>
+    (window as Window & { releaseAgentState?: () => void }).releaseAgentState?.(),
+  );
+  await expect(page.getByRole('button', { name: '安装 Codex 插件' })).toBeVisible();
+});
+
+test('agent detail states show all conflicts in a tooltip', async ({ page }) => {
+  await mockManagement(page, {
+    antigravityConflict: true,
+    workbuddies: [{ state: 'conflict', installed: true }],
+  });
+  await page.goto('/main.html');
+  const details = page.locator('.agent-detail').filter({ hasText: 'Antigravity' });
+  await expect(details).toHaveCount(2);
+  for (const detail of await details.all()) {
+    await expect(detail.locator('.error')).toHaveCount(0);
+    const status = detail.getByRole('button', { name: '冲突' });
+    await status.focus();
+    await expect(page.getByRole('tooltip')).toContainText('/example/SKILL.md: Skill was modified');
+    await expect(page.getByRole('tooltip')).toContainText(
+      '/example/mcp_config.json: MCP was modified',
+    );
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+  }
+  const workbuddy = page.locator('.agent-detail').filter({ hasText: 'WorkBuddy' });
+  await expect(workbuddy.locator('.error')).toHaveCount(0);
+  await workbuddy.getByRole('button', { name: '冲突' }).hover();
+  await expect(page.getByRole('tooltip')).toContainText(
+    'the WorkBuddy marketplace name belongs to another source',
+  );
+});
+
+test('host errors appear in the host status tooltip', async ({ page }) => {
+  await mockManagement(page, { claude: true, claudeHostError: 'Host configuration failed' });
+  await page.goto('/main.html');
+  const detail = page.locator('.agent-detail').filter({ hasText: 'Claude Code' });
+  await expect(detail.locator('.error')).toHaveCount(0);
+  await detail.getByRole('button', { name: '需修复' }).focus();
+  await expect(page.getByRole('tooltip')).toContainText('Host configuration failed');
+});
+
 test('Agent changes can be queued independently', async ({ page }) => {
   await mockManagement(page);
   await page.goto('/main.html');

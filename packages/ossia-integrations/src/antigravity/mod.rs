@@ -2,14 +2,14 @@ use crate::*;
 use serde_json::{json, Value};
 use std::{fs, path::PathBuf};
 
-pub(crate) struct Pi;
+pub(crate) struct Antigravity;
 
 #[cfg(test)]
-#[path = "../tests/pi.rs"]
+#[path = "../../tests/antigravity/mod.rs"]
 mod tests;
 
 fn config(ctx: &AgentContext) -> PathBuf {
-    ctx.detected.config_root.join("mcp.json")
+    ctx.detected.config_root.join("mcp_config.json")
 }
 fn skill_path(ctx: &AgentContext) -> PathBuf {
     ctx.detected.config_root.join("skills/ossia/SKILL.md")
@@ -17,13 +17,15 @@ fn skill_path(ctx: &AgentContext) -> PathBuf {
 fn read(ctx: &AgentContext) -> Result<Value, AppError> {
     let path = config(ctx);
     let value: Value = if path.exists() {
-        serde_json::from_slice(&fs::read(path).map_err(record::storage)?)
-            .map_err(|e| record::storage(format!("invalid Pi MCP configuration: {e}")))?
+        parse_json_or_empty(&fs::read(path).map_err(record::storage)?)
+            .map_err(|e| record::storage(format!("invalid Antigravity MCP configuration: {e}")))?
     } else {
         json!({})
     };
     if !value.is_object() || value.get("mcpServers").is_some_and(|v| !v.is_object()) {
-        return Err(record::storage("invalid Pi mcpServers configuration"));
+        return Err(record::storage(
+            "invalid Antigravity mcpServers configuration",
+        ));
     }
     Ok(value)
 }
@@ -45,14 +47,6 @@ fn owned(
         })
     })
 }
-fn supported(ctx: &AgentContext) -> bool {
-    command::run(
-        &ctx.detected.command,
-        &command::arguments(&["mcp", "--help"]),
-        &ctx.detected.env,
-    )
-    .is_ok_and(|out| out.contains("mcp.json") && out.contains("mcp add"))
-}
 fn conflicts(
     ctx: &AgentContext,
     value: &Value,
@@ -64,7 +58,7 @@ fn conflicts(
         found.push(conflict(
             "mcpServers.ossia",
             "json-entry",
-            "Pi MCP entry is not managed or was modified",
+            "Antigravity MCP entry is not managed or was modified",
         ));
     }
     let path = skill_path(ctx);
@@ -74,30 +68,20 @@ fn conflicts(
         found.push(conflict(
             path_text(&path),
             "file",
-            "Pi Ossia skill is not managed or was modified",
+            "Antigravity Ossia skill is not managed or was modified",
         ));
     }
     found
 }
-fn fail_unsupported(ctx: &AgentContext) -> Result<(), AppError> {
-    if supported(ctx) {
-        Ok(())
-    } else {
-        Err(AppError::new(
-            ErrorCode::RuntimeIncompatible,
-            "Pi does not support the required built-in MCP configuration",
-        ))
-    }
-}
-impl AgentAdapter for Pi {
+impl AgentAdapter for Antigravity {
     fn id(&self) -> &str {
-        "pi"
+        "antigravity"
     }
     fn name(&self) -> &str {
-        "Pi"
+        "Antigravity"
     }
     fn icon(&self) -> &str {
-        "pi"
+        "antigravity"
     }
     fn method(&self) -> InstallMethod {
         InstallMethod::Mcp
@@ -106,28 +90,23 @@ impl AgentAdapter for Pi {
         "default"
     }
     fn reload_hint(&self) -> AgentNotice {
-        AgentNotice::PiReload
+        AgentNotice::RestartSession {
+            agent: "Antigravity".into(),
+        }
     }
     fn detect(&self, paths: &HostPaths) -> Option<DetectedAgent> {
-        let executable = scan::find(
-            "pi",
-            absolute_env("OSSIA_PI_BIN").as_deref(),
-            scan::common_bin("pi"),
-        )?;
-        let root = absolute_env("PI_CODING_AGENT_DIR")
-            .unwrap_or_else(|| paths.workbuddy_home.join(".pi/agent"));
-        let env = command::host_env("PI_CODING_AGENT_DIR", &root);
-        let version = command::version(&executable, &env).unwrap_or_default();
+        let host = hosts(paths).into_iter().next()?;
         Some(DetectedAgent {
-            command: executable.clone(),
-            executable,
+            command: host.executable.clone(),
+            executable: host.executable,
             command_args: vec![],
-            version,
-            config_root: root,
+            version: host.version,
+            config_root: paths.workbuddy_home.join(".gemini/config"),
             profile: "default",
-            env,
+            env: Default::default(),
         })
     }
+
     fn config_path(&self, ctx: &AgentContext) -> PathBuf {
         config(ctx)
     }
@@ -136,17 +115,6 @@ impl AgentAdapter for Pi {
         ctx: &AgentContext,
         previous: Option<&ManagedRecord>,
     ) -> Result<AgentInspection, AppError> {
-        if !supported(ctx) {
-            return Ok(AgentInspection {
-                state: AgentState::UpdateRequired,
-                installed: false,
-                enabled: false,
-                managed: previous.is_some(),
-                path: None,
-                message: Some(AgentNotice::PiMcpUnsupported),
-                conflicts: vec![],
-            });
-        }
         let value = read(ctx)?;
         let found = conflicts(ctx, &value, previous);
         let installed = previous.is_some()
@@ -178,7 +146,6 @@ impl AgentAdapter for Pi {
         previous: Option<&ManagedRecord>,
         overwrite: bool,
     ) -> Result<Vec<ManagedEntry>, AppError> {
-        fail_unsupported(ctx)?;
         let mut value = read(ctx)?;
         let found = conflicts(ctx, &value, previous);
         if !overwrite && !found.is_empty() {
@@ -291,5 +258,118 @@ impl AgentAdapter for Pi {
     }
     fn remove_legacy(&self, _: &AgentContext, _: &LegacyRecord) -> Result<(), AppError> {
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct Host {
+    pub(crate) name: &'static str,
+    pub(crate) executable: PathBuf,
+    pub(crate) version: String,
+}
+
+pub(crate) fn hosts(paths: &HostPaths) -> Vec<Host> {
+    let mut found = Vec::new();
+    let home = &paths.workbuddy_home;
+    #[cfg(target_os = "macos")]
+    let apps = vec![
+        PathBuf::from("/Applications/Antigravity.app/Contents/MacOS/Antigravity"),
+        home.join("Applications/Antigravity.app/Contents/MacOS/Antigravity"),
+    ];
+    #[cfg(windows)]
+    let apps = scan::program_files("Antigravity")
+        .into_iter()
+        .map(|p| p.join("Antigravity.exe"))
+        .collect::<Vec<_>>();
+    #[cfg(all(not(windows), not(target_os = "macos")))]
+    let apps = vec![
+        PathBuf::from("/opt/Antigravity/Antigravity"),
+        home.join(".local/opt/Antigravity/Antigravity"),
+        home.join("Applications/Antigravity/Antigravity"),
+    ];
+    if let Some(executable) = apps
+        .into_iter()
+        .find(|p| p.is_file() && app_is_standalone(p))
+    {
+        #[cfg(target_os = "macos")]
+        let version = executable
+            .parent()
+            .and_then(|p| p.parent())
+            .and_then(|p| plist::Value::from_file(p.join("Info.plist")).ok())
+            .and_then(|v| {
+                v.as_dictionary()?
+                    .get("CFBundleShortVersionString")?
+                    .as_string()
+                    .map(str::to_owned)
+            })
+            .unwrap_or_default();
+        #[cfg(not(target_os = "macos"))]
+        let version = String::new();
+        found.push(Host {
+            name: "Antigravity",
+            executable,
+            version,
+        });
+    }
+    if let Some(executable) = scan::find(
+        "agy",
+        absolute_env("OSSIA_ANTIGRAVITY_CLI_BIN").as_deref(),
+        scan::common_bin("agy")
+            .into_iter()
+            .chain([home.join(".gemini/antigravity-cli/bin/agy")]),
+    ) {
+        let version = command::version(&executable, &Default::default()).unwrap_or_default();
+        found.push(Host {
+            name: "Antigravity CLI",
+            executable,
+            version,
+        });
+    }
+    found
+}
+
+#[cfg(target_os = "macos")]
+fn app_is_standalone(executable: &std::path::Path) -> bool {
+    executable
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| plist::Value::from_file(p.join("Info.plist")).ok())
+        .and_then(|v| {
+            v.as_dictionary()?
+                .get("CFBundleIdentifier")?
+                .as_string()
+                .map(str::to_owned)
+        })
+        .is_some_and(|id| id == "com.google.antigravity")
+}
+#[cfg(not(target_os = "macos"))]
+fn app_is_standalone(_: &std::path::Path) -> bool {
+    true
+}
+
+pub(crate) fn present_hosts(agent: &mut AgentIntegration, hosts: &[Host]) {
+    agent.name = if hosts.len() == 1 {
+        hosts[0].name
+    } else {
+        "Antigravity"
+    }
+    .into();
+    agent.hosts = hosts
+        .iter()
+        .map(|host| AgentHost {
+            name: host.name.into(),
+            error: None,
+            method: agent.method,
+            state: agent.state,
+            version: (!host.version.is_empty()).then(|| host.version.clone()),
+            config_path: agent.config_path.clone(),
+            reload_hint: Some(AgentNotice::RestartSession {
+                agent: host.name.into(),
+            }),
+            conflicts: agent.conflicts.clone(),
+        })
+        .collect();
+    if !agent.hosts.is_empty() {
+        agent.reload_hint = None;
     }
 }

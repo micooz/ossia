@@ -11,6 +11,7 @@
     "allow-management-doctor",
     "allow-management-agents-state",
     "allow-management-agents-change",
+    "allow-management-agents-forget",
     "allow-management-preferences",
     "allow-management-preferences-change",
     "allow-management-omr-settings-set",

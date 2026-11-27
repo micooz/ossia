@@ -178,15 +178,16 @@ impl Integrator {
             if detected.is_none() && record.is_none() && legacy.is_none() {
                 continue;
             }
+            let mut inspection_error = None;
             let inspection = match (&detected, record, legacy) {
                 (Some(detected), Some(record), _) => {
                     let ctx = AgentContext {
                         integrator: self,
                         detected,
                     };
-                    adapter.status(&ctx, Some(record))?
+                    adapter.status(&ctx, Some(record))
                 }
-                (Some(_), None, Some(_)) => AgentInspection {
+                (Some(_), None, Some(_)) => Ok(AgentInspection {
                     state: AgentState::UpdateRequired,
                     installed: false,
                     enabled: true,
@@ -194,15 +195,15 @@ impl Integrator {
                     path: None,
                     message: Some(AgentNotice::LegacyReinstall),
                     conflicts: Vec::new(),
-                },
+                }),
                 (Some(detected), None, None) => {
                     let ctx = AgentContext {
                         integrator: self,
                         detected,
                     };
-                    adapter.status(&ctx, None)?
+                    adapter.status(&ctx, None)
                 }
-                (None, Some(record), _) => AgentInspection {
+                (None, Some(record), _) => Ok(AgentInspection {
                     state: AgentState::Unavailable,
                     installed: false,
                     enabled: false,
@@ -210,8 +211,8 @@ impl Integrator {
                     path: Some(record.shared_root.clone()),
                     message: Some(AgentNotice::HostUnavailable),
                     conflicts: Vec::new(),
-                },
-                (None, None, Some(_)) => AgentInspection {
+                }),
+                (None, None, Some(_)) => Ok(AgentInspection {
                     state: AgentState::UpdateRequired,
                     installed: false,
                     enabled: false,
@@ -219,9 +220,32 @@ impl Integrator {
                     path: None,
                     message: Some(AgentNotice::LegacyHostUnavailable),
                     conflicts: Vec::new(),
-                },
+                }),
                 (None, None, None) => unreachable!(),
-            };
+            }
+            .unwrap_or_else(|error| {
+                let detected = detected
+                    .as_ref()
+                    .expect("inspection requires a detected host");
+                let ctx = AgentContext {
+                    integrator: self,
+                    detected,
+                };
+                inspection_error = Some(format!(
+                    "{}: {}",
+                    path_text(adapter.config_path(&ctx)),
+                    error.message
+                ));
+                AgentInspection {
+                    state: AgentState::Unavailable,
+                    installed: false,
+                    enabled: false,
+                    managed: record.is_some(),
+                    path: None,
+                    message: None,
+                    conflicts: Vec::new(),
+                }
+            });
             let config_root = detected
                 .as_ref()
                 .map(|value| path_text(&value.config_root))
@@ -247,6 +271,7 @@ impl Integrator {
                 icon: adapter.icon().into(),
                 method: adapter.method(),
                 state: inspection.state,
+                error: inspection_error,
                 installed: inspection.installed,
                 enabled: inspection.enabled,
                 managed: inspection.managed,
@@ -283,6 +308,11 @@ impl Integrator {
             agents.retain(|agent| agent.id != "claude");
             let mut combined = claude[0].clone();
             combined.profile = None;
+            let errors: Vec<_> = claude
+                .iter()
+                .filter_map(|host| host.error.as_deref())
+                .collect();
+            combined.error = (!errors.is_empty()).then(|| errors.join("; "));
             combined.hosts = claude
                 .iter()
                 .map(|host| AgentHost {
@@ -318,7 +348,9 @@ impl Integrator {
                 .iter()
                 .flat_map(|host| host.conflicts.clone())
                 .collect();
-            combined.state = if !combined.conflicts.is_empty() {
+            combined.state = if combined.error.is_some() {
+                AgentState::Unavailable
+            } else if !combined.conflicts.is_empty() {
                 AgentState::Conflict
             } else if combined.enabled {
                 AgentState::Installed
@@ -336,6 +368,38 @@ impl Integrator {
             syncing: SYNCING.load(Ordering::Relaxed),
             error: None,
         })
+    }
+
+    /// Forget a managed Agent whose status cannot be inspected, without changing its host files.
+    pub fn forget_agent(&self, id: &str) -> Result<AgentsSnapshot, AppError> {
+        let shared = record::shared_lock(&self.shared_root)?;
+        let lock = record::lock(&self.home)?;
+        let snapshot = self.agents()?;
+        if !snapshot
+            .agents
+            .iter()
+            .any(|agent| agent.id == id && agent.managed && agent.error.is_some())
+        {
+            return Err(AppError::invalid(
+                "Agent has no managed integration with an inspection error",
+            ));
+        }
+        let mut store = record::load(&self.home)?.store;
+        store.records.retain(|_, record| record.agent_id != id);
+        store.connection_order.retain(|agent_id| agent_id != id);
+        store.enabled_groups.retain(|agent_id| agent_id != id);
+        for adapter in registry::adapters(&self.paths)
+            .iter()
+            .filter(|adapter| adapter.id() == id)
+        {
+            store
+                .group_problems
+                .remove(&record::management_id(id, adapter.profile()));
+        }
+        record::write(&self.home, &store)?;
+        drop(lock);
+        drop(shared);
+        self.agents()
     }
 
     pub fn set_agents(&self, change: AgentsChange) -> Result<AgentsMutation, AppError> {

@@ -18,7 +18,7 @@ fn read(path: &Path) -> Result<Value, AppError> {
     if !path.exists() {
         return Ok(json!({}));
     }
-    let value: Value = serde_json::from_slice(&fs::read(path).map_err(record::storage)?)
+    let value: Value = parse_json_or_empty(&fs::read(path).map_err(record::storage)?)
         .map_err(|e| record::storage(format!("invalid Claude Desktop configuration: {e}")))?;
     if !value.is_object() || value.get("mcpServers").is_some_and(|v| !v.is_object()) {
         return Err(record::storage(

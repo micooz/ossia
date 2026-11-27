@@ -1,3 +1,58 @@
+.ui-tooltip-content {
+  z-index: 50;
+  max-width: min(360px, var(--radix-tooltip-content-available-width));
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--text, var(--ink));
+  color: var(--surface, var(--paper));
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  transform-origin: var(--radix-tooltip-content-transform-origin);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ui-tooltip-content[data-state='delayed-open'],
+  .ui-tooltip-content[data-state='instant-open'] {
+    animation: ui-tooltip-enter 150ms ease-out;
+  }
+
+  .ui-tooltip-content[data-state='closed'] {
+    animation: ui-tooltip-exit 150ms ease-in;
+  }
+
+  .ui-tooltip-content[data-side='top'] {
+    --tooltip-enter-y: 0.5rem;
+  }
+  .ui-tooltip-content[data-side='bottom'] {
+    --tooltip-enter-y: -0.5rem;
+  }
+  .ui-tooltip-content[data-side='left'] {
+    --tooltip-enter-x: 0.5rem;
+  }
+  .ui-tooltip-content[data-side='right'] {
+    --tooltip-enter-x: -0.5rem;
+  }
+}
+
+@keyframes ui-tooltip-enter {
+  from {
+    opacity: 0;
+    transform: translate(var(--tooltip-enter-x, 0), var(--tooltip-enter-y, 0)) scale(0.95);
+  }
+}
+
+@keyframes ui-tooltip-exit {
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+.ui-tooltip-arrow {
+  fill: var(--text, var(--ink));
+}
+
 .ui-button {
   display: inline-flex;
   align-items: center;

@@ -94,6 +94,43 @@ fn lifecycle_preserves_unrelated_configuration_and_checks_ownership() {
 }
 #[cfg(unix)]
 #[test]
+fn empty_config_can_be_read_and_installed() {
+    let temp = tempfile::tempdir().unwrap();
+    let (integrator, detected) = fixture(temp.path());
+    let ctx = AgentContext {
+        integrator: &integrator,
+        detected: &detected,
+    };
+    fs::create_dir_all(&detected.config_root).unwrap();
+    for content in ["", " \t\r\n"] {
+        fs::write(config(&ctx), content).unwrap();
+        assert_eq!(
+            Antigravity.status(&ctx, None).unwrap().state,
+            AgentState::Available
+        );
+        assert_eq!(fs::read_to_string(config(&ctx)).unwrap(), content);
+        let mut record = make_record(Antigravity.install(&ctx, None, false).unwrap());
+        assert!(server(&read(&ctx).unwrap()).is_some());
+        assert_eq!(
+            Antigravity.status(&ctx, Some(&record)).unwrap().state,
+            AgentState::Installed
+        );
+        fs::write(config(&ctx), content).unwrap();
+        assert_eq!(
+            Antigravity.status(&ctx, Some(&record)).unwrap().state,
+            AgentState::Broken
+        );
+        assert_eq!(fs::read_to_string(config(&ctx)).unwrap(), content);
+        record.entries = Antigravity.install(&ctx, Some(&record), false).unwrap();
+        assert_eq!(
+            Antigravity.status(&ctx, Some(&record)).unwrap().state,
+            AgentState::Installed
+        );
+        Antigravity.remove(&ctx, &record).unwrap();
+    }
+}
+#[cfg(unix)]
+#[test]
 fn invalid_conflicting_and_missing_are_reported() {
     let temp = tempfile::tempdir().unwrap();
     let (integrator, detected) = fixture(temp.path());
@@ -102,7 +139,7 @@ fn invalid_conflicting_and_missing_are_reported() {
         detected: &detected,
     };
     fs::create_dir_all(&detected.config_root).unwrap();
-    for content in ["{", "[]", "{\"mcpServers\":[]}"] {
+    for content in ["{", "[]", "{\"mcpServers\":[]}", "\u{00a0}", "\u{000b}"] {
         fs::write(config(&ctx), content).unwrap();
         assert!(Antigravity.install(&ctx, None, false).is_err());
         assert_eq!(fs::read_to_string(config(&ctx)).unwrap(), content);
@@ -170,6 +207,7 @@ fn shared_integration_presents_each_detected_host() {
         icon: "antigravity".into(),
         method: InstallMethod::Mcp,
         state: AgentState::Installed,
+        error: None,
         installed: true,
         enabled: true,
         managed: true,

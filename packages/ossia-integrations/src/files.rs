@@ -12,6 +12,17 @@ pub(crate) struct FilePlan {
     pub(crate) kind: &'static str,
 }
 
+pub(crate) fn parse_json_or_empty(bytes: &[u8]) -> serde_json::Result<serde_json::Value> {
+    if bytes
+        .iter()
+        .all(|byte| matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
+    {
+        Ok(serde_json::json!({}))
+    } else {
+        serde_json::from_slice(bytes)
+    }
+}
+
 pub(crate) fn json_file(path: PathBuf, value: serde_json::Value, kind: &'static str) -> FilePlan {
     FilePlan {
         path,

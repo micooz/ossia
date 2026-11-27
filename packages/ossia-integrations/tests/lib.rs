@@ -1,6 +1,88 @@
 use super::*;
 use std::collections::BTreeMap;
 
+#[cfg(unix)]
+#[test]
+fn invalid_host_config_does_not_block_agent_list() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = tempfile::tempdir().unwrap();
+    let home = root.path().join("user");
+    let cli = home.join(".gemini/antigravity-cli/bin/agy");
+    std::fs::create_dir_all(cli.parent().unwrap()).unwrap();
+    std::fs::write(&cli, "#!/bin/sh\nif [ \"$1\" = plugin ] || [ \"$1\" = mcp ]; then echo '{}'; else echo 1.0.0; fi\n").unwrap();
+    std::fs::set_permissions(&cli, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let config = home.join(".gemini/config/mcp_config.json");
+    std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+    let paths = HostPaths {
+        codex_home: root.path().join("codex"),
+        dsh_home: root.path().join("dsh"),
+        workbuddy_home: home,
+        workbuddy_apps: Vec::new(),
+        codex_bin: Some(cli),
+        dsh_bin: None,
+        launch_env: BTreeMap::new(),
+    };
+    let integrator = Integrator::with_paths(
+        root.path().join("ossia"),
+        root.path().join("bin"),
+        paths,
+        3211,
+    )
+    .unwrap();
+    for content in ["{"] {
+        std::fs::write(&config, content).unwrap();
+        let snapshot = integrator.agents().unwrap();
+        assert!(snapshot.agents.iter().any(|agent| agent.id == "codex"));
+        let broken = snapshot
+            .agents
+            .iter()
+            .find(|agent| agent.id == "antigravity")
+            .unwrap();
+        assert_eq!(broken.state, AgentState::Unavailable);
+        let error = broken.error.as_ref().unwrap();
+        assert!(error.contains("invalid Antigravity MCP configuration"));
+        assert!(error.contains("mcp_config.json"));
+        assert!(snapshot.error.is_none());
+        assert_eq!(std::fs::read_to_string(&config).unwrap(), content);
+    }
+    std::fs::write(&config, "{}").unwrap();
+    let snapshot = integrator.agents().unwrap();
+    assert!(snapshot.error.is_none(), "{:?}", snapshot.error);
+    assert_eq!(
+        snapshot
+            .agents
+            .iter()
+            .find(|agent| agent.id == "antigravity")
+            .unwrap()
+            .state,
+        AgentState::Available
+    );
+    let installed = integrator
+        .set_agents(AgentsChange {
+            agent_ids: vec!["antigravity".into()],
+            enabled: true,
+            overwrite: false,
+        })
+        .unwrap();
+    assert!(installed.problems.is_empty());
+    assert!(integrator.forget_agent("antigravity").is_err());
+    let skill = config.parent().unwrap().join("skills/ossia/SKILL.md");
+    let skill_before = std::fs::read(&skill).unwrap();
+    std::fs::write(&config, "{").unwrap();
+    let result = integrator.forget_agent("antigravity").unwrap();
+    let agent = result
+        .agents
+        .iter()
+        .find(|agent| agent.id == "antigravity")
+        .unwrap();
+    assert!(!agent.managed);
+    assert!(agent.error.is_some());
+    assert!(!result.connection_order.contains(&"antigravity".into()));
+    assert_eq!(std::fs::read_to_string(&config).unwrap(), "{");
+    assert_eq!(std::fs::read(skill).unwrap(), skill_before);
+    assert!(integrator.forget_agent("antigravity").is_err());
+}
+
 #[test]
 fn claude_name_reflects_detected_hosts() {
     let host = |name: &str, state| AgentHost {

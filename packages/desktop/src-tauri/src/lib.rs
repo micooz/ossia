@@ -283,6 +283,14 @@ async fn management_agents_change(
 }
 
 #[tauri::command]
+async fn management_agents_forget(
+    state: tauri::State<'_, Management>,
+    agent_id: String,
+) -> Result<AgentsSnapshot> {
+    integrator(&config(&state)?)?.forget_agent(&agent_id)
+}
+
+#[tauri::command]
 async fn management_preferences(
     app: tauri::AppHandle,
     state: tauri::State<'_, Management>,
@@ -670,6 +678,7 @@ pub fn run(config: Result<server::Config>, show_main_window: bool) {
             management_doctor,
             management_agents_state,
             management_agents_change,
+            management_agents_forget,
             management_preferences,
             management_preferences_change,
             management_omr_settings_set,

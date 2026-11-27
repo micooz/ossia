@@ -57,11 +57,14 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
   const [pendingAgents, setPendingAgents] = useState<string[]>([]);
   const pendingAgentIds = useRef(new Set<string>());
   const agentQueue = useRef(Promise.resolve());
+  const agentRequest = useRef(0);
+  const previousPage = useRef(page);
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
   const [preferencesBusy, setPreferencesBusy] = useState(false);
   const [agents, setAgents] = useState<AgentsSnapshot | null>(null);
+  const [agentLoadError, setAgentLoadError] = useState('');
   const [agentProblems, setAgentProblems] = useState<AgentProblem[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null);
@@ -82,11 +85,22 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
     if (state?.error) notify(state.error.message, 'error');
   }, [notify, state?.error?.message]);
 
-  async function loadAgents() {
+  async function loadAgents(silent = false) {
     if (!native) return;
+    if (pendingAgentIds.current.size > 0) {
+      void agentQueue.current.then(() => loadAgents(silent));
+      return;
+    }
+    const request = ++agentRequest.current;
     try {
-      setAgents(await invoke<AgentsSnapshot>('management_agents_state'));
+      const snapshot = await invoke<AgentsSnapshot>('management_agents_state');
+      if (request !== agentRequest.current) return;
+      setAgents(snapshot);
+      setAgentLoadError('');
     } catch (caught) {
+      if (request !== agentRequest.current || silent) return;
+      setAgents(null);
+      setAgentLoadError(describe(caught));
       notify(describe(caught), 'error');
     }
   }
@@ -118,6 +132,18 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
       for (const dispose of disposers) dispose();
       window.clearInterval(timer);
     };
+  }, [native]);
+
+  useEffect(() => {
+    if (native && page === 'agents' && previousPage.current !== 'agents') void loadAgents(true);
+    previousPage.current = page;
+  }, [native, page]);
+
+  useEffect(() => {
+    if (!native) return;
+    const refresh = () => void loadAgents(true);
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
   }, [native]);
 
   useEffect(() => {
@@ -441,6 +467,7 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
   function changeAgents(agentIds: string[], enabled: boolean, overwrite = false) {
     if (!native || agentIds.length === 0 || agentIds.some((id) => pendingAgentIds.current.has(id)))
       return;
+    agentRequest.current++;
     for (const id of agentIds) pendingAgentIds.current.add(id);
     setPendingAgents([...pendingAgentIds.current]);
     setAgentProblems((current) => current.filter((problem) => !agentIds.includes(problem.agentId)));
@@ -468,6 +495,27 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
   }
 
   function toggleAgent(agent: AgentIntegration) {
+    if (agent.error) {
+      if (!agent.managed || pendingAgentIds.current.has(agent.id)) return;
+      agentRequest.current++;
+      pendingAgentIds.current.add(agent.id);
+      setPendingAgents([...pendingAgentIds.current]);
+      agentQueue.current = agentQueue.current.then(async () => {
+        try {
+          setAgents(
+            await invoke<AgentsSnapshot>('management_agents_forget', { agentId: agent.id }),
+          );
+          setAgentProblems((current) => current.filter((problem) => problem.agentId !== agent.id));
+          notify(t('forgetAgentDone'), 'success');
+        } catch (caught) {
+          notify(describe(caught), 'error');
+        } finally {
+          pendingAgentIds.current.delete(agent.id);
+          setPendingAgents([...pendingAgentIds.current]);
+        }
+      });
+      return;
+    }
     if (agent.state === 'conflict') {
       changeAgents([agent.id], true, true);
       return;
@@ -649,6 +697,7 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
             <AgentsPage
               native={native}
               agents={agents}
+              loadError={agentLoadError}
               list={list}
               busy={busy}
               pendingAgents={pendingAgents}

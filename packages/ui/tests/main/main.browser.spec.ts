@@ -2,6 +2,129 @@ import { expect, test } from '@playwright/test';
 
 import { mockManagement, releaseAgentChange } from './management.ts';
 
+test('agent loading failure shows the empty state and an error toast', async ({ page }) => {
+  await mockManagement(page, { agentLoadError: 'Agent state unavailable' });
+  await page.goto('/main.html');
+  await expect(page.locator('.toast-region')).toContainText('Agent state unavailable');
+  await expect(page.getByText('正在检测可接入的 Agent…')).toHaveCount(0);
+  await expect(page.getByText('未检测到可接入的 Agent', { exact: false })).toBeVisible();
+  await expect(page.locator('.agent-list')).not.toContainText('Agent state unavailable');
+});
+
+test('agent tooltip animates its entry and exit and respects reduced motion', async ({ page }) => {
+  await mockManagement(page, { agentConfigError: 'invalid mcp_config.json' });
+  await page.goto('/main.html');
+  const agent = page.getByRole('button', { name: /DeepSeek Harness/ });
+  await agent.hover();
+  const tooltip = page.locator('[data-slot="tooltip-content"]');
+  await expect(tooltip).toHaveCSS('animation-name', 'ui-tooltip-enter');
+  const opacity = await tooltip.evaluate((element) => {
+    const animation = element.getAnimations()[0];
+    if (!animation) throw new Error('Tooltip entry animation is missing');
+    animation.pause();
+    animation.currentTime = 0;
+    const start = Number(getComputedStyle(element).opacity);
+    animation.currentTime = 75;
+    const middle = Number(getComputedStyle(element).opacity);
+    animation.finish();
+    return { start, middle };
+  });
+  expect(opacity.start).toBe(0);
+  expect(opacity.middle).toBeGreaterThan(0);
+  expect(opacity.middle).toBeLessThan(1);
+  await page.keyboard.press('Escape');
+  await expect(tooltip).toHaveAttribute('data-state', 'closed');
+  await expect(tooltip).toHaveCSS('animation-name', 'ui-tooltip-exit');
+  await expect(tooltip).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.mouse.move(0, 0);
+  await agent.hover();
+  await expect(tooltip).toHaveCSS('animation-name', 'none');
+});
+
+test('agent configuration errors are visible without allowing activation', async ({ page }) => {
+  await mockManagement(page, { agentConfigError: 'invalid mcp_config.json' });
+  await page.goto('/main.html');
+  const agent = page.getByRole('button', { name: /DeepSeek Harness/ });
+  await expect(agent).toBeVisible();
+  await agent.hover();
+  await expect(page.getByRole('tooltip')).toContainText('invalid mcp_config.json');
+  await expect(page.getByRole('tooltip')).not.toContainText('重试');
+  await expect(agent).toHaveAttribute('aria-disabled', 'true');
+  const tooltip = page.locator('[data-slot="tooltip-content"]');
+  await expect(tooltip).toBeVisible();
+  const visibleAtCenter = await tooltip.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === element;
+  });
+  expect(visibleAtCenter).toBe(true);
+  await page.setViewportSize({ width: 420, height: 800 });
+  await agent.hover();
+  await expect
+    .poll(async () =>
+      tooltip.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return (
+          rect.left >= 0 && rect.right <= window.innerWidth && rect.bottom <= window.innerHeight
+        );
+      }),
+    )
+    .toBe(true);
+  await agent.focus();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await page.mouse.move(0, 0);
+  await agent.hover();
+  await expect(page.getByRole('tooltip')).toContainText('invalid mcp_config.json');
+  await expect(page.locator('.agent-list > .error')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Codex/ }).first()).toBeVisible();
+  const before = await page.evaluate(
+    () =>
+      (window as Window & { managementCommands?: string[] }).managementCommands?.filter(
+        (command) => command === 'management_agents_state',
+      ).length,
+  );
+  await agent.dispatchEvent('click');
+  await agent.focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Space');
+  expect(
+    await page.evaluate(
+      () =>
+        (window as Window & { managementCommands?: string[] }).managementCommands?.filter(
+          (command) => command === 'management_agents_state',
+        ).length,
+    ),
+  ).toBe(before);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as Window & { managementAgentChanges?: unknown[] }).managementAgentChanges?.length,
+    ),
+  ).toBe(0);
+});
+
+test('a managed agent with invalid configuration can forget its local record', async ({ page }) => {
+  await mockManagement(page, {
+    agentConfigError: 'invalid mcp_config.json',
+    agentConfigManaged: true,
+  });
+  await page.goto('/main.html');
+  const agent = page.getByRole('button', { name: /DeepSeek Harness/ });
+  await expect(agent).toHaveClass(/is-on/);
+  await agent.hover();
+  await expect(page.getByRole('tooltip')).toContainText('只移除 Ossia 的接入记录');
+  await agent.click();
+  await expect(agent).not.toHaveClass(/is-on/);
+  await expect(agent).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('.toast-region')).toContainText('宿主配置');
+  expect(
+    await page.evaluate(
+      () => (window as Window & { managementForgottenAgents?: string[] }).managementForgottenAgents,
+    ),
+  ).toEqual(['dsh']);
+});
+
 for (const native of [true, false]) {
   test(`context menus are ${native ? 'disabled in Tauri' : 'available in a browser'}`, async ({
     page,

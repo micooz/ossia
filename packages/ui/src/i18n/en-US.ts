@@ -372,6 +372,11 @@ export const enUS = {
   openDirectory: 'Open data directory',
   installAgent: 'Install {agent} plugin',
   removeAgent: 'Remove {agent} plugin',
+  forgetAgent: 'Remove the Ossia integration record for {agent}',
+  forgetAgentHint:
+    'Click to remove only the Ossia integration record; host configuration and files will not be removed.',
+  forgetAgentDone:
+    'Ossia integration record removed; host configuration and files may still need manual cleanup.',
   overrideAgent: 'Override {agent} integration',
   agentConflict: 'An integration conflict was detected',
   agentOverrideHint: 'Click to overwrite the conflicting configuration and connect',
