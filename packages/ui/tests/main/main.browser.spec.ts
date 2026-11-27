@@ -266,10 +266,10 @@ test('management shows details and target config paths only for connected agents
   const dialog = page.getByRole('dialog', { name: '本地服务' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: '关闭', exact: true })).not.toBeFocused();
-  await expect(dialog.getByText('LilyPond 工具链')).toBeVisible();
+  await expect(dialog.getByText('LilyPond 工具链')).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: '刷新' })).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: '运行 doctor' })).toHaveCount(0);
-  await dialog.getByRole('button', { name: '打开', exact: true }).click();
+  await dialog.getByRole('button', { name: '打开数据目录' }).click();
   await expect
     .poll(() =>
       page.evaluate(() =>

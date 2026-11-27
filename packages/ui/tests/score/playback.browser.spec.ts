@@ -334,11 +334,12 @@ test('audition uses the selected part sound for simultaneous notes', async ({ co
   await expect.poll(() => requests.some((url) => url.includes('/audio/guitar/'))).toBe(true);
 });
 
-test('score settings remain usable on a narrow screen and return keyboard focus to the score', async ({
+test('score settings remain usable on a narrow screen and return keyboard focus to the toolbar', async ({
   context,
 }) => {
   const { page } = await pageWithPlayback(context, playback([system(1, 0, 2)]));
   await page.setViewportSize({ width: 360, height: 640 });
+  await page.getByRole('button', { name: '更多操作' }).click();
   const trigger = page.getByRole('button', { name: '乐谱设置' });
   await trigger.click();
   const dialog = page.getByRole('dialog', { name: '乐谱设置' });
@@ -351,7 +352,8 @@ test('score settings remain usable on a narrow screen and return keyboard focus 
   await expect(select).toHaveValue('guitar');
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole('main')).toBeFocused();
+  await expect(page.getByRole('button', { name: '更多操作' })).toBeFocused();
+  await page.getByRole('main').focus();
   await page.keyboard.press('Space');
   await expect(page.getByRole('button', { name: '暂停', exact: true })).toBeVisible({
     timeout: 20_000,
