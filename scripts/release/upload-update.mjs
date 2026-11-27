@@ -230,19 +230,6 @@ async function main(argv) {
           cacheControl: 'public, max-age=31536000, immutable',
         },
       ];
-  const latestStable = stage.index.releases.find((release) => !release.prerelease);
-  if (!notesOnly && latestStable?.version === stage.version && !isPrereleaseTag(tag)) {
-    const installer =
-      target === 'darwin-arm64'
-        ? stage.extras.find((file) => basename(file) === 'ossia-darwin-arm64.dmg')
-        : stage.asset;
-    if (!installer) throw new Error(`latest installer is missing for ${target}`);
-    uploads.push({
-      file: installer,
-      key: objectKey(prefix, target, 'latest', basename(installer)),
-      cacheControl: 'public, max-age=60',
-    });
-  }
   if (dryRun) {
     console.log(
       JSON.stringify(

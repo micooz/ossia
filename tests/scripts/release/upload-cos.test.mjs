@@ -345,7 +345,7 @@ test('upload CLI can retry an existing version with identical bytes', () => {
   }
 });
 
-test('latest installer uploads follow the newest stable release only', () => {
+test('Windows releases upload versioned installers', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ossia-latest-'));
   try {
     const asset = path.join(directory, 'installer.exe');
@@ -389,15 +389,17 @@ test('latest installer uploads follow the newest stable release only', () => {
         ),
       ).uploads;
     }
-    assert.ok(uploads('v1.3.0').includes('windows-amd64/latest/ossia-windows-amd64.exe'));
-    assert.ok(!uploads('v1.3.1-beta.1').some((key) => key.includes('/latest/')));
-    assert.ok(!uploads('v1.1.0').some((key) => key.includes('/latest/')));
+    assert.deepEqual(uploads('v1.3.0'), ['windows-amd64/1.3.0/ossia-windows-amd64.exe']);
+    assert.deepEqual(uploads('v1.3.1-beta.1'), [
+      'windows-amd64/1.3.1-beta.1/ossia-windows-amd64.exe',
+    ]);
+    assert.deepEqual(uploads('v1.1.0'), ['windows-amd64/1.1.0/ossia-windows-amd64.exe']);
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
 
-test('stable macOS publication uploads the DMG at the latest installer path', () => {
+test('macOS publication uploads versioned DMG and ZIP assets', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ossia-latest-mac-'));
   try {
     const asset = path.join(directory, 'asset.zip');
@@ -439,8 +441,10 @@ test('stable macOS publication uploads the DMG at the latest installer path', ()
         { encoding: 'utf8' },
       ),
     ).uploads;
-    assert.ok(uploads.includes('darwin-arm64/latest/ossia-darwin-arm64.dmg'));
-    assert.ok(!uploads.includes('darwin-arm64/latest/ossia-darwin-arm64.zip'));
+    assert.deepEqual(uploads, [
+      'darwin-arm64/1.0.0/ossia-darwin-arm64.dmg',
+      'darwin-arm64/1.0.0/ossia-darwin-arm64.zip',
+    ]);
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }

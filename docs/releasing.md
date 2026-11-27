@@ -71,10 +71,9 @@ release.
 5. The publish job creates a draft release and verifies its exact asset set.
 6. The publish job publishes the GitHub release as a Pre-release or Latest release.
 7. The separate `Ossia update feed` workflow verifies the published release and
-   uploads the two update-feed targets, including the macOS DMG download. For
-   the newest stable release, it also updates `darwin-arm64/latest/ossia-darwin-arm64.dmg`
-   and `windows-amd64/latest/ossia-windows-amd64.exe`. Beta and older releases
-   do not replace these links; the latest files use a 60-second cache.
+   uploads versioned assets for both targets, including the macOS DMG download.
+   The EdgeOne function in `scripts/release/edge-latest.js` redirects each
+   platform's `latest` download URL to the newest stable version in its manifest.
 
 Packaging requires a clean Git working tree. Release version injection happens
 after this check and the original files are restored when packaging ends.
