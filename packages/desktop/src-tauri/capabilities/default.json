@@ -5,6 +5,7 @@
   "permissions": [
     "allow-management-status",
     "allow-management-open-data-directory",
+    "allow-management-open-service",
     "allow-management-start",
     "allow-management-stop",
     "allow-management-doctor",

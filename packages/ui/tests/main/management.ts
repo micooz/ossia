@@ -455,6 +455,11 @@ export async function mockManagement(
           return { snapshot: agents, problems: [] };
         }
         if (command === 'management_open_data_directory') return null;
+        if (command === 'management_open_service') {
+          if (!status.runtime) throw new Error('local service is not running');
+          openedLinks.push(status.runtime.webBaseUrl);
+          return null;
+        }
         if (command === 'management_start') {
           status.runtime = {
             runtimeVersion: '0.1.0',

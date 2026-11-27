@@ -210,6 +210,19 @@ async fn management_status(state: tauri::State<'_, Management>) -> Result<Manage
 }
 
 #[tauri::command]
+async fn management_open_service(state: tauri::State<'_, Management>) -> Result<()> {
+    let runtime = snapshot(&config(&state)?).await.runtime.ok_or_else(|| {
+        AppError::new(
+            ErrorCode::RuntimeUnavailable,
+            "local service is not running",
+        )
+    })?;
+    tauri::async_runtime::spawn_blocking(move || open_external(&runtime.web_base_url))
+        .await
+        .map_err(storage)?
+}
+
+#[tauri::command]
 async fn management_start(state: tauri::State<'_, Management>) -> Result<ManagementSnapshot> {
     let config = config(&state)?;
     let _guard = state.runtime_lock.lock().await;
@@ -651,6 +664,7 @@ pub fn run(config: Result<server::Config>, show_main_window: bool) {
         .invoke_handler(tauri::generate_handler![
             management_status,
             management_open_data_directory,
+            management_open_service,
             management_start,
             management_stop,
             management_doctor,

@@ -343,3 +343,12 @@ test('my scores asks for the local service when the backend is stopped', async (
   await expect(page.getByRole('heading', { name: '需要本地服务' })).toBeVisible();
   await expect(page.getByRole('button', { name: '启动服务' })).toBeEnabled();
 });
+
+test('opens my scores in the browser', async ({ page }) => {
+  await mockManagement(page, { initialRuntime: true });
+  await openScores(page);
+  await page.getByRole('button', { name: '在浏览器中打开我的乐谱' }).click();
+  await expect
+    .poll(() => page.evaluate(() => (window as Window & { openedLinks?: string[] }).openedLinks))
+    .toEqual(['http://127.0.0.1:3212']);
+});

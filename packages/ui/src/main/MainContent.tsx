@@ -722,6 +722,11 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
         openingDirectory={openingDirectory}
         error={error || state?.error?.message || ''}
         onOpenDirectory={() => void openDirectory()}
+        onOpenService={() => {
+          void invoke('management_open_service').catch((caught) =>
+            notify(describe(caught), 'error'),
+          );
+        }}
         onAction={(command) => {
           setConfirmStop(false);
           void action(command);

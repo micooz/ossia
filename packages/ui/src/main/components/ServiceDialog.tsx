@@ -1,4 +1,4 @@
-import { LoaderCircle, Play, Square, X } from 'lucide-react';
+import { ExternalLink, LoaderCircle, Play, Square, X } from 'lucide-react';
 import type { RefObject } from 'react';
 
 import type { ManagementSnapshot } from '../../generated/protocol.ts';
@@ -17,6 +17,7 @@ export function ServiceDialog({
   onAction,
   onToggleConfirm,
   onOpenDirectory,
+  onOpenService,
 }: {
   dialogRef: RefObject<HTMLDialogElement | null>;
   native: boolean;
@@ -28,6 +29,7 @@ export function ServiceDialog({
   onAction: (command: 'management_start' | 'management_stop') => void;
   onToggleConfirm: () => void;
   onOpenDirectory: () => void;
+  onOpenService: () => void;
 }) {
   const { t } = useI18n();
   const running = !!state?.runtime;
@@ -60,29 +62,42 @@ export function ServiceDialog({
         )}
         <div className="settings-list">
           <InfoRow
+            label={t('serviceStatus')}
+            value={state ? t(running ? 'serviceRunning' : 'serviceStopped') : t('waiting')}
+          />
+          <InfoRow
             label={t('dataDirectory')}
             value={state?.home ?? t('waiting')}
             code
             action={
               <button
                 type="button"
-                className="path-open"
+                className="icon-button subtle-open"
+                aria-label={t('openDirectory')}
+                title={t('openDirectory')}
                 disabled={!native || !state || openingDirectory}
                 onClick={onOpenDirectory}
               >
-                {t('openDirectory')}
+                <ExternalLink aria-hidden="true" />
               </button>
             }
-          />
-          <InfoRow label={t('engineDirectory')} value={state?.engineRoot ?? t('waiting')} code />
-          <InfoRow
-            label={t('runtimeVersion')}
-            value={state?.runtime?.runtimeVersion ?? t('notConnected')}
           />
           <InfoRow
             label={t('accessUrl')}
             value={state?.runtime?.webBaseUrl ?? t('notConnected')}
             code
+            action={
+              <button
+                type="button"
+                className="icon-button subtle-open"
+                aria-label={t('openServiceAddress')}
+                title={t('openServiceAddress')}
+                disabled={!native || !running}
+                onClick={onOpenService}
+              >
+                <ExternalLink aria-hidden="true" />
+              </button>
+            }
           />
         </div>
         {confirmStop && running && (

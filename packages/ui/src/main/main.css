@@ -621,6 +621,12 @@ code.setting-value {
   min-width: 0;
 }
 
+.scores-title {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .archived-filter {
   display: inline-flex;
   min-height: 30px;
@@ -1873,17 +1879,27 @@ button.service-badge:hover {
   gap: 12px;
 }
 
-.path-open {
-  flex: none;
-  padding: 4px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
-  font-size: 12px;
+.service-dialog .setting-value-actions:has(.subtle-open) {
+  justify-content: flex-end;
+  gap: 2px;
 }
 
-.path-open:hover:not(:disabled) {
-  background: var(--hover-surface);
+.subtle-open {
+  flex: none;
+  color: var(--muted);
+}
+
+.icon-button.subtle-open:hover {
+  background: transparent;
+}
+
+.subtle-open:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.icon-button.subtle-open svg {
+  width: 14px;
+  height: 14px;
 }
 
 .agent-chip.is-installed .agent-chip-state,

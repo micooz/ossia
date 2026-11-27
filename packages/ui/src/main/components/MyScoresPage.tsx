@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import {
   Archive,
+  ExternalLink,
   FileMusic,
   LayoutGrid,
   List,
@@ -313,7 +314,25 @@ export function MyScoresPage({
     <section className="scores-page" aria-busy={loading}>
       <div className="scores-heading">
         <div className="page-intro">
-          <h1>{t('myScores')}</h1>
+          <div className="scores-title">
+            <h1>{t('myScores')}</h1>
+            {!browser && (
+              <button
+                type="button"
+                className="icon-button subtle-open"
+                aria-label={t('openScoresInBrowser')}
+                title={t('openScoresInBrowser')}
+                disabled={!native || !runtimeRunning}
+                onClick={() => {
+                  void invoke('management_open_service').catch((caught) =>
+                    notify(describe(caught), 'error'),
+                  );
+                }}
+              >
+                <ExternalLink aria-hidden="true" />
+              </button>
+            )}
+          </div>
           <p>{t(browser ? 'browseScoresDescription' : 'myScoresDescription')}</p>
         </div>
       </div>

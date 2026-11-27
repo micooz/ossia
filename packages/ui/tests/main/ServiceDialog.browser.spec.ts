@@ -41,3 +41,30 @@ for (const fallback of [false, true]) {
     await expect(trigger).toBeFocused();
   });
 }
+
+test('opens the service address when the service is running', async ({ page }) => {
+  await mockManagement(page);
+  await page.goto('/main.html');
+  await page.getByRole('button', { name: '服务未连接' }).click();
+  const dialog = page.getByRole('dialog', { name: '本地服务' });
+  await dialog.getByRole('button', { name: '打开数据目录' }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as Window & { managementCommands?: string[] }).managementCommands,
+      ),
+    )
+    .toContain('management_open_data_directory');
+  const openAddress = dialog.getByRole('button', { name: '打开服务地址' });
+  await expect(dialog.getByText('运行状态')).toBeVisible();
+  await expect(dialog.getByText('服务未连接')).toBeVisible();
+  await expect(openAddress).toBeDisabled();
+  await expect(dialog.getByText('LilyPond 工具链')).toHaveCount(0);
+  await dialog.getByRole('button', { name: '启动服务' }).click();
+  await expect(dialog.getByText('服务运行中')).toBeVisible();
+  await expect(openAddress).toBeEnabled();
+  await openAddress.click();
+  await expect
+    .poll(() => page.evaluate(() => (window as Window & { openedLinks?: string[] }).openedLinks))
+    .toEqual(['http://127.0.0.1:3212']);
+});

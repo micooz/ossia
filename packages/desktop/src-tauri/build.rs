@@ -50,6 +50,7 @@ fn main() {
         tauri_build::AppManifest::new().commands(&[
             "management_status",
             "management_open_data_directory",
+            "management_open_service",
             "management_start",
             "management_stop",
             "management_doctor",
