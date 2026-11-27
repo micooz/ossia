@@ -1757,7 +1757,6 @@ code {
   line-height: 1.3;
 }
 .export-format-badge {
-  margin-inline-start: auto;
   border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--rule));
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent) 18%, var(--paper));
@@ -2119,7 +2118,7 @@ dialog::backdrop {
   }
   .export-formats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
     border-inline-end: 0;
     border-block-end: 1px solid var(--rule);
   }

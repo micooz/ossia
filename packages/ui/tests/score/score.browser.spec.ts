@@ -1185,6 +1185,34 @@ test('floating controls change zoom with buttons and a menu', async ({ context, 
   await expect(zoom).toHaveText('200%');
 });
 
+test('export formats stay readable at narrow widths', async ({ context, page }) => {
+  await page.setViewportSize({ width: 850, height: 900 });
+  await mockScoreRuntime(context);
+  await page.goto(`/scores?documentId=${firstId}`);
+  await page.getByRole('button', { name: '导出' }).click();
+  const formats = page.locator('.export-format');
+  const pdf = formats.filter({ hasText: 'PDF' });
+  const musicXml = formats.filter({ hasText: 'MusicXML' });
+  const pdfDescription = await pdf.locator('small').boundingBox();
+  const title = await musicXml.locator('strong').boundingBox();
+  const badge = await musicXml.locator('.export-format-badge').boundingBox();
+  expect(pdfDescription!.height).toBeLessThan(24);
+  expect(badge!.y).toBeLessThan(title!.y + title!.height);
+  expect(badge!.x - (title!.x + title!.width)).toBeLessThan(8);
+  expect((await formats.nth(3).boundingBox())!.y).toBeLessThan(
+    (await formats.nth(4).boundingBox())!.y,
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await musicXml.click();
+  await expect(musicXml).toHaveAttribute('aria-pressed', 'true');
+  const nav = await page.locator('.export-formats').boundingBox();
+  for (const button of await formats.all()) {
+    const box = await button.boundingBox();
+    expect(box!.x).toBeGreaterThanOrEqual(nav!.x);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(nav!.x + nav!.width);
+  }
+});
+
 test('version selection, restore order and export dialog use the viewed version', async ({
   context,
   page,
