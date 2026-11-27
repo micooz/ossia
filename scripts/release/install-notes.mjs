@@ -3,7 +3,7 @@ export function installationNotes(language) {
   if (language === 'en') {
     return `### Installation
 
-- **macOS**: Use \`ossia-darwin-arm64.dmg\` for Apple Silicon.
+- **macOS**: Use \`ossia-darwin-arm64.dmg\` for Apple Silicon or \`ossia-darwin-amd64.dmg\` for Intel.
 - **Windows**: Use \`ossia-windows-amd64.exe\` for x64.
 
 > ⚠️ These packages are not signed yet. Please follow the instructions below to manually bypass your operating system's security prompts for now.
@@ -15,7 +15,7 @@ export function installationNotes(language) {
   if (language === 'zh') {
     return `### 安装说明
 
-- **macOS 系统**：Apple Silicon 芯片使用 \`ossia-darwin-arm64.dmg\`
+- **macOS 系统**：Apple Silicon 芯片使用 \`ossia-darwin-arm64.dmg\`，Intel 芯片使用 \`ossia-darwin-amd64.dmg\`
 - **Windows 系统**：x64 使用 \`ossia-windows-amd64.exe\`
 
 > ⚠️ 由于安装包尚未进行签名，请暂时按照以下说明手动跳过操作系统的安全弹窗。

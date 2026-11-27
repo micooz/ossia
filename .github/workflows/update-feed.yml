@@ -74,13 +74,17 @@ jobs:
           gh release download "$TAG" --dir release \
             --pattern 'ossia-darwin-arm64.zip' \
             --pattern 'ossia-darwin-arm64.dmg' \
+            --pattern 'ossia-darwin-amd64.zip' \
+            --pattern 'ossia-darwin-amd64.dmg' \
             --pattern 'ossia-windows-amd64.exe' \
             --pattern 'SHA256SUMS'
           cd release
           test -f ossia-darwin-arm64.zip
           test -f ossia-darwin-arm64.dmg
+          test -f ossia-darwin-amd64.zip
+          test -f ossia-darwin-amd64.dmg
           test -f ossia-windows-amd64.exe
-          for asset in ossia-darwin-arm64.zip ossia-darwin-arm64.dmg ossia-windows-amd64.exe; do
+          for asset in ossia-darwin-arm64.zip ossia-darwin-arm64.dmg ossia-darwin-amd64.zip ossia-darwin-amd64.dmg ossia-windows-amd64.exe; do
             grep -F "  $asset" SHA256SUMS | sha256sum --check
           done
       - name: Check before updating Ossia feed

@@ -445,11 +445,7 @@
             </p>
           </div>
           <div class="download-cards">
-            <a
-              class="download-card"
-              href="https://github.com/micooz/ossia/releases/latest/download/ossia-darwin-arm64.dmg"
-              data-download-target="darwin-arm64"
-            >
+            <div class="download-card platform-download">
               <span class="platform-icon" aria-hidden="true">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                   <path
@@ -459,17 +455,68 @@
               </span>
               <span class="download-card-body">
                 <strong data-i18n="download.macTitle">Download for macOS</strong>
-                <span class="download-card-meta" data-i18n="download.macMeta"
-                  >macOS 12+ · Apple Silicon · DMG</span
-                >
+                <span class="download-card-meta" data-i18n="download.macMeta">macOS 12+ · DMG</span>
               </span>
-              <span class="download-card-arrow" aria-hidden="true">↓</span>
-            </a>
-            <a
-              class="download-card"
-              href="https://github.com/micooz/ossia/releases/latest/download/ossia-windows-amd64.exe"
-              data-download-target="windows-amd64"
-            >
+              <div class="download-options">
+                <a
+                  class="download-option"
+                  href="https://github.com/micooz/ossia/releases/latest/download/ossia-darwin-arm64.dmg"
+                  data-download-target="darwin-arm64"
+                >
+                  <svg
+                    class="download-option-icon"
+                    aria-hidden="true"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M12 3v12m-5-5 5 5 5-5M5 19h14" />
+                  </svg>
+                  <span>Apple Silicon</span
+                  ><span
+                    class="current-chip"
+                    data-current-chip="darwin-arm64"
+                    data-i18n="download.currentChip"
+                    hidden
+                    >Current</span
+                  >
+                </a>
+                <a
+                  class="download-option"
+                  href="https://github.com/micooz/ossia/releases/latest/download/ossia-darwin-amd64.dmg"
+                  data-download-target="darwin-amd64"
+                >
+                  <svg
+                    class="download-option-icon"
+                    aria-hidden="true"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M12 3v12m-5-5 5 5 5-5M5 19h14" />
+                  </svg>
+                  <span>Intel</span
+                  ><span
+                    class="current-chip"
+                    data-current-chip="darwin-amd64"
+                    data-i18n="download.currentChip"
+                    hidden
+                    >Current</span
+                  >
+                </a>
+              </div>
+            </div>
+            <div class="download-card platform-download">
               <span class="platform-icon" aria-hidden="true">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                   <path
@@ -480,11 +527,40 @@
               <span class="download-card-body">
                 <strong data-i18n="download.windowsTitle">Download for Windows</strong>
                 <span class="download-card-meta" data-i18n="download.windowsMeta"
-                  >Windows 10 / 11 · x64 · EXE</span
+                  >Windows 10 / 11 · EXE</span
                 >
               </span>
-              <span class="download-card-arrow" aria-hidden="true">↓</span>
-            </a>
+              <div class="download-options">
+                <a
+                  class="download-option"
+                  href="https://github.com/micooz/ossia/releases/latest/download/ossia-windows-amd64.exe"
+                  data-download-target="windows-amd64"
+                >
+                  <svg
+                    class="download-option-icon"
+                    aria-hidden="true"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M12 3v12m-5-5 5 5 5-5M5 19h14" />
+                  </svg>
+                  <span>x64</span
+                  ><span
+                    class="current-chip"
+                    data-current-chip="windows-amd64"
+                    data-i18n="download.currentChip"
+                    hidden
+                    >Current</span
+                  >
+                </a>
+              </div>
+            </div>
           </div>
           <div class="download-foot">
             <a class="download-all" href="https://github.com/micooz/ossia/releases"

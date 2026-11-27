@@ -2,12 +2,14 @@ import coverEn from './cover-en.png';
 import coverZh from './cover-zh.png';
 import libraryEn from './library-en.webp';
 import libraryZh from './library-zh.webp';
+import { detectInstallerTarget } from './site-platform.js';
 import translations from './translations.json';
 
 const OSSIA_FEED_ORIGIN = 'https://ossia-releases.maisow.com';
 const GITHUB_RELEASES_PAGE = 'https://github.com/micooz/ossia/releases';
 const INSTALLERS = {
   'darwin-arm64': 'ossia-darwin-arm64.dmg',
+  'darwin-amd64': 'ossia-darwin-amd64.dmg',
   'windows-amd64': 'ossia-windows-amd64.exe',
 };
 const localeImages = {
@@ -94,6 +96,9 @@ sourceButtons.forEach((button) => {
     downloadSource = button.dataset.downloadSource;
     renderDownloads();
   });
+});
+detectInstallerTarget(navigator.userAgentData).then((target) => {
+  if (target) document.querySelector(`[data-current-chip="${target}"]`).hidden = false;
 });
 const oldAnchors = {
   download: 'download',

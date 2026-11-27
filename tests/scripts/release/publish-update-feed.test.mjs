@@ -11,7 +11,13 @@ import { test } from 'vite-plus/test';
 
 import { publishUpdateFeed } from '../../../scripts/release/publish-update-feed.mjs';
 
-const installers = ['ossia-darwin-arm64.zip', 'ossia-darwin-arm64.dmg', 'ossia-windows-amd64.exe'];
+const installers = [
+  'ossia-darwin-arm64.zip',
+  'ossia-darwin-arm64.dmg',
+  'ossia-darwin-amd64.zip',
+  'ossia-darwin-amd64.dmg',
+  'ossia-windows-amd64.exe',
+];
 
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'ossia-publish-feed-'));
@@ -24,7 +30,7 @@ async function fixture() {
   return { root, assets, notes };
 }
 
-test('publishes both updater targets and the macOS DMG without source archives', async () => {
+test('publishes all updater targets and macOS DMGs without source archives', async () => {
   const f = await fixture();
   const calls = [];
   try {
@@ -36,9 +42,9 @@ test('publishes both updater targets and the macOS DMG without source archives',
     });
     assert.deepEqual(
       calls.map((args) => args[args.indexOf('--target') + 1]),
-      ['darwin-arm64', 'windows-amd64'],
+      ['darwin-arm64', 'darwin-amd64', 'windows-amd64'],
     );
-    assert.equal(calls.filter((args) => args.includes('--extra')).length, 1);
+    assert.equal(calls.filter((args) => args.includes('--extra')).length, 2);
     for (const args of calls) {
       assert.ok(args.includes('v0.1.0-beta.20'));
       assert.ok(args.includes(f.notes));
@@ -128,7 +134,7 @@ test('dry-run builds every feed using the real uploader without publishing', asy
         },
       },
     );
-    assert.equal(requests.length, 2);
+    assert.equal(requests.length, 3);
     for (const target of requests) {
       const index = JSON.parse(await readFile(path.join(stage, target, 'index.json'), 'utf8'));
       assert.equal(index.releases[0].version, '0.1.0-beta.20');

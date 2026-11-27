@@ -9,6 +9,8 @@ import { parseTag } from './version.mjs';
 export const INSTALL_ASSETS = [
   'ossia-darwin-arm64.dmg',
   'ossia-darwin-arm64.zip',
+  'ossia-darwin-amd64.dmg',
+  'ossia-darwin-amd64.zip',
   'ossia-windows-amd64.exe',
 ];
 
@@ -21,6 +23,12 @@ export function assetName(source) {
   const name = basename(source);
   if (INSTALL_ASSETS.includes(name)) return name;
 
+  if (/_(x64|x86_64|amd64)(?:-apple-darwin)?\.dmg$/i.test(name)) {
+    return 'ossia-darwin-amd64.dmg';
+  }
+  if (/_(x64|x86_64|amd64)(?:-apple-darwin)?\.app\.zip$/i.test(name)) {
+    return 'ossia-darwin-amd64.zip';
+  }
   if (name.endsWith('.dmg')) {
     if (/_(aarch64|arm64)(?:-apple-darwin)?\.dmg$/i.test(name)) {
       return 'ossia-darwin-arm64.dmg';

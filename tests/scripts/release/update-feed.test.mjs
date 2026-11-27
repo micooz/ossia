@@ -6,8 +6,9 @@ import { TARGETS, mergeRelease } from '../../../scripts/release/update-feed.mjs'
 
 test('mirror targets map to the updater asset names', () => {
   assert.equal(TARGETS['darwin-arm64'], 'ossia-darwin-arm64.zip');
+  assert.equal(TARGETS['darwin-amd64'], 'ossia-darwin-amd64.zip');
   assert.equal(TARGETS['windows-amd64'], 'ossia-windows-amd64.exe');
-  assert.deepEqual(Object.keys(TARGETS), ['darwin-arm64', 'windows-amd64']);
+  assert.deepEqual(Object.keys(TARGETS), ['darwin-arm64', 'darwin-amd64', 'windows-amd64']);
 });
 
 test('mirror index keeps all versions and replaces the same version', () => {

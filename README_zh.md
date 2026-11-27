@@ -91,7 +91,7 @@ Ossia 可以帮你从现有乐谱或简单想法开始，一步步完成乐谱�
 
 > ⚠️ 当前安装包尚未签名或公证，macOS 和 Windows 可能阻止安装，确保从可信源下载安装包，按指引解锁安装限制（仅首次安装时需要）。
 
-Ossia 当前提供 macOS（Apple Silicon）和 Windows x64 平台的安装包，可前往 [Releases](https://github.com/micooz/ossia/releases) 页面下载。
+Ossia 当前提供 macOS（Apple Silicon 或 Intel）和 Windows x64 平台的安装包，可前往 [Releases](https://github.com/micooz/ossia/releases) 页面下载。
 
 ### 2. 接入 Agent
 

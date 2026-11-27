@@ -180,6 +180,9 @@ fn targets_match_published_asset_names() {
             .asset_name(),
         "ossia-darwin-arm64.zip"
     );
+    let intel = super::target::target_for("macos", "x86_64", PackageManagers::default()).unwrap();
+    assert_eq!(intel.asset_name(), "ossia-darwin-amd64.zip");
+    assert_eq!(intel.feed_slug(), "darwin-amd64");
     assert_eq!(
         super::target::target_for("windows", "x86_64", PackageManagers::default(),)
             .unwrap()

@@ -74,6 +74,7 @@ The updater matches the complete release asset name for the current target:
 | Platform       | Asset                     |
 | -------------- | ------------------------- |
 | macOS arm64    | `ossia-darwin-arm64.zip`  |
+| macOS Intel    | `ossia-darwin-amd64.zip`  |
 | Windows x86_64 | `ossia-windows-amd64.exe` |
 
 DMGs are not selected. GitHub's asset `digest` is

@@ -95,17 +95,21 @@
     "en": "Download for macOS",
     "zh": "下载 macOS 版"
   },
+  "download.currentChip": {
+    "en": "Current",
+    "zh": "当前"
+  },
   "download.macMeta": {
-    "en": "macOS 12+ · Apple Silicon · DMG",
-    "zh": "macOS 12+ · Apple Silicon · DMG"
+    "en": "macOS 12+ · DMG",
+    "zh": "macOS 12+ · DMG"
   },
   "download.windowsTitle": {
     "en": "Download for Windows",
     "zh": "下载 Windows 版"
   },
   "download.windowsMeta": {
-    "en": "Windows 10 / 11 · x64 · EXE",
-    "zh": "Windows 10 / 11 · x64 · EXE"
+    "en": "Windows 10 / 11 · EXE",
+    "zh": "Windows 10 / 11 · EXE"
   },
   "download.sourceHintOssia": {
     "en": "Ossia source (optimized for mainland China)",

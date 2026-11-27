@@ -65,20 +65,21 @@ release.
    the tag version into the manifests and lockfile.
 3. Release waits for the latest successful `main` Check for the exact tagged
    commit. DeepSeek notes and offline documentation generation run in parallel;
-   both platform builds use the generated documentation artifact.
+   all platform builds use the generated documentation artifact.
 4. Each build installs or extracts its installable artifacts and runs the same
    packaged smoke check.
 5. The publish job creates a draft release and verifies its exact asset set.
 6. The publish job publishes the GitHub release as a Pre-release or Latest release.
 7. The separate `Ossia update feed` workflow verifies the published release and
-   uploads versioned assets for both targets, including the macOS DMG download.
+   uploads versioned assets for all targets, including the macOS DMG downloads.
    The EdgeOne function in `scripts/release/edge-latest.js` redirects each
    platform's `latest` download URL to the newest stable version in its manifest.
+   Deploy the function to EdgeOne when its routes change.
 
 Packaging requires a clean Git working tree. Release version injection happens
 after this check and the original files are restored when packaging ends.
 
-The release targets are macOS arm64 and Windows x86_64.
+The release targets are macOS arm64, macOS x86_64 and Windows x86_64.
 
 ## Package verification
 
@@ -109,6 +110,8 @@ Release assets:
 
 - `ossia-darwin-arm64.dmg`
 - `ossia-darwin-arm64.zip`
+- `ossia-darwin-amd64.dmg`
+- `ossia-darwin-amd64.zip`
 - `ossia-windows-amd64.exe`
 - `SHA256SUMS`
 

@@ -22,6 +22,7 @@ Release targets and canonical installer names:
 | Target          | Asset                     |
 | --------------- | ------------------------- |
 | `darwin-arm64`  | `ossia-darwin-arm64.zip`  |
+| `darwin-amd64`  | `ossia-darwin-amd64.zip`  |
 | `windows-amd64` | `ossia-windows-amd64.exe` |
 
 ## Manifest request

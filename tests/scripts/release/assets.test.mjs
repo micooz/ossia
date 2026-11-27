@@ -13,17 +13,22 @@ test('Tauri output names map to the public asset contract', () => {
   assert.equal(assetName('ossia_0.1.0_aarch64-apple-darwin.dmg'), 'ossia-darwin-arm64.dmg');
   assert.equal(assetName('Ossia_0.1.0_aarch64-apple-darwin.app.zip'), 'ossia-darwin-arm64.zip');
   assert.equal(assetName('Ossia_0.1.0_x64-setup.exe'), 'ossia-windows-amd64.exe');
-  assert.throws(() => assetName('Ossia_0.1.0_x86_64-apple-darwin.app.zip'), /unsupported/);
+  assert.equal(assetName('Ossia_0.1.0_x86_64-apple-darwin.dmg'), 'ossia-darwin-amd64.dmg');
+  assert.equal(assetName('Ossia_0.1.0_x86_64-apple-darwin.app.zip'), 'ossia-darwin-amd64.zip');
   assert.throws(() => assetName('Ossia_0.1.0_amd64.deb'), /unsupported/);
   assert.throws(() => assetName('Ossia_0.1.0_aarch64.AppImage'), /unsupported/);
 });
 
 function writeReleaseFixture(root) {
-  const targets = ['macos-arm64', 'windows-x86_64'];
+  const targets = ['macos-arm64', 'macos-x86_64', 'windows-x86_64'];
   const files = {
     'macos-arm64': [
       'Ossia_0.1.0_aarch64-apple-darwin.dmg',
       'Ossia_0.1.0_aarch64-apple-darwin.app.zip',
+    ],
+    'macos-x86_64': [
+      'Ossia_0.1.0_x86_64-apple-darwin.dmg',
+      'Ossia_0.1.0_x86_64-apple-darwin.app.zip',
     ],
     'windows-x86_64': ['Ossia_0.1.0_x64-setup.exe'],
   };

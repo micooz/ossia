@@ -1,5 +1,6 @@
 const installers = {
   '/darwin-arm64/latest/ossia-darwin-arm64.dmg': 'darwin-arm64',
+  '/darwin-amd64/latest/ossia-darwin-amd64.dmg': 'darwin-amd64',
   '/windows-amd64/latest/ossia-windows-amd64.exe': 'windows-amd64',
 };
 

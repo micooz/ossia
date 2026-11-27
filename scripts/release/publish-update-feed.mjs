@@ -9,6 +9,7 @@ import { parseTag } from './version.mjs';
 const UPLOADER = join(dirname(fileURLToPath(import.meta.url)), 'upload-update.mjs');
 const DMGS = {
   'darwin-arm64': 'ossia-darwin-arm64.dmg',
+  'darwin-amd64': 'ossia-darwin-amd64.dmg',
 };
 
 /** Publish the verified release installers to each update-feed target. */
