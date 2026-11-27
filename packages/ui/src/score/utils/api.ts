@@ -150,11 +150,13 @@ export function makeApi(language: () => UiLanguage, signal?: AbortSignal) {
       form.append('file', file);
       return json<Job>('/documents', { method: 'POST', body: form });
     },
-    async waitJob<T>(initial: Job): Promise<T> {
+    async waitJob<T>(initial: Job, onUpdate?: (outcome: JobOutcome) => void): Promise<T> {
       let job = initial;
       while (job.state === 'queued' || job.state === 'running') {
         await delay(200, signal);
-        job = (await json<JobOutcome>(`/jobs/${job.jobId}`)).job;
+        const outcome = await json<JobOutcome>(`/jobs/${job.jobId}`);
+        job = outcome.job;
+        onUpdate?.(outcome);
       }
       if (job.state !== 'done')
         throw new ApiError(

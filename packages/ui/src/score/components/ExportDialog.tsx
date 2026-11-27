@@ -19,7 +19,12 @@ import { Checkbox } from '../../components/ui/checkbox.tsx';
 import { Input } from '../../components/ui/input.tsx';
 import { Slider } from '../../components/ui/slider.tsx';
 import { describe } from '../../errors.ts';
-import type { OutputBatchOutcome, RenderReference, Version } from '../../generated/protocol.ts';
+import type {
+  JobProgress,
+  OutputBatchOutcome,
+  RenderReference,
+  Version,
+} from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
 import type { DrawingController } from '../hooks/useDrawing.ts';
 import type { Api } from '../utils/api.ts';
@@ -136,6 +141,7 @@ export function ExportDialog({
   });
   const [maxMeasure, setMaxMeasure] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<JobProgress | null>(null);
   const [exportError, setExportError] = useState('');
   const versionId = exportVersionId;
   const versionDocumentId = documentId;
@@ -325,6 +331,7 @@ export function ExportDialog({
   async function exportFile() {
     if (!exportVersionId || !canExport) return;
     setExporting(true);
+    setExportProgress({ phase: 'preparing', completed: null, total: null });
     setExportError('');
     try {
       const base = fileName
@@ -357,7 +364,16 @@ export function ExportDialog({
             : null,
         waitMs: null,
       });
-      const result = await api.waitJob<OutputBatchOutcome>(job);
+      if (job.state === 'queued')
+        setExportProgress({ phase: 'queued', completed: null, total: null });
+      const result = await api.waitJob<OutputBatchOutcome>(job, ({ job: current, progress }) => {
+        if (current.state === 'queued') {
+          setExportProgress({ phase: 'queued', completed: null, total: null });
+        } else if (current.state === 'running') {
+          setExportProgress(progress ?? { phase: 'generating', completed: null, total: null });
+        }
+      });
+      setExportProgress({ phase: 'downloading', completed: null, total: null });
       if (format === 'pdf' || format === 'wav' || format === 'musicxml') {
         const downloadName = `${safeBase}.${FORMAT_EXTENSIONS[format]}`;
         triggerUrlDownload(api.outputDownloadUrl(job.jobId, downloadName), downloadName);
@@ -375,6 +391,7 @@ export function ExportDialog({
       if (files.length === 1) {
         triggerBlobDownload(files[0]!.blob, `${safeBase}.${FORMAT_EXTENSIONS[format]}`);
       } else {
+        setExportProgress({ phase: 'packaging', completed: null, total: null });
         const archive: Record<string, Uint8Array> = {};
         for (const file of files) {
           archive[`${safeBase}-${file.page}.${FORMAT_EXTENSIONS[format]}`] = new Uint8Array(
@@ -390,6 +407,7 @@ export function ExportDialog({
       setExportError(describe(error));
     } finally {
       setExporting(false);
+      setExportProgress(null);
     }
   }
 
@@ -750,6 +768,46 @@ export function ExportDialog({
         </section>
       </div>
       <div className="export-dialog-footer">
+        {exporting &&
+          exportProgress &&
+          (() => {
+            const { phase, completed, total } = exportProgress;
+            const label =
+              phase === 'queued'
+                ? t('exportQueued')
+                : phase === 'preparing'
+                  ? t('exportPreparing')
+                  : phase === 'pages'
+                    ? t('exportPages')
+                    : phase === 'audio'
+                      ? t('exportAudio')
+                      : phase === 'writing'
+                        ? t('exportWriting')
+                        : phase === 'downloading'
+                          ? t('exportDownloading')
+                          : phase === 'packaging'
+                            ? t('exportPackaging')
+                            : t('exportGenerating');
+            const determinate = completed !== null && total !== null && total > 0;
+            return (
+              <div className="export-progress">
+                <div className="export-progress-heading">
+                  <span>{label}</span>
+                  {determinate && (
+                    <span className="export-progress-value">
+                      {phase === 'pages'
+                        ? `${completed} / ${total}`
+                        : `${Math.floor((completed * 100) / total)}%`}
+                    </span>
+                  )}
+                </div>
+                <progress
+                  aria-label={label}
+                  {...(determinate ? { value: completed, max: total } : {})}
+                />
+              </div>
+            );
+          })()}
         <button
           type="submit"
           form="export-settings-form"

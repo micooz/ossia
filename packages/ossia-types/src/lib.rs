@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use std::{fmt, fmt::Write as _, str::FromStr};
 use uuid::Uuid;
 
-pub const PROTOCOL_VERSION: u32 = 13;
+pub const PROTOCOL_VERSION: u32 = 14;
 /// Version of interactive SVG metadata and derived render caches.
 pub const INTERACTION_VERSION: u32 = 12;
 pub const SCHEMA_VERSION: u32 = 4;

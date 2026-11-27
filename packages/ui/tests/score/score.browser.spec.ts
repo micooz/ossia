@@ -1778,3 +1778,55 @@ test('MIDI and WAV exports accept validated measure ranges', async ({ context, p
   await dialog.getByLabel('结束小节').fill('3');
   await expect(dialog.getByRole('button', { name: '导出', exact: true })).toBeEnabled();
 });
+
+test('export displays actual stage progress and clears it on failure', async ({
+  context,
+  page,
+}) => {
+  await mockScoreRuntime(context);
+  let phase: 'queued' | 'pages' | 'audio' | 'error' = 'queued';
+  const job = {
+    jobId: 'progress-job',
+    documentId: firstId,
+    kind: 'output',
+    state: 'queued',
+    sourceHash: hash,
+    phase: 'queued',
+    result: null,
+    error: null,
+  };
+  await context.route('**/api/v1/outputs', (route) => route.fulfill({ json: job }));
+  await context.route('**/api/v1/jobs/progress-job', (route) => {
+    const current =
+      phase === 'error'
+        ? {
+            ...job,
+            state: 'error',
+            error: { code: 'storage-error', message: 'export failed', detail: null },
+          }
+        : { ...job, state: phase === 'queued' ? 'queued' : 'running', phase: 'execute' };
+    const progress =
+      phase === 'pages'
+        ? { phase: 'pages', completed: 1, total: 2 }
+        : phase === 'audio'
+          ? { phase: 'audio', completed: 40, total: 100 }
+          : null;
+    return route.fulfill({ json: { job: current, progress, analysis: null } });
+  });
+  await page.goto(`/scores?documentId=${firstId}`);
+  await page.getByRole('button', { name: '导出', exact: true }).click();
+  const dialog = page.locator('.export-dialog');
+  await dialog.getByRole('button', { name: '导出', exact: true }).click();
+  await expect(dialog.getByRole('progressbar', { name: '等待导出' })).toBeVisible();
+  phase = 'pages';
+  await expect(dialog.getByText('生成页面', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('1 / 2', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('progressbar', { name: '生成页面' })).toHaveAttribute('value', '1');
+  phase = 'audio';
+  await expect(dialog.getByText('渲染音频', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('40%', { exact: true })).toBeVisible();
+  phase = 'error';
+  await expect(dialog.getByRole('progressbar')).toHaveCount(0);
+  await expect(dialog.getByText('export failed')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '导出', exact: true })).toBeEnabled();
+});

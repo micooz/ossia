@@ -263,6 +263,16 @@ impl Runtime {
         self.wait_for_job(job.job_id, Some(wait_ms))
     }
 
+    pub(crate) fn job_progress(&self, job: &Job) -> Option<JobProgress> {
+        if job.kind != "output" || job.state != JobState::Running || job.phase == "cancelling" {
+            return None;
+        }
+        self.state()
+            .running
+            .get(&job.job_id)
+            .and_then(|running| running.context.progress())
+    }
+
     /// Wait for a job to leave queued/running, bounded to the caller's timeout.
     pub fn wait_for_job(&self, id: JobId, wait_ms: Option<u64>) -> Result<Job> {
         let wait_ms = validate_wait_ms(wait_ms)?;

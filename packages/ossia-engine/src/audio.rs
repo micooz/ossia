@@ -243,6 +243,7 @@ pub fn render_wav(
     };
     let mut writer =
         hound::WavWriter::new(&mut wav, spec).map_err(|error| audio_error(error.to_string()))?;
+    context.report_progress("audio", Some((0, 100)));
     let mut mixed = vec![0.0f32; CHUNK_FRAMES * usize::from(OUTPUT_CHANNELS)];
     let mut start = 0usize;
     while start < frames {
@@ -300,6 +301,8 @@ pub fn render_wav(
                 .map_err(|error| audio_error(error.to_string()))?;
         }
         start += count;
+        let percent = ((start as u128 * 100) / frames as u128) as u32;
+        context.report_progress("audio", Some((percent, 100)));
     }
     writer
         .finalize()

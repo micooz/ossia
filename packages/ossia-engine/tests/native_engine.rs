@@ -384,6 +384,9 @@ fn native_midi_export_from_external_sources() {
         .unwrap();
         assert!(wav.starts_with(b"RIFF"));
         assert!(wav[44..].iter().any(|byte| *byte != 0));
+        let progress = context.progress().unwrap();
+        assert_eq!(progress.phase, "audio");
+        assert_eq!((progress.completed, progress.total), (Some(100), Some(100)));
         eprintln!(
             "{}: MIDI notes {}, playback notes {}, {:.1}s, WAV {} bytes",
             path.display(),

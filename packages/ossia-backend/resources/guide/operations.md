@@ -35,13 +35,22 @@ bounded job summary: the full import source, repeated render/manifest and all
 evidence are omitted or capped. Use `ossia_job` for full evidence. `list` and
 `history` and `trash` are paged with `limit`/`offset`.
 
-`ossia_job` returns `{job, analysis}`. Without `section`, it returns a summary by
-default; `detail:"full"` is available for diagnostics. Use `section`
+`ossia_job` returns `{job, progress, analysis}`. Without `section`, it returns a
+summary by default; `detail:"full"` is available for diagnostics. Use `section`
 (`performance`, `source`, `differences`), zero-based `offset` and optional `limit`
 (1..512, default 64) to read bounded evidence from a completed import/check;
 `job.result` is then null and evidence is in `analysis`. Follow `nextOffset` until
 null. Pass `waitMs` (0..30000) to wait for a running job. For a version or a job
 without stored analysis, use `ossia_evidence` instead.
+
+For live export progress, poll `ossia_job` with `action:"get"` and the output
+job ID. While the job runs, `progress` may contain `phase`, `completed` and
+`total`. `pages` counts generated SVG/PNG pages; `audio` reports WAV rendering
+as a percentage out of 100. Counts may be null when a phase cannot be measured,
+and `progress` is null when unavailable, queued, cancelling or finished. Counts
+apply only to the current phase; use `job.state` to determine whether the whole
+job has finished. `waitMs` waits for a terminal state or timeout, not for each
+progress update.
 
 The default check result summarizes `render` with `pageCount`, `pdfAvailable`,
 `midiAvailable`, `sourceHash`, `diagnostics` and `formatErrors`. Output job

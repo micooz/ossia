@@ -183,6 +183,7 @@ fn main() {
         OutputOutcome,
         OutputFile,
         OutputBatchOutcome,
+        JobProgress,
         JobAction,
         JobArgs,
         LayoutArgs,

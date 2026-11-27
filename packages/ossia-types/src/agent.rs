@@ -371,11 +371,22 @@ pub struct AnalysisPage {
     pub items: Vec<serde_json::Value>,
 }
 
+/// Live progress within one export stage; counts do not describe the entire job.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct JobProgress {
+    pub phase: String,
+    pub completed: Option<u32>,
+    pub total: Option<u32>,
+}
+
 /// A job and, when requested, one bounded evidence page from that job.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct JobOutcome {
     pub job: Job,
+    #[serde(default)]
+    pub progress: Option<JobProgress>,
     pub analysis: Option<AnalysisPage>,
 }
 

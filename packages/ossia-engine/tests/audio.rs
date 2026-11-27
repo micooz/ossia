@@ -32,7 +32,11 @@ fn renders_stereo_pcm_wav_with_audible_piano_samples() {
         start_seconds: 0.0,
         duration_seconds: 0.25,
     }]);
-    let bytes = render_wav(&timeline, &audio_root(), &RunContext::default()).unwrap();
+    let context = RunContext::default();
+    let bytes = render_wav(&timeline, &audio_root(), &context).unwrap();
+    let progress = context.progress().unwrap();
+    assert_eq!(progress.phase, "audio");
+    assert_eq!((progress.completed, progress.total), (Some(100), Some(100)));
     assert!(bytes.starts_with(b"RIFF"));
     assert_eq!(&bytes[8..12], b"WAVE");
 

@@ -101,49 +101,52 @@ impl Runtime {
                     },
                     &task.context,
                 )?),
-                Work::Output(args, destination, drawing, settings) => match destination {
-                    OutputDestination::File(destination) => {
-                        value(self.library.output_with_settings(
+                Work::Output(args, destination, drawing, settings) => {
+                    task.context.report_progress("preparing", None);
+                    match destination {
+                        OutputDestination::File(destination) => {
+                            value(self.library.output_with_settings(
+                                self.engine.as_ref(),
+                                &args,
+                                &destination,
+                                &task.context,
+                                drawing.as_ref(),
+                                settings.as_ref(),
+                            )?)
+                        }
+                        OutputDestination::CropFile(destination) => {
+                            value(self.library.crop_output_file_with_drawing(
+                                self.engine.as_ref(),
+                                &args,
+                                &destination,
+                                &task.context,
+                                drawing.as_ref(),
+                            )?)
+                        }
+                        OutputDestination::PageBatch {
+                            parent,
+                            directory_name,
+                        } => value(self.library.page_output_with_drawing(
                             self.engine.as_ref(),
                             &args,
-                            &destination,
+                            &parent,
+                            &directory_name,
                             &task.context,
                             drawing.as_ref(),
-                            settings.as_ref(),
-                        )?)
-                    }
-                    OutputDestination::CropFile(destination) => {
-                        value(self.library.crop_output_file_with_drawing(
+                        )?),
+                        OutputDestination::Batch {
+                            parent,
+                            directory_name,
+                        } => value(self.library.crop_output_with_drawing(
                             self.engine.as_ref(),
                             &args,
-                            &destination,
+                            &parent,
+                            &directory_name,
                             &task.context,
                             drawing.as_ref(),
-                        )?)
+                        )?),
                     }
-                    OutputDestination::PageBatch {
-                        parent,
-                        directory_name,
-                    } => value(self.library.page_output_with_drawing(
-                        self.engine.as_ref(),
-                        &args,
-                        &parent,
-                        &directory_name,
-                        &task.context,
-                        drawing.as_ref(),
-                    )?),
-                    OutputDestination::Batch {
-                        parent,
-                        directory_name,
-                    } => value(self.library.crop_output_with_drawing(
-                        self.engine.as_ref(),
-                        &args,
-                        &parent,
-                        &directory_name,
-                        &task.context,
-                        drawing.as_ref(),
-                    )?),
-                },
+                }
             }
         })();
         let current = self.library.get_job(task.job.job_id)?;

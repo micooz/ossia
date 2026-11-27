@@ -46,6 +46,7 @@ impl Library {
         if pages.contains(&0) || pages.windows(2).any(|pair| pair[0] == pair[1]) {
             return Err(AppError::invalid("pages must be positive and unique"));
         }
+        context.report_progress("generating", None);
         let (snapshot, engine_build_id, render) = match &request.source {
             OutputSource::Job { job_id } => {
                 let (job, result) = self.checked_job(*job_id)?;
@@ -116,6 +117,8 @@ impl Library {
             .tempdir_in(parent)
             .map_err(storage_error)?;
         let mut files = Vec::new();
+        let total = u32::try_from(pages.len()).map_err(|_| AppError::invalid("too many pages"))?;
+        context.report_progress("pages", Some((0, total)));
         for page in &pages {
             context.check()?;
             let asset = render
@@ -165,7 +168,9 @@ impl Library {
                 }
                 .into(),
             });
+            context.report_progress("pages", Some((files.len() as u32, total)));
         }
+        context.report_progress("writing", None);
         context.check()?;
         let directory = parent.join(directory_name);
         if directory.exists() {

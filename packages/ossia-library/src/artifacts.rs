@@ -293,6 +293,7 @@ impl Library {
                 "audioRange requires stable measure numbers; pickup/partial measures are not supported",
             ));
         }
+        context.report_progress("generating", None);
         let bytes = match request.format {
             OutputFormat::MusicXml => {
                 if request.crop.is_some()
@@ -407,6 +408,7 @@ impl Library {
                 engine.render_wav(&playback, context)?
             }
         };
+        context.report_progress("writing", None);
         if request.format == OutputFormat::MusicXml {
             publish_musicxml(destination, &bytes, context)?;
         } else {

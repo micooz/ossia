@@ -347,12 +347,14 @@ impl Runtime {
                 self.wait_for_job(job.job_id, Some(wait_ms))?
             }
         };
+        let progress = self.job_progress(&job);
         if args.section.is_some() {
             let analysis = self.analysis(&args)?;
             let mut job = job;
             job.result = None;
             return Ok(JobOutcome {
                 job,
+                progress,
                 analysis: Some(analysis),
             });
         }
@@ -363,6 +365,7 @@ impl Runtime {
         };
         Ok(JobOutcome {
             job,
+            progress,
             analysis: None,
         })
     }

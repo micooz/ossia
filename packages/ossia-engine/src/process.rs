@@ -1,12 +1,12 @@
 use crate::{failure, io_error};
-use ossia_types::{AppError, ErrorCode};
+use ossia_types::{AppError, ErrorCode, JobProgress};
 use std::{
     fs::{self, File},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex,
     },
     time::{Duration, Instant},
 };
@@ -28,14 +28,47 @@ pub struct RunContext {
     pub cancellation: Cancellation,
     /// Deadline for the entire operation, including cache lock waits and all passes.
     deadline: Instant,
+    progress: Arc<Mutex<Option<(JobProgress, Instant)>>>,
 }
 impl RunContext {
     pub fn new(timeout: Duration) -> Self {
         Self {
             cancellation: Cancellation::default(),
             deadline: Instant::now() + timeout,
+            progress: Arc::new(Mutex::new(None)),
         }
     }
+    /// Report a stage and optional stage-local counts, limiting frequent updates.
+    pub fn report_progress(&self, phase: &str, counts: Option<(u32, u32)>) {
+        let mut progress = self.progress.lock().unwrap_or_else(|e| e.into_inner());
+        let now = Instant::now();
+        let (completed, total) = counts.map_or((None, None), |(c, t)| (Some(c), Some(t)));
+        let next = JobProgress {
+            phase: phase.into(),
+            completed,
+            total,
+        };
+        if let Some((previous, at)) = progress.as_ref() {
+            if previous == &next
+                || (previous.phase == phase
+                    && now.duration_since(*at) < Duration::from_millis(200)
+                    && completed != total)
+            {
+                return;
+            }
+        }
+        *progress = Some((next, now));
+    }
+
+    /// Read the latest progress snapshot.
+    pub fn progress(&self) -> Option<JobProgress> {
+        self.progress
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .map(|(p, _)| p.clone())
+    }
+
     pub fn check(&self) -> Result<(), AppError> {
         if self.cancellation.is_cancelled() {
             Err(AppError::new(

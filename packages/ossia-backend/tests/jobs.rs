@@ -845,3 +845,73 @@ async fn reveal_only_resolves_intact_completed_output_results() {
     assert!(f.runtime.export_location(JobId::new()).is_err());
     f.finish().await;
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn output_progress_is_live_and_cleared_after_cancellation() {
+    let mut f = Fixture::new(false).await;
+    f.engine.hold.store(true, Ordering::Release);
+    let job = f
+        .runtime
+        .output(OutputArgs {
+            source: OutputSource::Version {
+                version_id: f.doc.head_version_id.unwrap(),
+            },
+            format: OutputFormat::MusicXml,
+            pages: None,
+            width: None,
+            pdf_password: None,
+            png_quality: None,
+            png_transparent: None,
+            include_drawing: None,
+            output_path: None,
+            output_directory: None,
+            crop: None,
+            padding_staff_spaces: None,
+            audio_range: None,
+            wait_ms: None,
+        })
+        .unwrap();
+    let args = JobArgs {
+        detail: DetailLevel::Summary,
+        job_id: job.job_id,
+        action: JobAction::Get,
+        wait_ms: None,
+        section: None,
+        offset: 0,
+        limit: None,
+        measure_range: None,
+        voice: None,
+        track: None,
+        channel: None,
+    };
+    assert!(f
+        .runtime
+        .job_outcome(args.clone())
+        .unwrap()
+        .progress
+        .is_none());
+    f.scheduler = Some(tokio::spawn(f.runtime.clone().schedule()));
+    until(|| {
+        f.runtime
+            .job_outcome(args.clone())
+            .unwrap()
+            .progress
+            .as_ref()
+            .is_some_and(|progress| progress.phase == "generating")
+    })
+    .await;
+    let progress = f
+        .runtime
+        .job_outcome(args.clone())
+        .unwrap()
+        .progress
+        .unwrap();
+    assert_eq!((progress.completed, progress.total), (None, None));
+    f.runtime.cancel(job.job_id).unwrap();
+    assert_eq!(
+        wait_job(&f.runtime, job.job_id).await.state,
+        JobState::Cancelled
+    );
+    assert!(f.runtime.job_outcome(args).unwrap().progress.is_none());
+    f.finish().await;
+}
