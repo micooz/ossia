@@ -1,3 +1,4 @@
+import '../polyfills.ts';
 import { createRoot } from 'react-dom/client';
 
 import { I18nProvider, matchSystemLanguage } from '../i18n.tsx';

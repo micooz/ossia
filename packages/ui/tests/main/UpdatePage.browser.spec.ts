@@ -177,6 +177,32 @@ test('release notes are localized, sanitized, and open HTTPS links externally', 
   await expect(dialog).toHaveCount(0);
 });
 
+test('release notes work without native dialog support', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { value: undefined });
+    Object.defineProperty(Array.prototype, 'at', { value: undefined, configurable: true });
+    Object.defineProperty(String.prototype, 'at', { value: undefined, configurable: true });
+  });
+  await mockManagement(page, { updateState: found });
+  await page.goto('/main.html');
+  await page.getByRole('button', { name: '关于', exact: true }).click();
+  const trigger = page.locator('.update-notes-row').getByRole('button', { name: '打开' });
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'v0.2.0 更新内容' });
+  await expect(dialog.getByText('支持新的更新流程')).toBeVisible();
+  await expect
+    .poll(async () =>
+      dialog.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return Math.abs(rect.top + rect.height / 2 - window.innerHeight / 2);
+      }),
+    )
+    .toBeLessThan(2);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
 test('English release notes hide installation notes written in Chinese', async ({ page }) => {
   await mockManagement(page, {
     updateState: {
@@ -259,49 +285,62 @@ test('release notes merge categories and keep version badges inside entries', as
   await page.screenshot({ path: testInfo.outputPath('release-notes-dialog.png') });
 });
 
-test('release notes keep the header and footer fixed while the body scrolls', async ({
-  page,
-}, testInfo) => {
-  const newest = '0.2.12';
-  const releases = Array.from({ length: 12 }, (_, index) => ({
-    version: `0.2.${12 - index}`,
-    body: [
-      '<!-- lang:zh -->',
-      '## 错误修复',
-      ...Array.from({ length: 4 }, (_, item) => `- 第 ${index + 1} 个版本的修复 ${item + 1}`),
-    ].join('\n'),
-  }));
-  await mockManagement(page, {
-    updateState: {
-      ...found,
-      notes: {
-        from: '0.1.0',
-        to: newest,
-        maintenanceOnly: false,
-        releases,
+for (const fallback of [false, true]) {
+  test(`release notes keep the header and footer fixed while the body scrolls (fallback: ${fallback})`, async ({
+    page,
+  }, testInfo) => {
+    if (fallback) {
+      await page.addInitScript(() => {
+        Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { value: undefined });
+      });
+    }
+    const newest = '0.2.12';
+    const releases = Array.from({ length: 12 }, (_, index) => ({
+      version: `0.2.${12 - index}`,
+      body: [
+        '<!-- lang:zh -->',
+        '## 错误修复',
+        ...Array.from({ length: 4 }, (_, item) => `- 第 ${index + 1} 个版本的修复 ${item + 1}`),
+      ].join('\n'),
+    }));
+    await mockManagement(page, {
+      updateState: {
+        ...found,
+        notes: {
+          from: '0.1.0',
+          to: newest,
+          maintenanceOnly: false,
+          releases,
+        },
       },
-    },
-  });
-  await page.goto('/main.html');
-  await page.getByRole('button', { name: '关于', exact: true }).click();
-  await page.locator('.update-notes-row').getByRole('button', { name: '打开' }).click();
-  const dialog = page.getByRole('dialog', { name: 'v0.2.12 更新内容' });
-  await expect(dialog).toHaveCSS('opacity', '1');
+    });
+    await page.goto('/main.html');
+    await page.getByRole('button', { name: '关于', exact: true }).click();
+    await page.locator('.update-notes-row').getByRole('button', { name: '打开' }).click();
+    const dialog = page.getByRole('dialog', { name: 'v0.2.12 更新内容' });
+    await expect(dialog).toHaveCSS('opacity', '1');
 
-  const header = dialog.locator('.update-notes-header');
-  const content = dialog.locator('.update-notes-content');
-  const footer = dialog.locator('.update-notes-footer');
-  expect(await content.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
-    true,
-  );
-  const before = [await header.boundingBox(), await footer.boundingBox()];
-  await content.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
-  });
-  expect([await header.boundingBox(), await footer.boundingBox()]).toEqual(before);
+    const header = dialog.locator('.update-notes-header');
+    const content = dialog.locator('.update-notes-content');
+    const footer = dialog.locator('.update-notes-footer');
+    const bounds = await dialog.boundingBox();
+    const viewport = page.viewportSize();
+    expect(bounds).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport!.height);
+    expect(await content.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
+      true,
+    );
+    const before = [await header.boundingBox(), await footer.boundingBox()];
+    await content.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    expect([await header.boundingBox(), await footer.boundingBox()]).toEqual(before);
 
-  await page.screenshot({ path: testInfo.outputPath('release-notes-scroll.png') });
-});
+    await page.screenshot({ path: testInfo.outputPath('release-notes-scroll.png') });
+  });
+}
 
 test('the page header update action starts installation directly', async ({ page }) => {
   await mockManagement(page, { updateState: found });

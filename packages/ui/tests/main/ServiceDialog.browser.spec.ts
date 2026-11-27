@@ -2,6 +2,23 @@ import { expect, test } from '@playwright/test';
 
 import { mockManagement } from './management.ts';
 
+test('service dialog can be reopened without native dialog support', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { value: undefined });
+  });
+  await mockManagement(page);
+  await page.goto('/main.html');
+  const trigger = page.getByRole('button', { name: '服务未连接' });
+  const dialog = page.getByRole('dialog', { name: '本地服务' });
+  for (let i = 0; i < 2; i++) {
+    await trigger.click();
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+  }
+});
+
 for (const fallback of [false, true]) {
   test(`management dialog animates close and restores focus (fallback: ${fallback})`, async ({
     page,

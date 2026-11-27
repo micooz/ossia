@@ -136,6 +136,19 @@ select:disabled {
   display: none !important;
 }
 
+dialog:not([open]) {
+  display: none;
+}
+
+dialog[data-dialog-fallback] {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  margin: auto;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -1977,6 +1990,10 @@ button.service-badge:hover {
 }
 
 .service-dialog[open]:not([data-closing])::backdrop {
+  background: rgb(0 0 0 / 28%);
+}
+
+.service-dialog + .backdrop {
   background: rgb(0 0 0 / 28%);
 }
 

@@ -2,6 +2,20 @@ import { expect, test } from '@playwright/test';
 
 import { mockManagement, releaseAgentChange } from './management.ts';
 
+test('closed dialogs do not affect the management layout without native dialog styles', async ({
+  page,
+}) => {
+  await page.goto('/main.html');
+  await page.addStyleTag({ content: 'dialog { display: block; position: static; }' });
+  for (const height of [500, 800]) {
+    await page.setViewportSize({ width: 1100, height });
+    const sidebarHeight = await page
+      .locator('.sidebar')
+      .evaluate((element) => element.getBoundingClientRect().height);
+    expect(sidebarHeight).toBe(height);
+  }
+});
+
 test('agent loading failure shows the empty state and an error toast', async ({ page }) => {
   await mockManagement(page, { agentLoadError: 'Agent state unavailable' });
   await page.goto('/main.html');

@@ -1,6 +1,28 @@
 import type { SyntheticEvent } from 'react';
 
+import { registerDialogFallback } from '../../polyfills.ts';
+
+import 'dialog-polyfill/dist/dialog-polyfill.css';
+
 let topLayerExit: boolean | undefined;
+const fallbackFocus = new WeakMap<HTMLDialogElement, HTMLElement>();
+
+/** Open a modal on both native and older WebViews. */
+export function openDialog(dialog: HTMLDialogElement, invoker?: HTMLElement) {
+  if (registerDialogFallback(dialog)) {
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.addEventListener('close', () => {
+      const previousFocus = fallbackFocus.get(dialog);
+      fallbackFocus.delete(dialog);
+      if (previousFocus) window.setTimeout(() => previousFocus.focus(), 0);
+    });
+  }
+  const focused = invoker ?? document.activeElement;
+  if (dialog.getAttribute('aria-modal') === 'true' && focused instanceof HTMLElement) {
+    fallbackFocus.set(dialog, focused);
+  }
+  dialog.showModal();
+}
 
 function supportsTopLayerExit() {
   if (topLayerExit !== undefined) return topLayerExit;

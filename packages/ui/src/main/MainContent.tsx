@@ -37,6 +37,7 @@ import { NavItem, formatBytes } from './components/ui.tsx';
 import { useUpdate } from './hooks/useUpdate.ts';
 import { platformName } from './types.ts';
 import type { Page } from './types.ts';
+import { openDialog } from './utils/dialog.ts';
 
 interface MainContentProps {
   native: boolean;
@@ -669,9 +670,9 @@ export function MainContent({ native, preferences, setPreferences, notify }: Mai
             <button
               type="button"
               aria-haspopup="dialog"
-              onClick={() => {
+              onClick={(event) => {
                 setConfirmStop(false);
-                serviceDialog.current?.showModal();
+                if (serviceDialog.current) openDialog(serviceDialog.current, event.currentTarget);
                 void refreshStatus();
               }}
               className={`service-badge${state?.runtime ? ' is-on' : ''}`}

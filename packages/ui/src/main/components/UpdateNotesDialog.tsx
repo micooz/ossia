@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import type { UiLanguage, UpdateNotes } from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
-import { closeDialog } from '../utils/dialog.ts';
+import { closeDialog, openDialog } from '../utils/dialog.ts';
 import { renderReleaseNotes, secureLinks } from '../utils/releaseNotes.ts';
 
 export function UpdateNotesDialog({
@@ -21,7 +21,7 @@ export function UpdateNotesDialog({
   const content = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    dialog.current?.showModal();
+    if (dialog.current) openDialog(dialog.current);
   }, []);
 
   useEffect(() => {
