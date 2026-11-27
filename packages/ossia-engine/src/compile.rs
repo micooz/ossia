@@ -5,7 +5,7 @@ use crate::cache::Cache;
 pub fn render_options_hash(point_and_click: bool) -> ContentHash {
     ContentHash::of(
         &serde_json::to_vec(&serde_json::json!({
-            "pointAndClick": point_and_click, "derivationVersion": 8,
+            "pointAndClick": point_and_click, "derivationVersion": 10,
             "interactionVersion": ossia_types::INTERACTION_VERSION,
         }))
         .expect("render options serialize"),

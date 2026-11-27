@@ -1,4 +1,6 @@
 #(define ossia-jianpu-staves (make-hash-table))
+#(define ossia-jianpu-beam-anchors (make-weak-key-hash-table))
+#(define ossia-jianpu-grace-scale 0.65)
 #(define ossia-jianpu-major '(0 2 4 5 7 9 11))
 #(define ossia-jianpu-labels '("C" "D" "E" "F" "G" "A" "B"))
 
@@ -46,23 +48,48 @@
 #(define (ossia-jianpu-dots count)
    (make-concat-markup (make-list count (make-simple-markup "."))))
 
-#(define (ossia-jianpu-number grob number alteration octave underlines dots)
+#(define (ossia-jianpu-digit grob number)
    (let* ((text (grob-interpret-markup grob
                   (make-fontsize-markup 0
-                    (make-bold-markup (make-simple-markup number)))))
-          (digit (ly:stencil-aligned-to
-                   (ly:stencil-aligned-to text X CENTER) Y CENTER))
+                    (make-bold-markup (make-simple-markup number))))))
+     (ly:stencil-aligned-to (ly:stencil-aligned-to text X CENTER) Y CENTER)))
+
+#(define (ossia-jianpu-underline-base grob)
+   (- (car (ly:stencil-extent (ossia-jianpu-digit grob "0") Y)) 0.24))
+
+#(define (ossia-jianpu-underline left right y level scale)
+   (let ((at (- y (* 0.27 level scale))))
+     (make-line-stencil (* 0.11 scale) left at right at)))
+
+#(define (ossia-jianpu-rhythm-beam? beam)
+   (and (ly:grob? beam)
+        (let ((cause (event-cause beam)))
+          (not (and (ly:stream-event? cause) (ly:in-event-class? cause 'tremolo-span-event))))))
+
+#(define (ossia-jianpu-beam-draws-underlines? head)
+   (let* ((stem (and (hashq-ref ossia-jianpu-beam-anchors head) (ly:grob-object head 'stem)))
+          (beam (and (ly:grob? stem) (ly:grob-object stem 'beam))))
+     (and (ossia-jianpu-rhythm-beam? beam)
+          (not (ly:grob-property beam 'transparent #f))
+          (ly:grob-property-data beam 'stencil))))
+
+#(define (ossia-jianpu-number grob number alteration octave underlines dots)
+   (let* ((digit (ossia-jianpu-digit grob number))
           (x (ly:stencil-extent digit X))
           (y (ly:stencil-extent digit Y))
           (accidental (ossia-jianpu-accidental alteration))
-          (lines (map (lambda (i)
-                        (let ((at (- (car y) 0.24 (* 0.27 i))))
-                          (make-line-stencil 0.11 (car x) at (cdr x) at)))
-                      (iota underlines)))
+          (underline-base (and (> underlines 0) (ossia-jianpu-underline-base grob)))
+          (lines (apply ly:stencil-add empty-stencil
+                   (map (lambda (level)
+                          (ossia-jianpu-underline (car x) (cdr x) underline-base level 1))
+                        (iota underlines))))
+          (lower-dot (if underline-base
+                         (- underline-base 0.31 (* 0.27 (1- underlines)))
+                         (- (car y) 0.28)))
           (points (map (lambda (i)
                          (let ((at (if (> octave 0)
                                        (+ (cdr y) 0.27 (* 0.29 i))
-                                       (- (car y) 0.28 (* 0.27 underlines) (* 0.29 i)))))
+                                       (- lower-dot (* 0.29 i)))))
                            (ly:stencil-translate-axis (make-circle-stencil 0.095 0.02 #t) at Y)))
                        (iota (abs octave))))
           (with-alteration
@@ -79,7 +106,11 @@
                 (ly:stencil-combine-at-edge with-alteration X RIGHT
                   (grob-interpret-markup grob (ossia-jianpu-dots dots)) 0.10)
                 with-alteration)))
-     (let* ((shape (apply ly:stencil-add (append (list with-dots) lines points)))
+     ;; Local extents keep each note's spacing and selection independent of beam ink.
+     (let* ((marks (if (and underline-base (ossia-jianpu-beam-draws-underlines? grob))
+                       (ly:make-stencil '() (ly:stencil-extent lines X) (ly:stencil-extent lines Y))
+                       lines))
+            (shape (apply ly:stencil-add with-dots marks points))
             (ink (ly:stencil-extent shape X))
             (half-width (max (abs (car ink)) (abs (cdr ink)))))
        (ly:make-stencil (ly:stencil-expr shape)
@@ -107,8 +138,82 @@
              (if slashed?
                  (ly:stencil-add stencil (make-line-stencil 0.13 -0.7 -0.45 0.7 0.4))
                  stencil)
-             0.65 0.65)
+             ossia-jianpu-grace-scale ossia-jianpu-grace-scale)
            stencil))))
+
+#(define (ossia-jianpu-stem-anchor stem system)
+   (let* ((heads (ly:grob-object stem 'note-heads))
+          (rhythms (if (ly:grob-array? heads) heads (ly:grob-object stem 'rests))))
+     (and (ly:grob-array? rhythms)
+          (find (lambda (head) (and (eq? (ly:grob-system head) system)
+                                   (hashq-ref ossia-jianpu-beam-anchors head)))
+                (ly:grob-array->list rhythms)))))
+
+#(define (ossia-jianpu-shared-beams left right)
+   (let* ((left-beaming (ly:grob-property left 'beaming))
+          (right-beaming (ly:grob-property right 'beaming))
+          (outgoing (and (pair? left-beaming) (cdr left-beaming)))
+          (incoming (and (pair? right-beaming) (car right-beaming)))
+          (limit (min (ly:grob-property left 'max-beam-connect +inf.0)
+                      (ly:grob-property right 'max-beam-connect +inf.0))))
+     (if (and (list? outgoing) (list? incoming))
+         (min (- (ly:grob-property left 'duration-log 2) 2)
+              (- (ly:grob-property right 'duration-log 2) 2)
+              (count (lambda (rank) (and (< (abs rank) limit) (memv rank outgoing))) incoming))
+         0)))
+
+#(define (ossia-jianpu-beam-notes stems system)
+   (let loop ((stems stems) (heads (map (lambda (stem) (ossia-jianpu-stem-anchor stem system)) stems)))
+     (if (null? stems)
+         '()
+         (let* ((head (car heads)) (next (and (pair? (cdr heads)) (cadr heads)))
+                (anchor (and head (hashq-ref ossia-jianpu-beam-anchors head)))
+                (right (and next (hashq-ref ossia-jianpu-beam-anchors next)))
+                (levels (if head (- (ly:grob-property (car stems) 'duration-log 2) 2) 0))
+                (joined (if (and anchor right (eq? (car anchor) (car right))
+                                 (eq? (cadr anchor) (cadr right)))
+                            (ossia-jianpu-shared-beams (car stems) (cadr stems))
+                            0)))
+           (cons (list head levels joined) (loop (cdr stems) (cdr heads)))))))
+
+#(define (ossia-jianpu-beam-line beam system first last level)
+   (let* ((first-anchor (hashq-ref ossia-jianpu-beam-anchors first))
+          (last-anchor (hashq-ref ossia-jianpu-beam-anchors last))
+          (scale (if (cadr first-anchor) ossia-jianpu-grace-scale 1))
+          (beam-x (ly:grob-relative-coordinate beam system X))
+          (left (car (ly:stencil-extent (ossia-jianpu-digit first (caddr first-anchor)) X)))
+          (right (cdr (ly:stencil-extent (ossia-jianpu-digit last (caddr last-anchor)) X)))
+          ;; System-relative Y would force staff spacing while computing its skyline.
+          (common-y (ly:grob-common-refpoint first beam Y))
+          (y (+ (- (ly:grob-relative-coordinate first common-y Y)
+                   (ly:grob-relative-coordinate beam common-y Y))
+                (* scale (ossia-jianpu-underline-base first)))))
+     (ossia-jianpu-underline
+       (+ (- (ly:grob-relative-coordinate first system X) beam-x) (* scale left))
+       (+ (- (ly:grob-relative-coordinate last system X) beam-x) (* scale right))
+       y level scale)))
+
+#(define (ossia-jianpu-beam-stencil beam)
+   (let ((stems (ly:grob-object beam 'stems)) (system (ly:grob-system beam)))
+     (if (and (ly:grob-array? stems) (ly:grob? system) (ossia-jianpu-rhythm-beam? beam))
+         (begin
+           ;; Evaluating Beam.beaming assigns matching ranks to the two sides of each connection.
+           (ly:grob-property beam 'beaming)
+           (let* ((notes (ossia-jianpu-beam-notes (ly:grob-array->list stems) system))
+                  (levels (fold (lambda (note max-levels) (max (cadr note) max-levels)) 0 notes)))
+             (fold (lambda (level stencil)
+                     (let loop ((remaining notes) (first #f) (stencil stencil))
+                       (if (null? remaining)
+                           stencil
+                           (let* ((note (car remaining)) (head (car note))
+                                  (start (or first (and (> (cadr note) level) head))))
+                             (cond ((not start) (loop (cdr remaining) #f stencil))
+                                   ((> (caddr note) level) (loop (cdr remaining) start stencil))
+                                   (else (loop (cdr remaining) #f
+                                           (ly:stencil-add stencil
+                                             (ossia-jianpu-beam-line beam system start head level)))))))))
+                   empty-stencil (iota levels))))
+         empty-stencil)))
 
 #(define (ossia-jianpu-ink x y)
    (if ossia-jianpu-svg
@@ -268,6 +373,7 @@
             (when (and staff (ly:pitch? pitch))
               (apply (lambda (degree alteration octave)
                        (let* ((duration (ly:event-property event 'duration))
+                              (digit (number->string (1+ degree)))
                               (grace (grace?))
                               (slashed (and grace (equal? "grace"
                                          (assq-ref (ly:context-grob-definition context 'Flag)
@@ -276,9 +382,9 @@
                            (ossia-jianpu-reject event "a microtonal or unusually spelled pitch"))
                          (ly:grob-set-property! grob 'stencil
                            (lambda (head)
-                             (ossia-jianpu-rhythm-stencil head (number->string (1+ degree))
+                             (ossia-jianpu-rhythm-stencil head digit
                                alteration octave duration grace slashed)))
-                         (set! heads (cons (cons pitch grob) heads))))
+                         (set! heads (cons (list pitch grob digit) heads))))
                      (ossia-jianpu-degree pitch (vector-ref staff 2))))))
          ((rest-interface engraver grob source)
           (let* ((event (ly:grob-property grob 'cause))
@@ -292,19 +398,27 @@
           (let* ((target staff)
                  (voice-lane lane)
                  (count (length heads))
-                 (step (if (grace?) 1.6 2.5))
+                 (grace (grace?))
+                 (step (if grace 1.6 2.5))
                  (height (* step (max 0 (1- count))))
-                 (top (if (grace?) 1.35 0))
-                 (base (if (eq? lane (car (vector-ref staff 1))) top (- top height))))
+                 (top (if grace 1.35 0))
+                 (first-lane? (eq? lane (car (vector-ref staff 1))))
+                 (base (if first-lane? top (- top height)))
+                 (ordered (sort heads (lambda (a b) (ly:pitch<? (car a) (car b))))))
             (vector-set! lane 1 (min (vector-ref lane 1) base))
             (vector-set! lane 2 (max (vector-ref lane 2) (+ base height)))
+            ;; Use the head at the lane's single-note height when a chord is stacked.
+            (let ((anchor (if rest (list rest "0")
+                              (and (pair? ordered) (cdr (if first-lane? (car ordered) (last ordered)))))))
+              (when anchor
+                (hashq-set! ossia-jianpu-beam-anchors (car anchor) (list lane grace (cadr anchor)))))
             (for-each
               (lambda (head i)
                 (let ((position (+ base (* step i))))
-                  (ly:grob-set-property! (cdr head) 'staff-position
+                  (ly:grob-set-property! (cadr head) 'staff-position
                     (lambda (piece)
                       (* 2 (+ position (ossia-jianpu-lane-offset target voice-lane)))))))
-              (sort heads (lambda (a b) (ly:pitch<? (car a) (car b))))
+              ordered
               (iota count))
             (when rest
               (ly:grob-set-property! rest 'Y-offset
@@ -352,7 +466,8 @@
     \override Rest.X-extent = #ly:grob::stencil-width
     \override Rest.Y-extent = #grob::always-Y-extent-from-stencil
     \override Stem.transparent = ##t
-    \override Beam.transparent = ##t
+    \override Beam.transparent = ##f
+    \override Beam.stencil = #ossia-jianpu-beam-stencil
     \override Flag.transparent = ##t
     \override Dots.transparent = ##t
     \override TupletBracket.bracket-visibility = ##t

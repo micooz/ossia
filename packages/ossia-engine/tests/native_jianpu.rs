@@ -11,6 +11,111 @@ const MARKER: &str = "% ossia:notation=jianpu\n";
 
 #[test]
 #[ignore = "requires native LilyPond and OSSIA_TEST_LILYPOND_ROOT"]
+fn jianpu_draws_each_underline_once() {
+    let root = PathBuf::from(std::env::var_os("OSSIA_TEST_LILYPOND_ROOT").unwrap());
+    let work = tempfile::tempdir().unwrap();
+    let context = RunContext::new(Duration::from_secs(60));
+    let engine = Engine::verify(&root, &work.path().join("scratch"), &context).unwrap();
+    let assets = work.path().join("artifacts");
+
+    for (name, music, expected) in [
+        (
+            "mixed and separate groups",
+            r"\new Staff { \autoBeamOff c'8[ d'16 e'] f'16[ g' a' b'] c''4 d''8.[ e''16] }",
+            (5, 1, 0),
+        ),
+        (
+            "automatic groups and noBeam",
+            r"\new Staff { \time 2/4 \set Timing.beamExceptions = #'()
+                \set Timing.beatStructure = 1,1 c'8 d' e' f' | c'8 d' e'\noBeam f' }",
+            (3, 2, 0),
+        ),
+        (
+            "secondary beam subdivisions",
+            r"\new Staff { c'16[ d' \set stemLeftBeamCount = 1 e' f'] g'2. }",
+            (3, 0, 0),
+        ),
+        (
+            "explicit and isolated rests",
+            r"\new Staff { c'8[ r8 e' f'] g'8 r8 a'8 r8 }",
+            (1, 4, 0),
+        ),
+        (
+            "chord, tuplet and grace groups",
+            r"\new Staff { \time 2/4 \grace { a'16[ b'] }
+                \tuplet 3/2 { <c' e'>8[ d' e'] } f'4 }",
+            (1, 1, 2),
+        ),
+        (
+            "independent voices",
+            r"\new Staff << { c'8[ d'] e'4 f'2 } \\ { a8 b4 c'8[ b] a4. } >>",
+            (2, 1, 0),
+        ),
+        (
+            "staff changes",
+            r#"\new PianoStaff <<
+                \new Staff = "up" \new Voice { \time 2/4 c'8[ d' \change Staff = "down" e' f'] }
+                \new Staff = "down" { s2 }
+            >>"#,
+            (2, 0, 0),
+        ),
+        (
+            "forced system break",
+            r"\new Staff { \override Beam.breakable = ##t \time 2/8 c'8[ d' | \break e' f'] }",
+            (2, 0, 0),
+        ),
+        (
+            "system break leaving single notes",
+            r"\new Staff { \override Beam.breakable = ##t \time 1/8 c'8[ | \break d'] }",
+            (0, 2, 0),
+        ),
+    ] {
+        let source =
+            format!("{MARKER}\\version \"2.26.0\"\n\\score {{ {music} \\layout {{ }} }}\n");
+        let snapshot = SourceSnapshot::new(DocumentId::new(), source.into_bytes()).unwrap();
+        let score = engine
+            .compile(
+                &snapshot,
+                &CompileOptions {
+                    formats: vec![RenderFormat::Svg],
+                    point_and_click: true,
+                },
+                &assets,
+                &context,
+            )
+            .unwrap();
+        assert!(
+            score.format_errors.is_empty(),
+            "{name}: {:?}",
+            score.format_errors
+        );
+
+        let mut joined = 0;
+        let mut single = 0;
+        let mut grace_joined = 0;
+        for page in score.pages {
+            let svg = fs::read_to_string(assets.join(page.artifact.path)).unwrap();
+            let tree = roxmltree::Document::parse(&svg).unwrap();
+            for line in tree.descendants().filter(|node| node.has_tag_name("line")) {
+                if line.attribute("y1") != line.attribute("y2") {
+                    continue;
+                }
+                let coordinate = |axis| line.attribute(axis).unwrap().parse::<f64>().unwrap();
+                let length = (coordinate("x2") - coordinate("x1")).abs();
+                match line.attribute("stroke-width") {
+                    Some("0.1100") if length > 1.2 => joined += 1,
+                    Some("0.1100") => single += 1,
+                    Some("0.0715") if length > 0.7 => grace_joined += 1,
+                    _ => {}
+                }
+            }
+        }
+        assert_eq!((joined, single, grace_joined), expected, "{name}");
+    }
+}
+
+#[test]
+#[ignore = "requires native LilyPond and OSSIA_TEST_LILYPOND_ROOT"]
 fn prelude_jianpu_preserves_midi_and_maps_all_measures() {
     let root = PathBuf::from(std::env::var_os("OSSIA_TEST_LILYPOND_ROOT").unwrap());
     let work = tempfile::tempdir().unwrap();
@@ -42,6 +147,10 @@ fn prelude_jianpu_preserves_midi_and_maps_all_measures() {
         "{:?}",
         jianpu.format_errors
     );
+    assert!(jianpu
+        .diagnostics
+        .iter()
+        .all(|diagnostic| !diagnostic.message.contains("cyclic dependency")));
     assert!(jianpu.pdf.is_some());
     let staff = compile(&original, vec![RenderFormat::Midi]);
     let jianpu_midi = fs::read(assets.join(jianpu.midi.unwrap().path)).unwrap();
