@@ -98,6 +98,7 @@ impl Drop for Mock {
 }
 
 fn handle(mut stream: TcpStream, handler: &Handler, hits: &Hits) {
+    stream.set_nonblocking(false).unwrap();
     stream
         .set_read_timeout(Some(Duration::from_secs(2)))
         .unwrap();
