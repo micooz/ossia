@@ -26,7 +26,7 @@ impl AgentEnvironment {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     pub(crate) fn with_path_loader(
         loader: impl Fn() -> Option<String> + Send + Sync + 'static,
     ) -> Self {
