@@ -164,6 +164,13 @@ impl Integrator {
     }
 
     pub fn agents(&self) -> Result<AgentsSnapshot, AppError> {
+        self.agents_with_env(&command::AgentEnvironment::new())
+    }
+
+    fn agents_with_env(
+        &self,
+        environment: &command::AgentEnvironment,
+    ) -> Result<AgentsSnapshot, AppError> {
         let loaded = record::load(&self.home)?;
         let adapters = registry::adapters(&self.paths);
         let mut agents = std::thread::scope(|scope| {
@@ -181,57 +188,78 @@ impl Integrator {
                             });
                             let antigravity_hosts = (adapter.id() == "antigravity")
                                 .then(|| antigravity::hosts(&self.paths));
-                            let detected = match &antigravity_hosts {
-                                Some(hosts) => antigravity::detected(&self.paths, hosts),
-                                None => adapter.detect(&self.paths),
+                            let result = match &antigravity_hosts {
+                                Some(hosts) => Ok(antigravity::detected(&self.paths, hosts)),
+                                None => adapter.detect_with_env(&self.paths, environment),
                             };
-                            if detected.is_none() && record.is_none() && legacy.is_none() {
+                            let (detected, detection_error) = match result {
+                                Ok(detected) => (detected, None),
+                                Err(error) => (None, Some(error)),
+                            };
+                            if detected.is_none()
+                                && detection_error.is_none()
+                                && record.is_none()
+                                && legacy.is_none()
+                            {
                                 return None;
                             }
-                            let mut inspection_error = None;
-                            let inspection = match (&detected, record, legacy) {
-                                (Some(detected), Some(record), _) => {
-                                    let ctx = AgentContext {
-                                        integrator: self,
-                                        detected,
-                                    };
-                                    adapter.status(&ctx, Some(record))
-                                }
-                                (Some(_), None, Some(_)) => Ok(AgentInspection {
-                                    state: AgentState::UpdateRequired,
-                                    installed: false,
-                                    enabled: true,
-                                    managed: true,
-                                    path: None,
-                                    message: Some(AgentNotice::LegacyReinstall),
-                                    conflicts: Vec::new(),
-                                }),
-                                (Some(detected), None, None) => {
-                                    let ctx = AgentContext {
-                                        integrator: self,
-                                        detected,
-                                    };
-                                    adapter.status(&ctx, None)
-                                }
-                                (None, Some(record), _) => Ok(AgentInspection {
+                            let mut inspection_error =
+                                detection_error.as_ref().map(|error| error.message.clone());
+                            let inspection = if detection_error.is_some() {
+                                Ok(AgentInspection {
                                     state: AgentState::Unavailable,
                                     installed: false,
                                     enabled: false,
-                                    managed: true,
-                                    path: Some(record.shared_root.clone()),
-                                    message: Some(AgentNotice::HostUnavailable),
-                                    conflicts: Vec::new(),
-                                }),
-                                (None, None, Some(_)) => Ok(AgentInspection {
-                                    state: AgentState::UpdateRequired,
-                                    installed: false,
-                                    enabled: false,
-                                    managed: true,
+                                    managed: record.is_some(),
                                     path: None,
-                                    message: Some(AgentNotice::LegacyHostUnavailable),
+                                    message: None,
                                     conflicts: Vec::new(),
-                                }),
-                                (None, None, None) => unreachable!(),
+                                })
+                            } else {
+                                match (&detected, record, legacy) {
+                                    (Some(detected), Some(record), _) => {
+                                        let ctx = AgentContext {
+                                            integrator: self,
+                                            detected,
+                                        };
+                                        adapter.status(&ctx, Some(record))
+                                    }
+                                    (Some(_), None, Some(_)) => Ok(AgentInspection {
+                                        state: AgentState::UpdateRequired,
+                                        installed: false,
+                                        enabled: true,
+                                        managed: true,
+                                        path: None,
+                                        message: Some(AgentNotice::LegacyReinstall),
+                                        conflicts: Vec::new(),
+                                    }),
+                                    (Some(detected), None, None) => {
+                                        let ctx = AgentContext {
+                                            integrator: self,
+                                            detected,
+                                        };
+                                        adapter.status(&ctx, None)
+                                    }
+                                    (None, Some(record), _) => Ok(AgentInspection {
+                                        state: AgentState::Unavailable,
+                                        installed: false,
+                                        enabled: false,
+                                        managed: true,
+                                        path: Some(record.shared_root.clone()),
+                                        message: Some(AgentNotice::HostUnavailable),
+                                        conflicts: Vec::new(),
+                                    }),
+                                    (None, None, Some(_)) => Ok(AgentInspection {
+                                        state: AgentState::UpdateRequired,
+                                        installed: false,
+                                        enabled: false,
+                                        managed: true,
+                                        path: None,
+                                        message: Some(AgentNotice::LegacyHostUnavailable),
+                                        conflicts: Vec::new(),
+                                    }),
+                                    (None, None, None) => unreachable!(),
+                                }
                             }
                             .unwrap_or_else(|error| {
                                 let detected = detected
@@ -333,7 +361,7 @@ impl Integrator {
                 .iter()
                 .filter_map(|host| host.error.as_deref())
                 .collect();
-            combined.error = (!errors.is_empty()).then(|| errors.join("; "));
+            combined.error = (errors.len() == claude.len()).then(|| errors.join("; "));
             combined.hosts = claude
                 .iter()
                 .map(|host| AgentHost {
@@ -343,14 +371,16 @@ impl Integrator {
                         "Claude Code"
                     }
                     .into(),
-                    error: loaded
-                        .store
-                        .group_problems
-                        .get(&record::management_id(
-                            "claude",
-                            host.profile.as_deref().unwrap_or_default(),
-                        ))
-                        .cloned(),
+                    error: host.error.clone().or_else(|| {
+                        loaded
+                            .store
+                            .group_problems
+                            .get(&record::management_id(
+                                "claude",
+                                host.profile.as_deref().unwrap_or_default(),
+                            ))
+                            .cloned()
+                    }),
                     method: host.method,
                     state: host.state,
                     version: host.version.clone(),
@@ -375,7 +405,7 @@ impl Integrator {
                 AgentState::Conflict
             } else if combined.enabled {
                 AgentState::Installed
-            } else if combined.managed {
+            } else if combined.managed || !errors.is_empty() {
                 AgentState::Broken
             } else {
                 AgentState::Available
@@ -424,11 +454,12 @@ impl Integrator {
     }
 
     pub fn set_agents(&self, change: AgentsChange) -> Result<AgentsMutation, AppError> {
+        let environment = command::AgentEnvironment::new();
         let _shared = record::shared_lock(&self.shared_root)?;
         let _record = record::lock(&self.home)?;
         let loaded = record::load(&self.home)?;
         let mut store = loaded.store.clone();
-        self.cleanup_legacy(&loaded.legacy)?;
+        self.cleanup_legacy(&loaded.legacy, &environment)?;
         let adapters = registry::adapters(&self.paths);
         let mut problems = Vec::new();
         for id in &change.agent_ids {
@@ -454,7 +485,15 @@ impl Integrator {
             for adapter in matching {
                 let management_id = record::management_id(adapter.id(), adapter.profile());
                 let previous = store.records.get(&management_id).cloned();
-                let Some(detected) = adapter.detect(&self.paths) else {
+                let detection = adapter.detect_with_env(&self.paths, &environment);
+                if let Err(error) = &detection {
+                    problems.push(AgentProblem {
+                        agent_id: id.clone(),
+                        message: format!("{}: {}", adapter.profile(), error.message),
+                    });
+                    continue;
+                }
+                let Some(detected) = detection? else {
                     if id == "claude" && (change.enabled || previous.is_none()) {
                         continue;
                     }
@@ -530,12 +569,13 @@ impl Integrator {
         drop(_record);
         drop(_shared);
         Ok(AgentsMutation {
-            snapshot: self.agents()?,
+            snapshot: self.agents_with_env(&environment)?,
             problems,
         })
     }
 
     pub fn sync_managed(&self) -> Result<AgentsSnapshot, AppError> {
+        let environment = command::AgentEnvironment::new();
         struct Guard;
         impl Drop for Guard {
             fn drop(&mut self) {
@@ -560,7 +600,7 @@ impl Integrator {
                 else {
                     continue;
                 };
-                let Some(detected) = adapter.detect(&self.paths) else {
+                let Ok(Some(detected)) = adapter.detect_with_env(&self.paths, &environment) else {
                     continue;
                 };
                 let ctx = AgentContext {
@@ -595,7 +635,8 @@ impl Integrator {
                     if store.records.contains_key(&management_id) {
                         continue;
                     }
-                    let Some(detected) = adapter.detect(&self.paths) else {
+                    let Ok(Some(detected)) = adapter.detect_with_env(&self.paths, &environment)
+                    else {
                         continue;
                     };
                     let ctx = AgentContext {
@@ -636,17 +677,21 @@ impl Integrator {
         })();
         drop(_guard);
         result?;
-        self.agents()
+        self.agents_with_env(&environment)
     }
 
-    fn cleanup_legacy(&self, legacy: &[record::LegacyRecord]) -> Result<(), AppError> {
+    fn cleanup_legacy(
+        &self,
+        legacy: &[record::LegacyRecord],
+        environment: &command::AgentEnvironment,
+    ) -> Result<(), AppError> {
         let adapters = registry::adapters(&self.paths);
         for item in legacy {
             let Some(adapter) = registry::find_profile(&adapters, &item.agent_id, &item.profile)
             else {
                 continue;
             };
-            let Some(detected) = adapter.detect(&self.paths) else {
+            let Some(detected) = adapter.detect_with_env(&self.paths, environment)? else {
                 return Err(AppError::new(
                     ErrorCode::Conflict,
                     format!(

@@ -51,22 +51,34 @@ impl AgentAdapter for ClaudeCode {
     }
 
     fn detect(&self, paths: &HostPaths) -> Option<DetectedAgent> {
+        self.detect_with_env(paths, &command::AgentEnvironment::new())
+            .ok()
+            .flatten()
+    }
+    fn detect_with_env(
+        &self,
+        paths: &HostPaths,
+        resolver: &command::AgentEnvironment,
+    ) -> Result<Option<DetectedAgent>, AppError> {
         let explicit = std::env::var_os("OSSIA_CLAUDE_BIN").map(PathBuf::from);
-        let executable = scan::find("claude", explicit.as_deref(), scan::common_bin("claude"))?;
+        let Some((executable, shell_discovered)) =
+            resolver.find("claude", explicit.as_deref(), scan::common_bin("claude"))
+        else {
+            return Ok(None);
+        };
         let root = std::env::var_os("CLAUDE_CONFIG_DIR")
             .map(PathBuf::from)
             .filter(|path| path.is_absolute())
             .unwrap_or_else(|| paths.workbuddy_home.join(".claude"));
         let env = command::host_env("CLAUDE_CONFIG_DIR", &root);
-        let text = command::run(&executable, &["--version".into()], &env).ok()?;
-        let version = text.split_whitespace().next()?.to_string();
-        command::run(
-            &executable,
-            &command::arguments(&["plugin", "--help"]),
-            &env,
-        )
-        .ok()?;
-        Some(DetectedAgent {
+        let (env, text) =
+            resolver.probe(&executable, env, &["plugin", "--help"], shell_discovered)?;
+        let version = text
+            .split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .to_string();
+        Ok(Some(DetectedAgent {
             command: executable.clone(),
             command_args: Vec::new(),
             executable,
@@ -74,7 +86,7 @@ impl AgentAdapter for ClaudeCode {
             config_root: root,
             profile: "code",
             env,
-        })
+        }))
     }
 
     fn config_path(&self, ctx: &AgentContext) -> PathBuf {

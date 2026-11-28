@@ -70,6 +70,13 @@ pub(crate) trait AgentAdapter: Sync {
     }
     fn reload_hint(&self) -> AgentNotice;
     fn detect(&self, paths: &HostPaths) -> Option<DetectedAgent>;
+    fn detect_with_env(
+        &self,
+        paths: &HostPaths,
+        _: &command::AgentEnvironment,
+    ) -> Result<Option<DetectedAgent>, AppError> {
+        Ok(self.detect(paths))
+    }
     fn config_path(&self, ctx: &AgentContext) -> PathBuf;
     fn status(
         &self,

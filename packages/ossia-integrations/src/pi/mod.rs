@@ -90,25 +90,6 @@ fn fail_unsupported(ctx: &AgentContext) -> Result<(), AppError> {
     }
 }
 
-#[cfg(unix)]
-fn pi_environment(
-    executable: &std::path::Path,
-    mut env: std::collections::BTreeMap<String, String>,
-    shell: Option<&std::path::Path>,
-) -> (std::collections::BTreeMap<String, String>, String) {
-    if let Ok(version) = command::version(executable, &env) {
-        return (env, version);
-    }
-    if let Some(path) = shell.and_then(|shell| command::shell_path(shell, &env).ok()) {
-        let mut shell_env = env.clone();
-        shell_env.insert("PATH".into(), path);
-        if let Ok(version) = command::version(executable, &shell_env) {
-            env = shell_env;
-            return (env, version);
-        }
-    }
-    (env, String::new())
-}
 impl AgentAdapter for Pi {
     fn id(&self) -> &str {
         "pi"
@@ -129,19 +110,34 @@ impl AgentAdapter for Pi {
         AgentNotice::PiReload
     }
     fn detect(&self, paths: &HostPaths) -> Option<DetectedAgent> {
-        let executable = scan::find(
+        self.detect_with_env(paths, &command::AgentEnvironment::new())
+            .ok()
+            .flatten()
+    }
+    fn detect_with_env(
+        &self,
+        paths: &HostPaths,
+        resolver: &command::AgentEnvironment,
+    ) -> Result<Option<DetectedAgent>, AppError> {
+        let Some((executable, shell_discovered)) = resolver.find(
             "pi",
             absolute_env("OSSIA_PI_BIN").as_deref(),
             scan::common_bin("pi"),
-        )?;
+        ) else {
+            return Ok(None);
+        };
         let root = absolute_env("PI_CODING_AGENT_DIR")
             .unwrap_or_else(|| paths.workbuddy_home.join(".pi/agent"));
         let env = command::host_env("PI_CODING_AGENT_DIR", &root);
-        #[cfg(unix)]
-        let (env, version) = pi_environment(&executable, env, command::login_shell().as_deref());
-        #[cfg(not(unix))]
-        let version = command::version(&executable, &env).unwrap_or_default();
-        Some(DetectedAgent {
+        let (env, version) =
+            resolver.probe(&executable, env, &["mcp", "--help"], shell_discovered)?;
+        let version = version
+            .lines()
+            .find(|line| !line.trim().is_empty())
+            .and_then(|line| line.split_whitespace().last())
+            .unwrap_or_default()
+            .to_string();
+        Ok(Some(DetectedAgent {
             command: executable.clone(),
             executable,
             command_args: vec![],
@@ -149,7 +145,7 @@ impl AgentAdapter for Pi {
             config_root: root,
             profile: "default",
             env,
-        })
+        }))
     }
     fn config_path(&self, ctx: &AgentContext) -> PathBuf {
         config(ctx)

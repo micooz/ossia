@@ -171,6 +171,19 @@ test('host errors appear in the host status tooltip', async ({ page }) => {
   await expect(page.getByRole('tooltip')).toContainText('Host configuration failed');
 });
 
+test('unmanaged Claude shows a failed host while another remains available', async ({ page }) => {
+  await mockManagement(page, {
+    claude: true,
+    claudeUnmanaged: true,
+    claudeHostError: 'CLI failed',
+  });
+  await page.goto('/main.html');
+  await expect(page.getByRole('button', { name: '安装 Claude 插件' })).toBeEnabled();
+  const detail = page.locator('.agent-detail').filter({ hasText: 'Claude Code' });
+  await detail.getByRole('button', { name: '不可用' }).focus();
+  await expect(page.getByRole('tooltip')).toContainText('CLI failed');
+});
+
 test('Agent changes can be queued independently', async ({ page }) => {
   await mockManagement(page);
   await page.goto('/main.html');

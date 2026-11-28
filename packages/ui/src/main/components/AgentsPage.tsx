@@ -66,7 +66,8 @@ export function AgentsPage({
     .filter(
       (agent) =>
         agent.installed ||
-        ((agent.hosts?.length ?? 0) > 0 && (agent.managed || agent.state === 'conflict')),
+        ((agent.hosts?.length ?? 0) > 0 &&
+          (agent.managed || agent.state === 'conflict' || agent.hosts.some((host) => host.error))),
     )
     .sort((left, right) => {
       const order = agents?.connectionOrder ?? [];

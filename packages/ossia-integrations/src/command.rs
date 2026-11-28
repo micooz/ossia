@@ -11,6 +11,114 @@ use std::{
 
 thread_local! { static SCANNING: Cell<bool> = const { Cell::new(false) }; }
 
+pub(crate) struct AgentEnvironment {
+    shell_path: std::sync::OnceLock<Option<String>>,
+    #[cfg(test)]
+    path_loader: Option<Box<dyn Fn() -> Option<String> + Send + Sync>>,
+}
+
+impl AgentEnvironment {
+    pub(crate) fn new() -> Self {
+        Self {
+            shell_path: std::sync::OnceLock::new(),
+            #[cfg(test)]
+            path_loader: None,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_path_loader(
+        loader: impl Fn() -> Option<String> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            shell_path: std::sync::OnceLock::new(),
+            path_loader: Some(Box::new(loader)),
+        }
+    }
+
+    fn shell_path(&self) -> Option<&str> {
+        self.shell_path
+            .get_or_init(|| {
+                #[cfg(test)]
+                if let Some(loader) = &self.path_loader {
+                    return loader();
+                }
+                #[cfg(unix)]
+                {
+                    login_shell().and_then(|shell| shell_path(&shell, &BTreeMap::new()).ok())
+                }
+                #[cfg(not(unix))]
+                {
+                    None
+                }
+            })
+            .as_deref()
+    }
+
+    pub(crate) fn find(
+        &self,
+        name: &str,
+        explicit: Option<&Path>,
+        candidates: impl IntoIterator<Item = PathBuf>,
+    ) -> Option<(PathBuf, bool)> {
+        let found = find_program_with_candidates(name, explicit, candidates);
+        if found.is_some() || explicit.is_some() {
+            return found.map(|path| (path, false));
+        }
+        self.shell_path()
+            .and_then(|path| find_program_on_path(name, OsStr::new(path)))
+            .map(|path| (path, true))
+    }
+
+    pub(crate) fn probe(
+        &self,
+        program: &Path,
+        mut env: BTreeMap<String, String>,
+        capability: &[&str],
+        shell_discovered: bool,
+    ) -> Result<(BTreeMap<String, String>, String), AppError> {
+        let check = |env: &BTreeMap<String, String>| -> Result<String, AppError> {
+            let version = run(program, &arguments(&["--version"]), env)?;
+            if version.trim().is_empty() {
+                return Err(AppError::new(
+                    ErrorCode::InvalidInput,
+                    "host version output is empty",
+                ));
+            }
+            if !capability.is_empty() {
+                run(program, &arguments(capability), env)?;
+            }
+            Ok(version)
+        };
+        if shell_discovered {
+            if let Some(path) = self.shell_path() {
+                env.insert("PATH".into(), path.into());
+            }
+        }
+        match check(&env) {
+            Ok(version) => Ok((env, version)),
+            Err(error) if shell_discovered => Err(error),
+            Err(original) => {
+                if let Some(path) = self.shell_path() {
+                    let mut retry = env.clone();
+                    retry.insert("PATH".into(), path.into());
+                    match check(&retry) {
+                        Ok(version) => return Ok((retry, version)),
+                        Err(error) if error.message != original.message => {
+                            return Err(AppError::new(
+                                error.code,
+                                format!("{}; with shell PATH: {}", original.message, error.message),
+                            ));
+                        }
+                        Err(_) => {}
+                    }
+                }
+                Err(original)
+            }
+        }
+    }
+}
+
 pub(crate) fn scanning<T>(f: impl FnOnce() -> T) -> T {
     SCANNING.with(|scanning| {
         struct Reset<'a>(&'a Cell<bool>, bool);

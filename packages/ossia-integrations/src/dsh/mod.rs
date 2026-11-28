@@ -50,7 +50,17 @@ impl AgentAdapter for Dsh {
     }
 
     fn detect(&self, paths: &HostPaths) -> Option<DetectedAgent> {
-        detect::detect(paths)
+        self.detect_with_env(paths, &command::AgentEnvironment::new())
+            .ok()
+            .flatten()
+    }
+
+    fn detect_with_env(
+        &self,
+        paths: &HostPaths,
+        env: &command::AgentEnvironment,
+    ) -> Result<Option<DetectedAgent>, AppError> {
+        detect::detect_with_env(paths, env)
     }
 
     fn config_path(&self, ctx: &AgentContext) -> PathBuf {

@@ -59,6 +59,14 @@ impl AgentAdapter for WorkBuddy {
     }
 
     fn detect(&self, _paths: &HostPaths) -> Option<DetectedAgent> {
+        detect::detect(&self.instance).ok().flatten()
+    }
+
+    fn detect_with_env(
+        &self,
+        _: &HostPaths,
+        _: &command::AgentEnvironment,
+    ) -> Result<Option<DetectedAgent>, AppError> {
         detect::detect(&self.instance)
     }
 

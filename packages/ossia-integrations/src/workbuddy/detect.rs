@@ -201,8 +201,13 @@ fn app_executable(app: &Path) -> Option<PathBuf> {
     }
 }
 
-pub(super) fn detect(instance: &AppInstance) -> Option<DetectedAgent> {
-    let (command, command_args, mut env) = launcher(instance)?;
+pub(super) fn detect(instance: &AppInstance) -> Result<Option<DetectedAgent>, AppError> {
+    let Some((command, command_args, mut env)) = launcher(instance) else {
+        return Err(AppError::new(
+            ErrorCode::RuntimeUnavailable,
+            "WorkBuddy runtime is unavailable",
+        ));
+    };
     env.insert("CODEBUDDY_FORCE_LITE_WB_BUNDLE".into(), "1".into());
     env.insert(
         "WORKBUDDY_CONFIG_DIR".into(),
@@ -212,20 +217,19 @@ pub(super) fn detect(instance: &AppInstance) -> Option<DetectedAgent> {
         "CODEBUDDY_CONFIG_DIR".into(),
         path_text(&instance.config_root),
     );
-    let cli_version = command::version_with_prefix(&command, &command_args, &env).ok()?;
+    let cli_version = command::version_with_prefix(&command, &command_args, &env)?;
     command::run_with_prefix(
         &command,
         &command_args,
         &command::arguments(&["plugin", "--help"]),
         &env,
-    )
-    .ok()?;
+    )?;
     let version = if instance.app_version == "unknown" {
         format!("CLI {cli_version}")
     } else {
         format!("{} (CLI {cli_version})", instance.app_version)
     };
-    Some(DetectedAgent {
+    Ok(Some(DetectedAgent {
         executable: instance.cli.clone(),
         command,
         command_args,
@@ -233,7 +237,7 @@ pub(super) fn detect(instance: &AppInstance) -> Option<DetectedAgent> {
         config_root: instance.config_root.clone(),
         profile: "desktop",
         env,
-    })
+    }))
 }
 
 fn launcher(instance: &AppInstance) -> Option<(PathBuf, Vec<String>, BTreeMap<String, String>)> {

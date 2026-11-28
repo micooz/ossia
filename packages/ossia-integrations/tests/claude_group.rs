@@ -104,6 +104,39 @@ elif a[:2] == ['plugin','uninstall']: installed.unlink(missing_ok=True)
         1
     );
     let list_path = cli_home.join("list.json");
+    let saved_cli = fs::read(&cli).unwrap();
+    let saved_list = fs::read(&list_path).unwrap();
+    fs::write(
+        &cli,
+        "#!/bin/sh\necho 'claude startup failed' >&2\nexit 1\n",
+    )
+    .unwrap();
+    let failed = integrator.sync_managed().unwrap();
+    let group = failed.agents.iter().find(|a| a.id == "claude").unwrap();
+    assert_eq!(group.state, AgentState::Broken);
+    assert!(group.error.is_none());
+    let code = group
+        .hosts
+        .iter()
+        .find(|host| host.name == "Claude Code")
+        .unwrap();
+    assert_eq!(code.state, AgentState::Unavailable);
+    assert!(code
+        .error
+        .as_deref()
+        .unwrap()
+        .contains("claude startup failed"));
+    assert_eq!(
+        group
+            .hosts
+            .iter()
+            .find(|host| host.name == "Claude Desktop")
+            .unwrap()
+            .state,
+        AgentState::Installed
+    );
+    assert_eq!(fs::read(&list_path).unwrap(), saved_list);
+    fs::write(&cli, saved_cli).unwrap();
     let mut installed: serde_json::Value =
         serde_json::from_slice(&fs::read(&list_path).unwrap()).unwrap();
     installed[0]["enabled"] = false.into();

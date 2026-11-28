@@ -233,7 +233,12 @@ fn pi_recovers_node_from_the_users_shell_path() {
         "PATH".into(),
         temp.path().join("empty").to_string_lossy().into_owned(),
     );
-    let (env, _) = pi_environment(&detected.command, detected.env.clone(), Some(&shell));
+    let resolver = command::AgentEnvironment::with_path_loader(move || {
+        command::shell_path(&shell, &BTreeMap::new()).ok()
+    });
+    let (env, _) = resolver
+        .probe(&detected.command, detected.env.clone(), &[], false)
+        .unwrap();
     detected.env = env;
     let ctx = AgentContext {
         integrator: &integrator,
@@ -266,10 +271,11 @@ fn pi_keeps_original_environment_when_shell_path_does_not_help() {
     .unwrap();
     fs::set_permissions(&shell, fs::Permissions::from_mode(0o755)).unwrap();
     let env = BTreeMap::from([("PATH".to_string(), "/original/bin".to_string())]);
-    let (result, version) = pi_environment(&detected.command, env.clone(), Some(&shell));
-    assert_eq!(result, env);
-    assert!(version.is_empty());
-    assert!(command::version(&detected.command, &result)
+    let resolver = command::AgentEnvironment::with_path_loader(move || {
+        command::shell_path(&shell, &BTreeMap::new()).ok()
+    });
+    assert!(resolver
+        .probe(&detected.command, env, &[], false)
         .unwrap_err()
         .message
         .contains("original failure"));

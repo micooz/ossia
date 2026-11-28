@@ -28,6 +28,7 @@ export async function mockManagement(
     workbuddies = [],
     claude = false,
     claudeHostError = '',
+    claudeUnmanaged = false,
     antigravityConflict = false,
     pi = false,
     initialRuntime = false,
@@ -46,6 +47,7 @@ export async function mockManagement(
   }: {
     claude?: boolean | 'desktop' | 'code';
     claudeHostError?: string;
+    claudeUnmanaged?: boolean;
     antigravityConflict?: boolean;
     pi?: boolean;
     empty?: boolean;
@@ -260,6 +262,12 @@ export async function mockManagement(
     ],
   };
   if (claudeHostError) claudeAgent.hosts[1]!.error = claudeHostError;
+  if (claudeUnmanaged) {
+    claudeAgent.managed = false;
+    claudeAgent.installed = false;
+    claudeAgent.hosts[0]!.state = 'available';
+    claudeAgent.hosts[1]!.state = 'unavailable';
+  }
   if (claude === 'desktop' || claude === 'code') {
     claudeAgent.hosts = claudeAgent.hosts.filter((host) =>
       claude === 'desktop' ? host.name === 'Claude Desktop' : host.name === 'Claude Code',
