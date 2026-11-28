@@ -37,7 +37,7 @@ for (const fallback of [false, true]) {
     }
     await page.goto('/main.html');
     const trigger = page.getByRole('button', { name: '服务未连接' });
-    const dialog = page.locator('.service-dialog');
+    const dialog = page.locator('.service-dialog[aria-labelledby="service-title"]');
     await page.emulateMedia({ reducedMotion: fallback ? 'reduce' : 'no-preference' });
     await trigger.click();
     await expect(dialog.getByRole('heading', { name: '本地服务' })).toBeFocused();
