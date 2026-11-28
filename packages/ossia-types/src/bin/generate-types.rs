@@ -199,6 +199,7 @@ fn main() {
         AgentHost,
         AgentIntegration,
         AgentsSnapshot,
+        AgentManualIntegration,
         AgentsChange,
         AgentProblem,
         AgentsMutation,

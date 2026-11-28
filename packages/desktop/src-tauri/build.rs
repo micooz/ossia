@@ -55,6 +55,7 @@ fn main() {
             "management_stop",
             "management_doctor",
             "management_agents_state",
+            "management_agent_manual_integration",
             "management_agents_change",
             "management_agents_forget",
             "management_preferences",

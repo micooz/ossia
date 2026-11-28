@@ -498,6 +498,26 @@ export async function mockManagement(
           storage.renderCount = Math.max(0, storage.renderCount - report.removedRenders);
           return report;
         }
+        if (command === 'management_agent_manual_integration') {
+          if (ownWindow.failManualGuide) {
+            ownWindow.failManualGuide = false;
+            throw new Error('unavailable');
+          }
+          return {
+            command: '/Applications/Ossia App/ossia',
+            args: [
+              'mcp',
+              '--home',
+              '/data with spaces',
+              '--port',
+              '4321',
+              '--engine-root',
+              '/engine with spaces',
+            ],
+            env: {},
+            skillPath: '/data with spaces/integrations/manual/skills/ossia/SKILL.md',
+          };
+        }
         if (command === 'management_agents_state') {
           if (agentStateError) throw new Error(agentStateError);
           if (initializing) {
@@ -636,6 +656,7 @@ export async function mockManagement(
       },
     };
     const ownWindow = window as Window & {
+      failManualGuide?: boolean;
       __TAURI_INTERNALS__?: typeof internals;
       managementCommands?: string[];
       managementAgentChanges?: AgentsChange[];

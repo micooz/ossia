@@ -14,6 +14,7 @@ import type {
 } from '../../generated/protocol.ts';
 import { useI18n } from '../../i18n.tsx';
 import { agentIcon, displayPath, noticeKeys, stateKeys } from '../types.ts';
+import { AgentGuideDialog } from './AgentGuideDialog.tsx';
 
 function AgentDetailStatus({ label, messages }: { label: string; messages: string[] }) {
   if (messages.length === 0) return <span>{label}</span>;
@@ -290,6 +291,7 @@ export function AgentsPage({
           </details>
         </TooltipProvider>
       )}
+      <AgentGuideDialog native={native} />
     </section>
   );
 }

@@ -236,3 +236,33 @@ fn mcp_command_uses_the_integrator_port() {
         ]
     );
 }
+
+#[test]
+fn manual_integration_uses_instance_configuration_and_rendered_skill() {
+    let root = tempfile::tempdir().unwrap();
+    let home = root.path().join("data with spaces");
+    let executable = std::env::current_exe().unwrap();
+    let mut paths = HostPaths::detected();
+    paths
+        .launch_env
+        .insert("OSSIA_ENGINE_ROOT".into(), "/engine with spaces".into());
+    let integrator = Integrator::with_paths(&home, &executable, paths, 4321).unwrap();
+    let manual = integrator.manual_integration().unwrap();
+    assert_eq!(manual.command, path_text(executable));
+    assert_eq!(
+        manual.args,
+        vec!["mcp", "--home", &path_text(&home), "--port", "4321"]
+    );
+    assert_eq!(
+        manual.env.get("OSSIA_ENGINE_ROOT").unwrap(),
+        "/engine with spaces"
+    );
+    let skill = std::fs::read_to_string(&manual.skill_path).unwrap();
+    assert!(!skill.contains("{{OSSIA_CLI_GUIDE}}"));
+    assert!(skill.contains(&path_text(&home)));
+    assert!(std::path::Path::new(&manual.skill_path)
+        .parent()
+        .unwrap()
+        .join("references/piano.ly")
+        .is_file());
+}

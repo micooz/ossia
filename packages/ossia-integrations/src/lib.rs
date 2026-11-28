@@ -664,6 +664,36 @@ impl Integrator {
         Ok(())
     }
 
+    /// Return the current instance's Skill and MCP configuration for manual installation.
+    pub fn manual_integration(&self) -> Result<AgentManualIntegration, AppError> {
+        let root = self.home.join("integrations/manual/skills/ossia");
+        let skill_path = root.join("SKILL.md");
+        let mut files = vec![FilePlan {
+            path: skill_path.clone(),
+            bytes: self.skill()?.into_bytes(),
+            kind: "skill",
+        }];
+        for (name, resource) in [
+            ("piano.ly", Resource::SkillPiano),
+            ("single-staff.ly", Resource::SkillSingleStaff),
+            ("guitar-tab.ly", Resource::SkillGuitarTab),
+            ("jianpu.ly", Resource::SkillJianpu),
+        ] {
+            files.push(FilePlan {
+                path: root.join("references").join(name),
+                bytes: self.resources.read(resource)?,
+                kind: "skill-reference",
+            });
+        }
+        write_files(&files)?;
+        Ok(AgentManualIntegration {
+            command: path_text(&self.executable),
+            args: self.mcp_command(),
+            env: self.launch_env(),
+            skill_path: path_text(skill_path),
+        })
+    }
+
     pub(crate) fn skill(&self) -> Result<String, AppError> {
         let command = launcher::guide_command(&self.home, &self.paths.launch_env);
         let language = if cfg!(windows) { "powershell" } else { "sh" };

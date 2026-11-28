@@ -70,3 +70,39 @@ fn resources_follow_tauri_install_layouts() {
         linux.join("bin")
     );
 }
+
+#[test]
+fn manual_mcp_resource_arguments_only_include_custom_locations() {
+    let resources = PathBuf::from("/install/Resources");
+    let mut config = server::Config {
+        home: PathBuf::from("/data with spaces"),
+        port: 4321,
+        engine_root: resources.join("engine"),
+        docs_root: resources.join("docs/lilypond/2.26.0"),
+        static_dir: Some(resources.join("ui")),
+        dev_origin: None,
+        listen: None,
+        public_url: None,
+    };
+    assert!(resource_override_args_for(&config, &resources).is_empty());
+    config.engine_root = PathBuf::from("/custom engine");
+    config.docs_root = PathBuf::from("/custom docs");
+    config.static_dir = Some(PathBuf::from("/custom ui"));
+    assert_eq!(
+        resource_override_args_for(&config, &resources),
+        vec![
+            "--engine-root",
+            "/custom engine",
+            "--docs-root",
+            "/custom docs",
+            "--static-dir",
+            "/custom ui"
+        ]
+    );
+    let mut command = vec!["ossia".to_string(), "mcp".to_string()];
+    command.extend(resource_override_args_for(&config, &resources));
+    let args = Args::try_parse_from(command).unwrap();
+    assert_eq!(args.engine_root, Some(config.engine_root));
+    assert_eq!(args.docs_root, Some(config.docs_root));
+    assert_eq!(args.static_dir, config.static_dir);
+}

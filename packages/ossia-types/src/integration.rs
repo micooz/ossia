@@ -6,6 +6,16 @@ use ts_rs::TS;
 /// Stable Agent identifier. Adapters own the meaning; the UI never branches on it.
 pub type AgentId = String;
 
+/// Instance-specific resources for manually connecting an Agent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentManualIntegration {
+    pub command: String,
+    pub args: Vec<String>,
+    pub env: std::collections::BTreeMap<String, String>,
+    pub skill_path: String,
+}
+
 /// How Ossia exposes itself to one Agent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "kebab-case")]

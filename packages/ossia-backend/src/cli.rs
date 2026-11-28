@@ -198,6 +198,44 @@ fn resources_dir(executable: &std::path::Path) -> Result<PathBuf> {
     resources_dir_for(executable, resource_layout())
 }
 
+/// Return CLI flags needed to preserve non-default resource locations.
+pub fn resource_override_args(
+    config: &server::Config,
+    executable: &std::path::Path,
+) -> Result<Vec<String>> {
+    let executable = ossia_integrations::launcher::resource_executable(executable)?;
+    Ok(resource_override_args_for(
+        config,
+        &resources_dir(&executable)?,
+    ))
+}
+
+fn resource_override_args_for(config: &server::Config, resources: &std::path::Path) -> Vec<String> {
+    let mut args = Vec::new();
+    for (flag, actual, default) in [
+        (
+            "--engine-root",
+            Some(&config.engine_root),
+            resources.join("engine"),
+        ),
+        (
+            "--docs-root",
+            Some(&config.docs_root),
+            resources.join("docs/lilypond/2.26.0"),
+        ),
+        (
+            "--static-dir",
+            config.static_dir.as_ref(),
+            resources.join("ui"),
+        ),
+    ] {
+        if let Some(path) = actual.filter(|path| *path != &default) {
+            args.extend([flag.to_string(), path_text(path)]);
+        }
+    }
+    args
+}
+
 fn resources_dir_for(executable: &std::path::Path, layout: ResourceLayout) -> Result<PathBuf> {
     let parent = executable
         .parent()

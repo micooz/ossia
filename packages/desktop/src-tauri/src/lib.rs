@@ -5,9 +5,9 @@ mod update;
 mod window;
 
 use ossia_backend::{
-    ipc, normalize_outbound_error, path_text, server, AgentsChange, AgentsMutation, AgentsSnapshot,
-    AppError, DoctorReport, DocumentIdArgs, DocumentSummary, ErrorCode, ListArgs,
-    ManagementPreferences, ManagementPreferencesChange, ManagementScorePage,
+    ipc, normalize_outbound_error, path_text, server, AgentManualIntegration, AgentsChange,
+    AgentsMutation, AgentsSnapshot, AppError, DoctorReport, DocumentIdArgs, DocumentSummary,
+    ErrorCode, ListArgs, ManagementPreferences, ManagementPreferencesChange, ManagementScorePage,
     ManagementScorePreview, ManagementScorePreviewArgs, ManagementSnapshot, OmrService,
     OmrSettingsChange, PurgedDocument, Result, StorageCleanupReport, StorageStatus,
     TrashedDocumentSummary, TrayClickAction, UiLanguage, UiPreferences,
@@ -272,6 +272,23 @@ async fn management_doctor(state: tauri::State<'_, Management>) -> Result<Doctor
 #[tauri::command]
 async fn management_agents_state(state: tauri::State<'_, Management>) -> Result<AgentsSnapshot> {
     integrator(&config(&state)?)?.agents()
+}
+
+#[tauri::command]
+async fn management_agent_manual_integration(
+    state: tauri::State<'_, Management>,
+) -> Result<AgentManualIntegration> {
+    let config = config(&state)?;
+    let executable = std::env::current_exe().map_err(storage)?;
+    let mut integration = integrator(&config)?.manual_integration()?;
+    integration
+        .args
+        .extend(ossia_backend::cli::resource_override_args(
+            &config,
+            &executable,
+        )?);
+    integration.env.clear();
+    Ok(integration)
 }
 
 #[tauri::command]
@@ -677,6 +694,7 @@ pub fn run(config: Result<server::Config>, show_main_window: bool) {
             management_stop,
             management_doctor,
             management_agents_state,
+            management_agent_manual_integration,
             management_agents_change,
             management_agents_forget,
             management_preferences,

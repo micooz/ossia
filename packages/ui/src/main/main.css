@@ -1230,6 +1230,97 @@ button.score-card-title:hover {
   background: var(--surface);
 }
 
+.agent-guide-entry {
+  margin: 18px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.agent-guide-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.agent-guide-dialog .dialog-content {
+  gap: 12px;
+  padding: 16px 24px;
+}
+
+.agent-guide-load-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.agent-guide-load-error p {
+  margin: 0;
+}
+
+.agent-guide-load-error svg,
+.agent-guide-copy-error svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.agent-guide-copy-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-end: auto;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.agent-guide-prompt {
+  --scrollbar-thumb: #85858e;
+  --scrollbar-track: var(--surface);
+
+  margin: 0;
+  max-height: min(45vh, 420px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.6;
+  user-select: text;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+@supports not (scrollbar-color: auto) {
+  .agent-guide-prompt {
+    scrollbar-width: auto;
+  }
+
+  .agent-guide-prompt::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .agent-guide-prompt::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    background: var(--scrollbar-thumb);
+  }
+
+  .agent-guide-prompt::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+}
+
 .agent-details summary {
   display: flex;
   align-items: center;

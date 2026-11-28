@@ -2,6 +2,70 @@ import { expect, test } from '@playwright/test';
 
 import { mockManagement, releaseAgentChange } from './management.ts';
 
+test('manual connection guide copies instance-specific Skill and MCP details', async ({ page }) => {
+  await mockManagement(page);
+  await page.goto('/main.html');
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          (window as Window & { copiedPrompt?: string }).copiedPrompt = text;
+        },
+      },
+    });
+  });
+  const link = page.getByRole('button', { name: '接入指引' });
+  await link.click();
+  const dialog = page.getByRole('dialog', { name: 'Agent 接入指引' });
+  await expect(dialog).toContainText('/data with spaces');
+  await expect(dialog).toContainText('/data with spaces/integrations/manual/skills/ossia/SKILL.md');
+  const copy = dialog.getByRole('button', { name: '复制提示词' });
+  await expect(copy.locator('.lucide-copy')).toBeVisible();
+  await copy.click();
+  await expect(copy.locator('.lucide-check')).toBeVisible();
+  await expect(dialog.getByRole('status')).toHaveText('已复制');
+  const copied = await page.evaluate(
+    () => (window as Window & { copiedPrompt?: string }).copiedPrompt,
+  );
+  expect(copied).toContain('/Applications/Ossia App/ossia');
+  expect(copied).toContain('{"command":"/Applications/Ossia App/ossia","args":');
+  expect(copied).toContain('4321');
+  expect(copied).toContain('/engine with spaces');
+  expect(copied).not.toContain('"env"');
+  expect(copied).toContain(
+    '2. 添加 Ossia Skill：/data with spaces/integrations/manual/skills/ossia/SKILL.md',
+  );
+  await page.keyboard.press('Escape');
+  await expect(link).toBeFocused();
+});
+
+test('manual connection guide handles load and copy failures when no Agent is detected', async ({
+  page,
+}) => {
+  await mockManagement(page, { empty: true });
+  await page.goto('/main.html');
+  await page.evaluate(() => {
+    (window as Window & { failManualGuide?: boolean }).failManualGuide = true;
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new Error('denied');
+        },
+      },
+    });
+  });
+  await page.getByRole('button', { name: '接入指引' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Agent 接入指引' });
+  await expect(dialog.getByRole('alert')).toContainText('无法读取接入资料');
+  await expect(dialog.getByRole('button', { name: '复制提示词' })).toHaveCount(0);
+  await dialog.getByRole('button', { name: '重试' }).click();
+  await expect(dialog).toContainText('/data with spaces/integrations/manual/skills/ossia/SKILL.md');
+  await dialog.getByRole('button', { name: '复制提示词' }).click();
+  await expect(dialog.getByRole('status')).toContainText('复制失败');
+});
+
 test('refreshes silently on returning to Agent and on window focus', async ({ page }) => {
   await mockManagement(page);
   await page.goto('/main.html');
