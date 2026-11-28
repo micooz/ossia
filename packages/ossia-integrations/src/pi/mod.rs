@@ -45,13 +45,13 @@ fn owned(
         })
     })
 }
-fn supported(ctx: &AgentContext) -> bool {
+fn supported(ctx: &AgentContext) -> Result<bool, AppError> {
     command::run(
         &ctx.detected.command,
         &command::arguments(&["mcp", "--help"]),
         &ctx.detected.env,
     )
-    .is_ok_and(|out| out.contains("mcp.json") && out.contains("mcp add"))
+    .map(|out| out.contains("mcp.json") && out.contains("mcp add"))
 }
 fn conflicts(
     ctx: &AgentContext,
@@ -80,7 +80,7 @@ fn conflicts(
     found
 }
 fn fail_unsupported(ctx: &AgentContext) -> Result<(), AppError> {
-    if supported(ctx) {
+    if supported(ctx)? {
         Ok(())
     } else {
         Err(AppError::new(
@@ -88,6 +88,26 @@ fn fail_unsupported(ctx: &AgentContext) -> Result<(), AppError> {
             "Pi does not support the required built-in MCP configuration",
         ))
     }
+}
+
+#[cfg(unix)]
+fn pi_environment(
+    executable: &std::path::Path,
+    mut env: std::collections::BTreeMap<String, String>,
+    shell: Option<&std::path::Path>,
+) -> (std::collections::BTreeMap<String, String>, String) {
+    if let Ok(version) = command::version(executable, &env) {
+        return (env, version);
+    }
+    if let Some(path) = shell.and_then(|shell| command::shell_path(shell, &env).ok()) {
+        let mut shell_env = env.clone();
+        shell_env.insert("PATH".into(), path);
+        if let Ok(version) = command::version(executable, &shell_env) {
+            env = shell_env;
+            return (env, version);
+        }
+    }
+    (env, String::new())
 }
 impl AgentAdapter for Pi {
     fn id(&self) -> &str {
@@ -117,6 +137,9 @@ impl AgentAdapter for Pi {
         let root = absolute_env("PI_CODING_AGENT_DIR")
             .unwrap_or_else(|| paths.workbuddy_home.join(".pi/agent"));
         let env = command::host_env("PI_CODING_AGENT_DIR", &root);
+        #[cfg(unix)]
+        let (env, version) = pi_environment(&executable, env, command::login_shell().as_deref());
+        #[cfg(not(unix))]
         let version = command::version(&executable, &env).unwrap_or_default();
         Some(DetectedAgent {
             command: executable.clone(),
@@ -136,7 +159,7 @@ impl AgentAdapter for Pi {
         ctx: &AgentContext,
         previous: Option<&ManagedRecord>,
     ) -> Result<AgentInspection, AppError> {
-        if !supported(ctx) {
+        if !supported(ctx)? {
             return Ok(AgentInspection {
                 state: AgentState::UpdateRequired,
                 installed: false,

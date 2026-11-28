@@ -178,3 +178,99 @@ fn failed_skill_install_restores_the_original_mcp_configuration() {
         "not a directory"
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn failed_pi_command_reports_its_diagnostic() {
+    let temp = tempfile::tempdir().unwrap();
+    let (integrator, detected) = fixture(temp.path());
+    fs::write(
+        &detected.command,
+        "#!/bin/sh\necho 'env: node: No such file or directory' >&2\nexit 127\n",
+    )
+    .unwrap();
+    let ctx = AgentContext {
+        integrator: &integrator,
+        detected: &detected,
+    };
+    let error = Pi
+        .status(&ctx, None)
+        .expect_err("startup failure must be reported");
+    assert!(error.message.contains("node: No such file or directory"));
+    assert!(Pi
+        .install(&ctx, None, false)
+        .unwrap_err()
+        .message
+        .contains("node: No such file or directory"));
+}
+
+#[cfg(unix)]
+#[test]
+fn pi_recovers_node_from_the_users_shell_path() {
+    use std::os::unix::fs::PermissionsExt;
+    let temp = tempfile::tempdir().unwrap();
+    let (integrator, mut detected) = fixture(temp.path());
+    let bin = temp.path().join("runtime bin");
+    fs::create_dir_all(&bin).unwrap();
+    fs::write(
+        bin.join("node"),
+        "#!/bin/sh\necho 'pi mcp add reads mcp.json'\n",
+    )
+    .unwrap();
+    fs::set_permissions(bin.join("node"), fs::Permissions::from_mode(0o755)).unwrap();
+    fs::write(&detected.command, "#!/bin/sh\nexec node\n").unwrap();
+    let shell = temp.path().join("shell");
+    fs::write(
+        &shell,
+        format!(
+            "#!/bin/sh\nprintf '\\nOSSIA_SHELL_PATH_BEGIN\\n%s\\nOSSIA_SHELL_PATH_END\\n' '{}'\n",
+            bin.display()
+        ),
+    )
+    .unwrap();
+    fs::set_permissions(&shell, fs::Permissions::from_mode(0o755)).unwrap();
+    detected.env.insert(
+        "PATH".into(),
+        temp.path().join("empty").to_string_lossy().into_owned(),
+    );
+    let (env, _) = pi_environment(&detected.command, detected.env.clone(), Some(&shell));
+    detected.env = env;
+    let ctx = AgentContext {
+        integrator: &integrator,
+        detected: &detected,
+    };
+    assert_eq!(Pi.status(&ctx, None).unwrap().state, AgentState::Available);
+    let record = make_record(Pi.install(&ctx, None, false).unwrap());
+    assert_eq!(
+        Pi.status(&ctx, Some(&record)).unwrap().state,
+        AgentState::Installed
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn pi_keeps_original_environment_when_shell_path_does_not_help() {
+    use std::os::unix::fs::PermissionsExt;
+    let temp = tempfile::tempdir().unwrap();
+    let (_, detected) = fixture(temp.path());
+    fs::write(
+        &detected.command,
+        "#!/bin/sh\necho 'original failure' >&2\nexit 1\n",
+    )
+    .unwrap();
+    let shell = temp.path().join("shell");
+    fs::write(
+        &shell,
+        "#!/bin/sh\nprintf '\\nOSSIA_SHELL_PATH_BEGIN\\n/other/bin\\nOSSIA_SHELL_PATH_END\\n'\n",
+    )
+    .unwrap();
+    fs::set_permissions(&shell, fs::Permissions::from_mode(0o755)).unwrap();
+    let env = BTreeMap::from([("PATH".to_string(), "/original/bin".to_string())]);
+    let (result, version) = pi_environment(&detected.command, env.clone(), Some(&shell));
+    assert_eq!(result, env);
+    assert!(version.is_empty());
+    assert!(command::version(&detected.command, &result)
+        .unwrap_err()
+        .message
+        .contains("original failure"));
+}

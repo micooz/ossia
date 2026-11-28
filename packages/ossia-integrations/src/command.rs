@@ -211,6 +211,63 @@ pub fn version(program: &Path, env: &BTreeMap<String, String>) -> Result<String,
     version_with_prefix(program, &[], env)
 }
 
+#[cfg(unix)]
+pub(crate) fn login_shell() -> Option<PathBuf> {
+    use std::{ffi::CStr, os::unix::ffi::OsStrExt};
+
+    if let Some(shell) = std::env::var_os("SHELL").filter(|shell| !shell.is_empty()) {
+        return Some(shell.into());
+    }
+    let mut size = 16 * 1024;
+    loop {
+        let mut buffer = vec![0; size];
+        let mut entry = std::mem::MaybeUninit::<libc::passwd>::uninit();
+        let mut result = std::ptr::null_mut();
+        // getpwuid_r writes into the provided entry and buffer; both remain alive while read.
+        let status = unsafe {
+            libc::getpwuid_r(
+                libc::getuid(),
+                entry.as_mut_ptr(),
+                buffer.as_mut_ptr(),
+                buffer.len(),
+                &mut result,
+            )
+        };
+        if status == libc::ERANGE && size < 1024 * 1024 {
+            size *= 2;
+            continue;
+        }
+        if status != 0 || result.is_null() {
+            return None;
+        }
+        // A successful lookup supplies a null-terminated shell path in the buffer.
+        let shell = unsafe { (*result).pw_shell };
+        if shell.is_null() {
+            return None;
+        }
+        let shell = unsafe { CStr::from_ptr(shell) };
+        return (!shell.to_bytes().is_empty())
+            .then(|| PathBuf::from(OsStr::from_bytes(shell.to_bytes())));
+    }
+}
+
+#[cfg(unix)]
+pub(crate) fn shell_path(shell: &Path, env: &BTreeMap<String, String>) -> Result<String, AppError> {
+    let args = arguments(&[
+        "-ilc",
+        "printf '\\nOSSIA_SHELL_PATH_BEGIN\\n'; /usr/bin/printenv PATH; printf '\\nOSSIA_SHELL_PATH_END\\n'",
+    ]);
+    let output = output_with_timeout(shell, &args, env, Duration::from_secs(5))?;
+    let output = interpret_output(shell, output)?;
+    let path = output
+        .rsplit_once("\nOSSIA_SHELL_PATH_BEGIN\n")
+        .and_then(|(_, tail)| tail.split_once("\nOSSIA_SHELL_PATH_END\n"))
+        .map(|(path, _)| path.trim_end_matches('\n'))
+        .filter(|path| !path.is_empty() && !path.contains('\n'))
+        .ok_or_else(|| AppError::new(ErrorCode::RuntimeUnavailable, "cannot read shell PATH"))?;
+    Ok(path.into())
+}
+
 pub fn version_with_prefix(
     program: &Path,
     prefix: &[String],
